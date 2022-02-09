@@ -1,0 +1,31 @@
+
+*.hex
+*.map
+*.lst
+*.scvd
+*.uvoptx
+*.uvguix.*
+*.emProject
+*.emSession
+.vscode
+.vs
+.o
+.d
+
+# Forder
+Objects
+build
+DebugConfig
+Listings
+Objects
+Output
+Debug
+Exe
+Obj
+fusiondata
+mapdata
+cmake-build-debug
+
+# File
+JLinkLog.txt
+imxrt105x.uvguix.*
