@@ -2,10 +2,13 @@
 #include "stdio.h"
 
 // config ----------------------------------------------------------------------
-int main(void)
+int main(int argc, char* argv[])
 {
-    //meow_unittest_sm();
-    meow_unittest_betree();
+    (void)argc;
+    (void)argv;
+
+    meow_unittest_sm();
+    //meow_unittest_betree();
 
     return 0;
 }

@@ -9,8 +9,9 @@
 *.emSession
 .vscode
 .vs
-.o
-.d
+*.o
+*.d
+*.exe
 
 # Forder
 Objects
@@ -29,3 +30,4 @@ cmake-build-debug
 # File
 JLinkLog.txt
 imxrt105x.uvguix.*
+.sconsign.dblite

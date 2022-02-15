@@ -94,14 +94,14 @@ static m_ret_t led_state_on(led_t * const me, m_evt_t const * const e)
 {
     switch (e->sig) {
         case Evt_Enter: {
-            M_ERROR("···················, Enter");
+            M_ERROR("--------------------, Enter");
             int num = 1;
             me->is_on = true;
             return M_Ret_Handled;
         }
 
         case Evt_Exit:
-            M_ERROR("···················, Exit");
+            M_ERROR("++++++++++++++++++++, Exit");
             return M_Ret_Handled;
 
         case Evt_Time_500ms:

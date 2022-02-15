@@ -46,8 +46,9 @@
 1. 对HSM模式和发布-订阅模式的裁剪，以适用于最小资源的单片机ROM，优化RAM的占用
 1. 对事件带参功能的裁剪，优化ROM的占用
 1. 删除其中的行为树框架
+1. 增加Doxygen风格的注释，并生成文档。
 1. 对EventOS的eBridge（事件桥接）功能
-1. 对ARM Cortex-M0 M3 M4 M7等单片机上的移植
+1. 对ARM Cortex-M0 M3 M4 M7等单片机上的移植，增加对最常见型号单片机的支持，如STM32F103等。
 1. 对常见的IDE的支持
 1. 对常见的RTOS的支持
 1. 增加EventOS抢占式内核
@@ -60,4 +61,4 @@
 
 除了邮箱之外，也可以加微信联系我，请注明**技术讨论**等相关字样。
 
-![avatar](/png/wechat.jpg)
+![avatar](/documentation/figures/wechat.jpg)
