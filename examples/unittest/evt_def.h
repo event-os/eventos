@@ -2,7 +2,7 @@
 #ifndef MEOW_EVT_DEF_H
 #define MEOW_EVT_DEF_H
 
-#include "meow.h"
+#include "eventos.h"
 
 enum {
     Evt_Test = Evt_User,

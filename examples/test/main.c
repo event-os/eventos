@@ -2,7 +2,7 @@
 
 int main(void)
 {
-    printf("Hello Scons!\n");
-
+    printf("Hello Event OS!\n");
+    
     return 0;
 }

@@ -1,12 +1,12 @@
 
 // include ---------------------------------------------------------------------
-#include "meow.h"
+#include "eventos.h"
 #include "stdio.h"
 #include "stdlib.h"
 #include <stdarg.h>
 #include <string.h>
-#include "mdebug/m_debug.h"
-#include "mdebug/m_assert.h"
+#include "m_debug.h"
+#include "m_assert.h"
 
 M_MODULE_NAME("Meow")
 

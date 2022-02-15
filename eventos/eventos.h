@@ -1,6 +1,6 @@
 
-#ifndef MEOWC_H
-#define MEOWC_H
+#ifndef EVENTOS_H_
+#define EVENTOS_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -9,7 +9,7 @@ extern "C" {
 /* include ------------------------------------------------------------------ */
 #include "stdint.h"
 #include "stdbool.h"
-#include "meow_cfg.h"
+#include "eventos_config.h"
 
 /* data struct -------------------------------------------------------------- */
 // 系统事件、时间事件与局部事件区的定义

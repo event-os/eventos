@@ -1,14 +1,14 @@
-src = Glob('main_unittest.c')
+src = Glob('*.c')
 
-paths = ['.', 'meowc']
+paths = ['.', '../3rd/mdebug', '../examples/unittest/']
 
-defines = ['main_function']
+defines = ['eventos']
 ccflags = []
 
 env = Environment()
 env.Append(CPPDEFINES = defines)
 env.Append(CCCOMSTR = "CC $SOURCES")
-env.Append(CPPPATH=paths)
+env.Append(CPPPATH = paths)
 
 obj = env.Object(src)
  
