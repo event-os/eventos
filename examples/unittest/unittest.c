@@ -177,8 +177,6 @@ typedef struct frame_tag {
     bool is_etimerpool_empty;
     uint64_t timeout_ms_min;
 
-    uint32_t flag_apply[EVT_APPLY_SIZE / 32 + 1];
-
     bool is_log_enabled;
     bool is_enabled;
     bool is_running;
@@ -218,10 +216,6 @@ int meow_unittest_sm(void)
     };
     M_ASSERT(f->is_etimerpool_empty == true);
     M_ASSERT_MEM(f->flag_etimerpool, _flag_etimerpool, ((M_ETIMERPOOL_SIZE / 32 + 1) * 4));
-    uint32_t _flag_apply[EVT_APPLY_SIZE / 32 + 1] = {
-        0, 0, 0, 0x80000000
-    };
-    M_ASSERT_MEM(f->flag_apply, _flag_apply, ((EVT_APPLY_SIZE / 32 + 1) * 4));
     M_ASSERT(f->is_enabled == true);
     M_ASSERT(f->is_idle == true);
 
@@ -391,23 +385,6 @@ int meow_unittest_sm(void)
     M_ASSERT(f->time_crt_ms == 1500);
     M_ASSERT(f->e_timer_pool[0].timeout_ms == 2000);
     M_ASSERT(f->flag_epool[0] == 0);
-
-    // -------------------------------------------------------------------------
-    // 07 evt_apply evt_unapply
-    for (int i = 0; i < EVT_APPLY_SIZE; i ++) {
-        M_ASSERT_ID(i, evt_apply() == (Evt_Time_Max + i));
-    }
-    // 测试后申请满
-    // evt_apply();
-    for (int i = 0; i < EVT_APPLY_SIZE; i ++) {
-        evt_unapply(Evt_Time_Max + i);
-    }
-    for (int i = 0; i < EVT_APPLY_SIZE; i ++) {
-        M_ASSERT_ID(i, evt_apply() == (Evt_Time_Max + i));
-    }
-    for (int i = 0; i < EVT_APPLY_SIZE; i ++) {
-        evt_unapply(Evt_Time_Max + i);
-    }
 
     // -------------------------------------------------------------------------
     // 08 hook

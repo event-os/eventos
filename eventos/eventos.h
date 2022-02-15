@@ -27,9 +27,7 @@ enum m_evt_id_tag {
     Evt_Time_2000ms,
     Evt_Time_5000ms,
     Evt_Time_Max,
-    // 局部事件区
-    Evt_Apply = Evt_Time_Max,
-    Evt_User = (Evt_Apply + EVT_APPLY_SIZE),
+    Evt_User = Evt_Time_Max,
 };
 
 enum {
@@ -146,8 +144,6 @@ void evt_publish_para(int evt_id, int para[]);
 
 void evt_publish_delay(int evt_id, int time_ms);
 void evt_publish_period(int evt_id, int time_ms_period);
-int evt_apply(void);
-void evt_unapply(int evt_id);
 
 #define EVT_SUB(_evt)               evt_subscribe(&(me->super), _evt)
 #define EVT_UNSUB(_evt)             evt_unsubscribe(&(me->super), _evt)

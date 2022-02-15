@@ -91,8 +91,6 @@ typedef struct frame_tag {
     bool is_etimerpool_empty;
     uint64_t timeout_ms_min;
 
-    uint32_t flag_apply[EVT_APPLY_SIZE / 32 + 1];
-
     bool is_log_enabled;
     bool is_enabled;
     bool is_running;
@@ -167,11 +165,6 @@ static void meow_clear(void)
     for (int i = 0; i < M_ETIMERPOOL_SIZE; i ++)
         frame.flag_etimerpool[i / 32] &= table_left_shift_rev[i % 32];
     frame.is_etimerpool_empty = true;
-    // 清空事件申请区
-    for (int i = 0; i < EVT_APPLY_SIZE / 32 + 1; i ++)
-        frame.flag_apply[i] = 0xffffffff;
-    for (int i = 0; i < EVT_APPLY_SIZE; i ++)
-        frame.flag_apply[i / 32] &= table_left_shift_rev[i % 32];
     // 清空事件名字区
     for (int i = 0; i < Evt_Max; i ++)
         frame.evt_name[i] = 0;
@@ -728,35 +721,6 @@ void evt_publish_delay(int evt_id, int time_ms)
 void evt_publish_period(int evt_id, int time_ms_period)
 {
     evt_publish_time(evt_id, time_ms_period, false);
-}
-
-int evt_apply(void)
-{
-    // 寻找尚未被申请的最小的事件
-    int index = (int)0xffffffff;
-    for (int i = 0; i < (EVT_APPLY_SIZE / 32 + 1); i ++) {
-        if (frame.flag_apply[i] == 0xffffffff)
-            continue;
-        
-        for (int j = 0; j < 32; j ++)
-            if ((frame.flag_apply[i] & table_left_shift[j]) == 0) {
-                frame.flag_apply[i] |= table_left_shift[j];
-                index = (Evt_Time_Max + (i * 32) + j);
-                break;
-            }
-        break;
-    }
-    M_ASSERT_ID(103, index != (int)0xffffffff);
-
-    return index;
-}
-
-void evt_unapply(int evt_id)
-{
-    M_ASSERT(evt_id >= Evt_Apply && evt_id < Evt_User);
-
-    int index = evt_id - Evt_Apply;
-    frame.flag_apply[index / 32] &= table_left_shift_rev[index % 32];
 }
 
 // state tran ------------------------------------------------------------------
