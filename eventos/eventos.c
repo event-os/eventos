@@ -24,20 +24,15 @@ extern "C" {
 // TODO 【完成】使优先级最高为0。
 // TODO 【放弃】是否考虑使时间定时器产生的事件直接执行，而不通过事件池，减少开销？
 // TODO 【完成】加快定时器的执行效率。
-// TODO 【完成】在m_obj_t中增加list，绑定事件和回调函数，加入事件的回调函数机制。
+// TODO 【完成】在eos_sm_t中增加list，绑定事件和回调函数，加入事件的回调函数机制。
 // TODO 【暂不修改】如果事件队列满，进入断言。这样的设计很不合理，需要进行修改。
 // TODO 增加延时或周期执行回调函数的功能。
 // TODO 增加对Shell在内核中的无缝集成。
-// TODO 行为树并行节点子节点缓冲区，可以使用vector容器实现，可以实现每个控制节点无限个子节点。
-// TODO 行为树的栈也可以使用vector实现，可以实现行为树无限深度。
-// TODO 【完成】删去此类型BtfNode_Root
-// TODO 尚未对行为树Fail的情况进行单元测试。
 // TODO 添加修饰节点的实现，修饰节点可以用一个回调函数进行实现。
 // TODO 可以考虑将设备框架的Poll机制，一并合并在为行为节点，以并行控制树的形式进行实现。
 // TODO 可以考虑对malloc和free进行实现，使事件的参数改为可变长参数机制。
 // TODO 添加返回历史状态的功能
 // TODO 增加进入低功耗状态的功能
-// TODO 考虑以Json形式对事件进行封装，从而实现分布式事件框架。
 // TODO 优化事件的存储机制，以便减少系统开销，增强健壮性。
 //      01  由于携带参数的事件较少，使事件参数额外存储，不跟随事件本身。
 //      02  将事件直接存在事件队列里，而非存储事件池ID。开销较大，而且不便于保持稳定。
@@ -51,38 +46,38 @@ extern "C" {
 // TODO 【完成】添加编译开关，关闭行为树功能。
 
 // framework -------------------------------------------------------------------
-typedef struct m_evt_timer_tag {
-    int sig;
-    int time_ms_delay;
-    uint64_t timeout_ms;
-    bool is_one_shoot;
-} m_evt_timer_t;
+typedef struct eos_event_timer_tag {
+    eos_s32_t sig;
+    eos_s32_t time_ms_delay;
+    eos_u32_t timeout_ms;
+    eos_bool_t is_one_shoot;
+} eos_event_timer_t;
 
 typedef struct frame_tag {
-    uint32_t magic_head;
-    uint32_t evt_sub_tab[Evt_Max];                          // 事件订阅表
+    eos_u32_t magic_head;
+    eos_u32_t evt_sub_tab[Evt_Max];                          // 事件订阅表
 
     // 状态机池
-    int flag_obj_exist;
-    int flag_obj_enable;
-    m_obj_t * p_obj[M_SM_NUM_MAX];
+    eos_s32_t flag_obj_exist;
+    eos_s32_t flag_obj_enable;
+    eos_sm_t * p_obj[M_SM_NUM_MAX];
 
     // 关于事件池
-    m_evt_t e_pool[M_EPOOL_SIZE];                           // 事件池
-    uint32_t flag_epool[M_EPOOL_SIZE / 32 + 1];             // 事件池标志位
+    eos_event_t e_pool[M_EPOOL_SIZE];                           // 事件池
+    eos_u32_t flag_epool[M_EPOOL_SIZE / 32 + 1];             // 事件池标志位
 
     // 定时器池
-    m_evt_timer_t e_timer_pool[M_ETIMERPOOL_SIZE];
-    uint32_t flag_etimerpool[M_ETIMERPOOL_SIZE / 32 + 1];   // 事件池标志位
-    bool is_etimerpool_empty;
-    uint64_t timeout_ms_min;
+    eos_event_timer_t e_timer_pool[M_ETIMERPOOL_SIZE];
+    eos_u32_t flag_etimerpool[M_ETIMERPOOL_SIZE / 32 + 1];   // 事件池标志位
+    eos_bool_t is_etimerpool_empty;
+    eos_u32_t timeout_ms_min;
 
-    bool is_enabled;
-    bool is_running;
-    bool is_idle;
+    eos_bool_t is_enabled;
+    eos_bool_t is_running;
+    eos_bool_t is_idle;
     
-    uint64_t time_crt_ms;
-    uint32_t magic_tail;
+    eos_u32_t time_crt_ms;
+    eos_u32_t magic_tail;
 } frame_t;
 
 static frame_t frame;
@@ -91,21 +86,21 @@ static frame_t frame;
 #define MEOW_MAGIC_TAIL                         0x397C67AB
 
 // data ------------------------------------------------------------------------
-static const m_evt_t meow_system_evt_table[Evt_DefaultMax] = {
+static const eos_event_t meow_systeeos_event_table[Evt_DefaultMax] = {
     {Evt_Null, 0, EvtMode_Ps},
     {Evt_Enter, 0, EvtMode_Ps},
     {Evt_Exit, 0, EvtMode_Ps},
     {Evt_Init, 0, EvtMode_Ps},
 };
 
-static const uint32_t table_left_shift[32] = {
+static const eos_u32_t table_left_shift[32] = {
     0x00000001, 0x00000002, 0x00000004, 0x00000008, 0x00000010, 0x00000020, 0x00000040, 0x00000080,
     0x00000100, 0x00000200, 0x00000400, 0x00000800, 0x00001000, 0x00002000, 0x00004000, 0x00008000,
     0x00010000, 0x00020000, 0x00040000, 0x00080000, 0x00100000, 0x00200000, 0x00400000, 0x00800000,
     0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000, 0x20000000, 0x40000000, 0x80000000
 };
 
-static const uint32_t table_left_shift_rev[32] = {
+static const eos_u32_t table_left_shift_rev[32] = {
     0xfffffffe, 0xfffffffd, 0xfffffffb, 0xfffffff7, 0xffffffef, 0xffffffdf, 0xffffffbf, 0xffffff7f,
     0xfffffeff, 0xfffffdff, 0xfffffbff, 0xfffff7ff, 0xffffefff, 0xffffdfff, 0xffffbfff, 0xffff7fff,
     0xfffeffff, 0xfffdffff, 0xfffbffff, 0xfff7ffff, 0xffefffff, 0xffdfffff, 0xffbfffff, 0xff7fffff,
@@ -114,24 +109,24 @@ static const uint32_t table_left_shift_rev[32] = {
 
 // macro -----------------------------------------------------------------------
 #define HSM_TRIG_(state_, sig_)                                                \
-    ((*(state_))(me, &meow_system_evt_table[sig_]))
+    ((*(state_))(me, &meow_systeeos_event_table[sig_]))
 
 #define HSM_EXIT_(state_) do {                                                 \
         HSM_TRIG_(state_, Evt_Exit);                                           \
-    } while (false)
+    } while (EOS_False)
 
 #define HSM_ENTER_(state_) do {                                                \
         HSM_TRIG_(state_, Evt_Enter);                                          \
-    } while (false)
+    } while (EOS_False)
 
 // static function -------------------------------------------------------------
-static void sm_dispath(m_obj_t * const me, m_evt_t const * const e);
-static void hook_execute(m_obj_t * const me, m_evt_t const * const e);
-static int sm_tran(m_obj_t * const me, m_state_handler path[MAX_NEST_DEPTH]);
+static void sm_dispath(eos_sm_t * const me, eos_event_t const * const e);
+static eos_s32_t sm_tran(eos_sm_t * const me, eos_state_handler path[MAX_NEST_DEPTH]);
 
 // meow ------------------------------------------------------------------------
-static void meow_clear(void)
+void eos_clear(void)
 {
+    printf("sizeof frame_t: %u.\n", sizeof(frame_t));
     // 清空事件池
     for (int i = 0; i < M_EPOOL_SIZE / 32 + 1; i ++)
         frame.flag_epool[i] = 0xffffffff;
@@ -142,15 +137,16 @@ static void meow_clear(void)
         frame.flag_etimerpool[i] = 0xffffffff;
     for (int i = 0; i < M_ETIMERPOOL_SIZE; i ++)
         frame.flag_etimerpool[i / 32] &= table_left_shift_rev[i % 32];
-    frame.is_etimerpool_empty = true;
+    frame.is_etimerpool_empty = EOS_True;
 }
 
 void eventos_init(void)
 {
-    meow_clear();
-    frame.is_enabled = true;
-    frame.is_running = false;
-    frame.is_idle = true;
+    eos_clear();
+
+    frame.is_enabled = EOS_True;
+    frame.is_running = EOS_False;
+    frame.is_idle = EOS_True;
     frame.magic_head = MEOW_MAGIC_HEAD;
     frame.magic_tail = MEOW_MAGIC_TAIL;
 }
@@ -160,7 +156,7 @@ int meow_evttimer(void)
     // 获取当前时间，检查延时事件队列
     frame.time_crt_ms = port_get_time_ms();
     
-    if (frame.is_etimerpool_empty == true)
+    if (frame.is_etimerpool_empty == EOS_True)
         return 210;
 
     // 时间未到达
@@ -168,30 +164,30 @@ int meow_evttimer(void)
         return 211;
     
     // 若时间到达，将此事件推入事件队列，同时在e_timer_pool里删除。
-    bool is_etimerpool_empty = true;
+    eos_bool_t is_etimerpool_empty = EOS_True;
     for (int i = 0; i < M_ETIMERPOOL_SIZE; i ++) {
         if ((frame.flag_etimerpool[i / 32] & table_left_shift[i % 32]) == 0)
             continue;
         if (frame.e_timer_pool[i].timeout_ms > frame.time_crt_ms) {
-            is_etimerpool_empty = false;
+            is_etimerpool_empty = EOS_False;
             continue;
         }
 
         evt_publish(frame.e_timer_pool[i].sig);
         // 清零标志位
-        if (frame.e_timer_pool[i].is_one_shoot == true)
+        if (frame.e_timer_pool[i].is_one_shoot == EOS_True)
             frame.flag_etimerpool[i / 32] &= table_left_shift_rev[i % 32];
         else {
             frame.e_timer_pool[i].timeout_ms += frame.e_timer_pool[i].time_ms_delay;
-            is_etimerpool_empty = false;
+            is_etimerpool_empty = EOS_False;
         }
     }
     frame.is_etimerpool_empty = is_etimerpool_empty;
-    if (frame.is_etimerpool_empty == true)
+    if (frame.is_etimerpool_empty == EOS_True)
         return 212;
 
     // 寻找到最小的时间定时器
-    uint64_t min_time_out_ms = 0xffffffffffffffff;
+    eos_u32_t min_time_out_ms = EOS_U32_MAX;
     for (int i = 0; i < M_ETIMERPOOL_SIZE; i ++) {
         if ((frame.flag_etimerpool[i / 32] & table_left_shift[i % 32]) == 0)
             continue;
@@ -206,10 +202,10 @@ int meow_evttimer(void)
 
 int meow_once(void)
 {
-    int ret = 0;
+    eos_s32_t ret = 0;
 
-    if (frame.is_enabled == false) {
-        meow_clear();
+    if (frame.is_enabled == EOS_False) {
+        eos_clear();
         return 1;
     }
 
@@ -221,51 +217,45 @@ int meow_once(void)
 
     meow_evttimer();
 
-    if (frame.is_idle == true) {
+    if (frame.is_idle == EOS_True) {
         ret = 202;
         return ret;
     }
     // 寻找到优先级最高且事件队列不为空的状态机
-    m_obj_t * p_obj = (m_obj_t *)0;
+    eos_sm_t * p_obj = (eos_sm_t *)0;
     for (int i = 0; i < M_SM_NUM_MAX; i ++) {
         if ((frame.flag_obj_exist & table_left_shift[i]) == 0)
             continue;
         M_ASSERT(frame.p_obj[i]->magic_head == MEOW_MAGIC_HEAD);
         M_ASSERT(frame.p_obj[i]->magic_tail == MEOW_MAGIC_TAIL);
-        if (frame.p_obj[i]->is_equeue_empty == true)
+        if (frame.p_obj[i]->is_equeue_empty == EOS_True)
             continue;
         p_obj = frame.p_obj[i];
         break;
     }
-    if (p_obj == (m_obj_t *)0) {
-        frame.is_idle = true;
+    if (p_obj == (eos_sm_t *)0) {
+        frame.is_idle = EOS_True;
         
         ret = 203;
         return ret;
     }
 
     // 寻找到最老的事件
-    uint32_t epool_index = *(p_obj->e_queue + p_obj->tail);
+    eos_u32_t epool_index = *(p_obj->e_queue + p_obj->tail);
     port_critical_enter();
     p_obj->tail ++;
     p_obj->tail %= p_obj->depth;
     if (p_obj->tail == p_obj->head) {
-        p_obj->is_equeue_empty = true;
+        p_obj->is_equeue_empty = EOS_True;
         p_obj->tail = 0;
         p_obj->head = 0;
     }
     port_critical_exit();
     // 对事件进行执行
-    m_evt_t * _e = (m_evt_t *)&frame.e_pool[epool_index];
+    eos_event_t * _e = (eos_event_t *)&frame.e_pool[epool_index];
     if ((frame.evt_sub_tab[_e->sig] & table_left_shift[p_obj->priv]) != 0) {
-        if (p_obj->obj_type == ObjType_Sm) {
-            // 执行状态的转换
-            sm_dispath(p_obj, _e);
-            // 执行回调函数
-            hook_execute(p_obj, _e);
-        }
-        else
-            M_ASSERT(false);
+        // 执行状态的转换
+        sm_dispath(p_obj, _e);
     }
     else
         ret = 204;
@@ -285,15 +275,15 @@ int meow_once(void)
 
 int eventos_run(void)
 {
-    M_ASSERT(frame.is_enabled == true);
+    M_ASSERT(frame.is_enabled == EOS_True);
     hook_start();
-    frame.is_running = true;
+    frame.is_running = EOS_True;
 
-    while (true) {
+    while (EOS_True) {
         // 检查Magic
         M_ASSERT(frame.magic_head == MEOW_MAGIC_HEAD);
         M_ASSERT(frame.magic_tail == MEOW_MAGIC_TAIL);
-        int ret = meow_once();
+        eos_s32_t ret = meow_once();
         if ((int)(ret / 100) == 2) {
             hook_idle();
         }
@@ -301,49 +291,37 @@ int eventos_run(void)
             break;
     }
 
-    while (true) {
+    while (EOS_True) {
         hook_idle();
     }
 }
 
 void eventos_stop(void)
 {
-    frame.is_enabled = false;
+    frame.is_enabled = EOS_False;
     hook_stop();
 }
 
 // state machine ---------------------------------------------------------------
-void obj_init(m_obj_t * const me, const char* name, m_obj_type_t obj_type, 
-              int priv, int e_queue_depth)
+void eos_sm_init(eos_sm_t * const me, const char* name, eos_s32_t priv, eos_s32_t e_queue_depth)
 {
     M_ASSERT(strlen(name) < OBJ_NAME_MAX);
 
     // 框架需要先启动起来
-    M_ASSERT(frame.is_enabled == true);
-    M_ASSERT(frame.is_running == false);
+    M_ASSERT(frame.is_enabled == EOS_True);
+    M_ASSERT(frame.is_running == EOS_False);
     // 参数检查
-    M_ASSERT(me != (m_obj_t *)0);
+    M_ASSERT(me != (eos_sm_t *)0);
     M_ASSERT(priv >= 0 && priv < M_SM_NUM_MAX);
 
     me->name = name;
-    me->obj_type = obj_type;
     me->magic_head = MEOW_MAGIC_HEAD;
     me->magic_tail = MEOW_MAGIC_TAIL;
-    // 状态模式相关
-    if (me->obj_type == ObjType_Sm) {
-        me->sm = port_malloc(sizeof(m_mode_sm_t), name);
-        M_ASSERT(me->sm != (m_mode_sm_t *)0);
-        
-        me->sm->state_crt = (void *)m_state_top;
-        me->sm->state_tgt = (void *)m_state_top;
-        me->sm->hook_list = (m_hook_list *)0;
-    }
-    else {
-        M_ASSERT(false);
-    }
+    me->state_crt = (void *)eos_state_top;
+    me->state_tgt = (void *)eos_state_top;
 
     // 防止二次启动
-    if (me->is_enabled == true)
+    if (me->is_enabled == EOS_True)
         return;
 
     // 检查优先级的重复注册
@@ -362,44 +340,42 @@ void obj_init(m_obj_t * const me, const char* name, m_obj_type_t obj_type,
     me->head = 0;
     me->tail = 0;
     me->depth = e_queue_depth;
-    me->is_equeue_empty = true;
+    me->is_equeue_empty = EOS_True;
     port_critical_exit();
 }
 
-void sm_start(m_obj_t * const me, m_state_handler state_init)
+void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 {
-    M_ASSERT(me->obj_type == ObjType_Sm);
-
-    me->sm->state_crt = (void *)state_init;
-    me->is_enabled = true;
+    me->state_crt = (void *)state_init;
+    me->is_enabled = EOS_True;
     frame.flag_obj_enable |= table_left_shift[me->priv];
 
     // 记录原来的最初状态
-    m_state_handler t = (m_state_handler)me->sm->state_tgt;
-    M_ASSERT(t == m_state_top && t != 0);
+    eos_state_handler t = (eos_state_handler)me->state_tgt;
+    M_ASSERT(t == eos_state_top && t != 0);
     // 进入初始状态，执行TRAN动作。这也意味着，进入初始状态，必须无条件执行Tran动作。
-    m_ret_t _ret = ((m_state_handler)me->sm->state_crt)(me, &meow_system_evt_table[Evt_Null]);
-    M_ASSERT(_ret == M_Ret_Tran);
+    eos_ret_t _ret = ((eos_state_handler)me->state_crt)(me, &meow_systeeos_event_table[Evt_Null]);
+    M_ASSERT(_ret == EOS_Ret_Tran);
 
     // 由初始状态转移，引发的各层状态的进入
     // 每一个循环，都代表着一个Evt_Init的执行
     _ret = M_Ret_Null;
     do {
-        m_state_handler path[MAX_NEST_DEPTH];
+        eos_state_handler path[MAX_NEST_DEPTH];
 
-        int8_t ip = 0;
+        eos_s8_t ip = 0;
 
         // 由当前层，探测需要进入的各层父状态
-        path[0] = (m_state_handler)me->sm->state_crt;
+        path[0] = (eos_state_handler)me->state_crt;
         // 一层一层的探测，一直探测到原状态
-        HSM_TRIG_((m_state_handler)me->sm->state_crt, Evt_Null);
-        while (me->sm->state_crt != t) {
+        HSM_TRIG_((eos_state_handler)me->state_crt, Evt_Null);
+        while (me->state_crt != t) {
             ++ ip;
             M_ASSERT(ip < MAX_NEST_DEPTH);
-            path[ip] = (m_state_handler)me->sm->state_crt;
-            HSM_TRIG_((m_state_handler)me->sm->state_crt, Evt_Null);
+            path[ip] = (eos_state_handler)me->state_crt;
+            HSM_TRIG_((eos_state_handler)me->state_crt, Evt_Null);
         }
-        me->sm->state_crt = (void *)path[0];
+        me->state_crt = (void *)path[0];
 
         // 各层状态的进入
         do {
@@ -409,45 +385,23 @@ void sm_start(m_obj_t * const me, m_state_handler state_init)
         t = path[0];
 
         _ret = HSM_TRIG_(t, Evt_Init);
-    } while (_ret == M_Ret_Tran);
+    } while (_ret == EOS_Ret_Tran);
 
-    me->sm->state_crt = (void *)t;
-    me->sm->state_tgt = (void *)t;
-}
-
-int sm_reg_hook(m_obj_t * const me, int evt_id, m_state_handler hook)
-{
-    // 检查已注册
-    m_hook_list * p_list = me->sm->hook_list;
-    if (p_list != (m_hook_list *)0)
-        do {
-            if (p_list->hook == hook)
-                return 1;
-            p_list = p_list->next;
-        } while (p_list != (m_hook_list *)0);
-
-    // 建立新节点
-    m_hook_list * p_new = (m_hook_list *)port_malloc(sizeof(m_hook_list), me->name);
-    M_ASSERT(p_new != 0);
-    p_new->next = me->sm->hook_list;
-    p_new->evt_id = evt_id;
-    p_new->hook = hook;
-    me->sm->hook_list = p_new;
-
-    return 0;
+    me->state_crt = (void *)t;
+    me->state_tgt = (void *)t;
 }
 
 // event -----------------------------------------------------------------------
 void evt_publish(int evt_id)
 {
-    int para;
+    eos_s32_t para;
     evt_publish_para(evt_id, &para);
 }
 
-void evt_publish_para(int evt_id, int paras[])
+void evt_publish_para(int evt_id, eos_s32_t paras[])
 {
     // 保证框架已经运行
-    M_ASSERT(frame.is_enabled == true);
+    M_ASSERT(frame.is_enabled == EOS_True);
     // 没有状态机使能，返回
     if (frame.flag_obj_enable == 0)
         return;
@@ -455,7 +409,7 @@ void evt_publish_para(int evt_id, int paras[])
     if (frame.evt_sub_tab[evt_id] == 0)
         return;
     // 新建事件
-    static m_evt_t e;
+    static eos_event_t e;
     e.sig = evt_id;
     e.flag_sub = frame.evt_sub_tab[evt_id];
     e.mode = EvtMode_Ps;
@@ -463,7 +417,7 @@ void evt_publish_para(int evt_id, int paras[])
         e.para[i].s32 = paras[i];
     // 如果事件池满，进入断言；如果未满，获取到空位置，并将此位置1
     port_critical_enter();
-    int index_empty = 0xffffffff;
+    eos_s32_t index_empty = 0xffffffff;
     for (int i = 0; i < (M_EPOOL_SIZE / 32 + 1); i ++) {
         if (frame.flag_epool[i] == 0xffffffff)
             continue;
@@ -477,47 +431,47 @@ void evt_publish_para(int evt_id, int paras[])
         break;
     }
     M_ASSERT_ID(101, index_empty != 0xffffffff);
-    frame.e_pool[index_empty] = *(m_evt_t *)&e;
+    frame.e_pool[index_empty] = *(eos_event_t *)&e;
 
     // 根据flagSub的信息，将事件推入各对象
     for (int i = 0; i < M_SM_NUM_MAX; i ++) {
         if ((frame.flag_obj_exist & table_left_shift[i]) == 0)
             continue;
-        if (frame.p_obj[i]->is_enabled == false)
+        if (frame.p_obj[i]->is_enabled == EOS_False)
             continue;
         if ((frame.evt_sub_tab[e.sig] & table_left_shift[i]) == 0)
             continue;
         // 如果事件队列满，进入断言
         if (((frame.p_obj[i]->head + 1) % frame.p_obj[i]->depth) == frame.p_obj[i]->tail)
-            M_ASSERT_ID(104, false);
+            M_ASSERT_ID(104, EOS_False);
         // 事件队列未满，将事件池序号放入事件队列
         *(frame.p_obj[i]->e_queue + frame.p_obj[i]->head) = index_empty;
 
         frame.p_obj[i]->head ++;
         frame.p_obj[i]->head %= frame.p_obj[i]->depth;
-        if (frame.p_obj[i]->is_equeue_empty == true)
-            frame.p_obj[i]->is_equeue_empty = false;
-        frame.is_idle = false;
+        if (frame.p_obj[i]->is_equeue_empty == EOS_True)
+            frame.p_obj[i]->is_equeue_empty = EOS_False;
+        frame.is_idle = EOS_False;
     }
     port_critical_exit();
 }
 
-void evt_send(const char * obj_name, int evt_id)
+void evt_send(const char * obj_name, eos_s32_t evt_id)
 {
-    int para;
+    eos_s32_t para;
     evt_send_para(obj_name, evt_id, &para);
 }
 
-void evt_send_para(const char * obj_name, int evt_id, int para[])
+void evt_send_para(const char * obj_name, eos_s32_t evt_id, eos_s32_t para[])
 {
     // 保证框架已经运行
-    M_ASSERT(frame.is_enabled == true);
+    M_ASSERT(frame.is_enabled == EOS_True);
     // 没有状态机使能，返回
     if (frame.flag_obj_enable == 0)
         return;
     // 如果事件池满，进入断言；如果未满，获取到空位置，并将此位置1
     port_critical_enter();
-    int index_empty = 0xffffffff;
+    eos_s32_t index_empty = 0xffffffff;
     for (int i = 0; i < (M_EPOOL_SIZE / 32 + 1); i ++) {
         if (frame.flag_epool[i] == 0xffffffff)
             continue;
@@ -532,21 +486,21 @@ void evt_send_para(const char * obj_name, int evt_id, int para[])
     }
     M_ASSERT_ID(101, index_empty != 0xffffffff);
     // 新建事件
-    static m_evt_t e;
+    static eos_event_t e;
     e.sig = evt_id;
     e.mode = EvtMode_Send;
     for (int i = 0; i < MEOW_EVT_PARAS_NUM; i ++)
         e.para[i].s32 = para[i];
     // 放入事件池
-    frame.e_pool[index_empty] = *(m_evt_t *)&e;
+    frame.e_pool[index_empty] = *(eos_event_t *)&e;
     port_critical_exit();
 
     // 根据名字寻找相应的对象
-    int priv = M_SM_NUM_MAX;
+    eos_s32_t priv = M_SM_NUM_MAX;
     for (int i = 0; i < M_SM_NUM_MAX; i ++) {
         if ((frame.flag_obj_exist & table_left_shift[i]) == 0)
             continue;
-        if (frame.p_obj[i]->is_enabled == false)
+        if (frame.p_obj[i]->is_enabled == EOS_False)
             continue;
         if (strncmp(frame.p_obj[i]->name, obj_name, OBJ_NAME_MAX) == 0) {
             priv = i;
@@ -554,43 +508,43 @@ void evt_send_para(const char * obj_name, int evt_id, int para[])
         }
     }
     if (priv == M_SM_NUM_MAX)
-        M_ASSERT_ID(109, false);
+        M_ASSERT_ID(109, EOS_False);
 
     port_critical_enter();
     // 如果事件队列满，进入断言
     if (((frame.p_obj[priv]->head + 1) % frame.p_obj[priv]->depth) == frame.p_obj[priv]->tail)
-        M_ASSERT_ID(104, false);
+        M_ASSERT_ID(104, EOS_False);
     // 事件队列未满，将事件池序号放入事件队列
     *(frame.p_obj[priv]->e_queue + frame.p_obj[priv]->head) = index_empty;
 
     frame.p_obj[priv]->head ++;
     frame.p_obj[priv]->head %= frame.p_obj[priv]->depth;
-    if (frame.p_obj[priv]->is_equeue_empty == true)
-        frame.p_obj[priv]->is_equeue_empty = false;
-    frame.is_idle = false;
+    if (frame.p_obj[priv]->is_equeue_empty == EOS_True)
+        frame.p_obj[priv]->is_equeue_empty = EOS_False;
+    frame.is_idle = EOS_False;
     port_critical_exit();
 }
 
-void evt_subscribe(m_obj_t * const me, int e_id)
+void evt_subscribe(eos_sm_t * const me, eos_s32_t e_id)
 {
     frame.evt_sub_tab[e_id] |= table_left_shift[me->priv];
 }
 
-void evt_unsubscribe(m_obj_t * const me, int e_id)
+void evt_unsubscribe(eos_sm_t * const me, eos_s32_t e_id)
 {
     frame.evt_sub_tab[e_id] &= table_left_shift_rev[me->priv];
 }
 
-void evt_unsub_all(m_obj_t * const me)
+void evt_unsub_all(eos_sm_t * const me)
 {
     for (int i = 0; i < Evt_Max; i ++)
         frame.evt_sub_tab[i] = 0;
 }
 
-static void evt_publish_time(int evt_id, int time_ms, bool is_oneshoot)
+static void evt_publish_time(int evt_id, eos_s32_t time_ms, eos_bool_t is_oneshoot)
 {
     M_ASSERT(time_ms >= 0);
-    M_ASSERT(!(time_ms == 0 && is_oneshoot == false));
+    M_ASSERT(!(time_ms == 0 && is_oneshoot == EOS_False));
 
     if (time_ms == 0) {
         EVT_PUB(evt_id);
@@ -598,8 +552,8 @@ static void evt_publish_time(int evt_id, int time_ms, bool is_oneshoot)
     }
 
     // 如果是周期性的，检查是否已经对某个事件进行过周期设定。
-    if (is_oneshoot == false && frame.is_etimerpool_empty == false) {
-        bool is_evt_id_set = false;
+    if (is_oneshoot == EOS_False && frame.is_etimerpool_empty == EOS_False) {
+        eos_bool_t is_evt_id_set = EOS_False;
         for (int i = 0; i < M_ETIMERPOOL_SIZE; i ++) {
             if ((frame.flag_etimerpool[i / 32] & table_left_shift[i % 32]) == 0)
                 continue;
@@ -607,14 +561,14 @@ static void evt_publish_time(int evt_id, int time_ms, bool is_oneshoot)
                 continue;
             if (frame.e_timer_pool[i].time_ms_delay == time_ms)
                 return;
-            is_evt_id_set = true;
+            is_evt_id_set = EOS_True;
             break;
         }
-        M_ASSERT_ID(106, is_evt_id_set == false);
+        M_ASSERT_ID(106, is_evt_id_set == EOS_False);
     }
 
     // 寻找到空的时间定时器
-    int index_empty = 0xffffffff;
+    eos_s32_t index_empty = 0xffffffff;
     for (int i = 0; i < (M_ETIMERPOOL_SIZE / 32 + 1); i ++) {
         if (frame.flag_etimerpool[i] == 0xffffffff)
             continue;
@@ -629,15 +583,15 @@ static void evt_publish_time(int evt_id, int time_ms, bool is_oneshoot)
     }
     M_ASSERT_ID(102, index_empty != 0xffffffff);
 
-    uint64_t time_crt_ms = port_get_time_ms();
-    frame.e_timer_pool[index_empty] = (m_evt_timer_t) {
+    eos_u32_t time_crt_ms = port_get_time_ms();
+    frame.e_timer_pool[index_empty] = (eos_event_timer_t) {
         evt_id, time_ms, time_crt_ms + time_ms, is_oneshoot
     };
 
-    frame.is_etimerpool_empty = false;
+    frame.is_etimerpool_empty = EOS_False;
     
     // 寻找到最小的时间定时器
-    uint64_t min_time_out_ms = 0xffffffffffffffff;
+    eos_u32_t min_time_out_ms = EOS_U32_MAX;
     for (int i = 0; i < M_ETIMERPOOL_SIZE; i ++) {
         if ((frame.flag_etimerpool[i / 32] & table_left_shift[i % 32]) == 0)
             continue;
@@ -648,34 +602,34 @@ static void evt_publish_time(int evt_id, int time_ms, bool is_oneshoot)
     frame.timeout_ms_min = min_time_out_ms;
 }
 
-void evt_publish_delay(int evt_id, int time_ms)
+void evt_publish_delay(int evt_id, eos_s32_t time_ms)
 {
-    evt_publish_time(evt_id, time_ms, true);
+    evt_publish_time(evt_id, time_ms, EOS_True);
 }
 
-void evt_publish_period(int evt_id, int time_ms_period)
+void evt_publish_period(int evt_id, eos_s32_t time_ms_period)
 {
-    evt_publish_time(evt_id, time_ms_period, false);
+    evt_publish_time(evt_id, time_ms_period, EOS_False);
 }
 
 // state tran ------------------------------------------------------------------
-m_ret_t m_tran(m_obj_t * const me, m_state_handler state)
+eos_ret_t eos_tran(eos_sm_t * const me, eos_state_handler state)
 {
-    me->sm->state_crt = (void *)state;
-    me->sm->state_tgt = (void *)state;
+    me->state_crt = (void *)state;
+    me->state_tgt = (void *)state;
 
-    return M_Ret_Tran;
+    return EOS_Ret_Tran;
 }
 
-m_ret_t m_super(m_obj_t * const me, m_state_handler state)
+eos_ret_t eos_super(eos_sm_t * const me, eos_state_handler state)
 {
-    me->sm->state_crt = (void *)state;
-    me->sm->state_tgt = (void *)state;
+    me->state_crt = (void *)state;
+    me->state_tgt = (void *)state;
 
     return M_Ret_Super;
 }
 
-m_ret_t m_state_top(m_obj_t * const me, m_evt_t const * const e)
+eos_ret_t eos_state_top(eos_sm_t * const me, eos_event_t const * const e)
 {
     (void)me;
     (void)e;
@@ -684,34 +638,34 @@ m_ret_t m_state_top(m_obj_t * const me, m_evt_t const * const e)
 }
 
 // static function -------------------------------------------------------------
-static void sm_dispath(m_obj_t * const me, m_evt_t const * const e)
+static void sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
 {
-    M_ASSERT(e != (m_evt_t *)0);
+    M_ASSERT(e != (eos_event_t *)0);
 
-    m_state_handler t = (m_state_handler)me->sm->state_crt;
-    m_state_handler s;
-    m_ret_t r;
+    eos_state_handler t = (eos_state_handler)me->state_crt;
+    eos_state_handler s;
+    eos_ret_t r;
 
     // 层次化的处理事件
     // 注：分为两种情况：
     // (1) 当该状态存在数据时，处理此事件。
     // (2) 当该状态不存在该事件时，到StateTop状态下处理此事件。
     do {
-        s = (m_state_handler)me->sm->state_crt;
+        s = (eos_state_handler)me->state_crt;
         r = (*s)(me, e);                              // 执行状态S下的事件处理
     } while (r == M_Ret_Super);
 
     // 如果不存在状态转移
-    if (r != M_Ret_Tran) {
-        me->sm->state_crt = (void *)t;                                  // 更新当前状态
-        me->sm->state_crt = (void *)t;                                  // 防止覆盖
+    if (r != EOS_Ret_Tran) {
+        me->state_crt = (void *)t;                                  // 更新当前状态
+        me->state_crt = (void *)t;                                  // 防止覆盖
         return;
     }
 
     // 如果存在状态转移
-    m_state_handler path[MAX_NEST_DEPTH];
+    eos_state_handler path[MAX_NEST_DEPTH];
 
-    path[0] = (m_state_handler)me->sm->state_crt;    // 保存目标状态
+    path[0] = (eos_state_handler)me->state_crt;    // 保存目标状态
     path[1] = t;
     path[2] = s;
 
@@ -721,29 +675,29 @@ static void sm_dispath(m_obj_t * const me, m_evt_t const * const e)
         if (HSM_TRIG_(t, Evt_Exit) == M_Ret_Handled) {
             (void)HSM_TRIG_(t, Evt_Null); // find superstate of t
         }
-        t = (m_state_handler)me->sm->state_crt; // stateTgt_ holds the superstate
+        t = (eos_state_handler)me->state_crt; // stateTgt_ holds the superstate
     }
 
-    int ip = sm_tran(me, path); // take the HSM transition
+    eos_s32_t ip = sm_tran(me, path); // take the HSM transition
 
     // retrace the entry path in reverse (desired) order...
     for (; ip >= 0; --ip) {
         HSM_ENTER_(path[ip]); // enter path[ip]
     }
     t = path[0];    // stick the target into register
-    me->sm->state_crt = (void *)t; // update the next state
+    me->state_crt = (void *)t; // update the next state
 
     // 一级一级的钻入各层
-    while (HSM_TRIG_(t, Evt_Init) == M_Ret_Tran) {
+    while (HSM_TRIG_(t, Evt_Init) == EOS_Ret_Tran) {
         ip = 0;
-        path[0] = (m_state_handler)me->sm->state_crt;
-        (void)HSM_TRIG_((m_state_handler)me->sm->state_crt, Evt_Null);       // 获取其父状态
-        while (me->sm->state_crt != t) {
+        path[0] = (eos_state_handler)me->state_crt;
+        (void)HSM_TRIG_((eos_state_handler)me->state_crt, Evt_Null);       // 获取其父状态
+        while (me->state_crt != t) {
             ip ++;
-            path[ip] = (m_state_handler)me->sm->state_crt;
-            (void)HSM_TRIG_((m_state_handler)me->sm->state_crt, Evt_Null);   // 获取其父状态
+            path[ip] = (eos_state_handler)me->state_crt;
+            (void)HSM_TRIG_((eos_state_handler)me->state_crt, Evt_Null);   // 获取其父状态
         }
-        me->sm->state_crt = (void *)path[0];
+        me->state_crt = (void *)path[0];
 
         // 层数不能大于MAX_NEST_DEPTH_
         M_ASSERT(ip < MAX_NEST_DEPTH);
@@ -756,29 +710,18 @@ static void sm_dispath(m_obj_t * const me, m_evt_t const * const e)
         t = path[0];
     }
 
-    me->sm->state_crt = (void *)t;                                  // 更新当前状态
-    me->sm->state_tgt = (void *)t;                                  // 防止覆盖
+    me->state_crt = (void *)t;                                  // 更新当前状态
+    me->state_tgt = (void *)t;                                  // 防止覆盖
 }
 
-static void hook_execute(m_obj_t * const me, m_evt_t const * const e)
-{
-    m_hook_list * p_next = me->sm->hook_list;
-    while (p_next != (m_hook_list *)0) {
-        if (p_next->evt_id == e->sig) {
-            ((m_state_handler)(p_next->hook))(me, e);
-        }
-        p_next = p_next->next;
-    }
-}
-
-static int sm_tran(m_obj_t * const me, m_state_handler path[MAX_NEST_DEPTH])
+static eos_s32_t sm_tran(eos_sm_t * const me, eos_state_handler path[MAX_NEST_DEPTH])
 {
     // transition entry path index
-    int ip = -1;
-    int iq; // helper transition entry path index
-    m_state_handler t = path[0];
-    m_state_handler s = path[2];
-    m_ret_t r;
+    eos_s32_t ip = -1;
+    eos_s32_t iq; // helper transition entry path index
+    eos_state_handler t = path[0];
+    eos_state_handler s = path[2];
+    eos_ret_t r;
 
     // (a) 跳转到自身 s == t
     if (s == t) {
@@ -787,7 +730,7 @@ static int sm_tran(m_obj_t * const me, m_state_handler path[MAX_NEST_DEPTH])
     }
 
     (void)HSM_TRIG_(t, Evt_Null); // superstate of target
-    t = (m_state_handler)me->sm->state_crt;
+    t = (eos_state_handler)me->state_crt;
 
     // (b) check source == target->super
     if (s == t)
@@ -796,13 +739,13 @@ static int sm_tran(m_obj_t * const me, m_state_handler path[MAX_NEST_DEPTH])
     (void)HSM_TRIG_(s, Evt_Null); // superstate of src
 
     // (c) check source->super == target->super
-    if ((m_state_handler)me->sm->state_crt == t) {
+    if ((eos_state_handler)me->state_crt == t) {
         HSM_EXIT_(s);  // exit the source
         return 0; // cause entering the target
     }
 
     // (d) check source->super == target
-    if ((m_state_handler)me->sm->state_crt == path[0]) {
+    if ((eos_state_handler)me->state_crt == path[0]) {
         HSM_EXIT_(s); // exit the source
         return -1;
     }
@@ -816,14 +759,14 @@ static int sm_tran(m_obj_t * const me, m_state_handler path[MAX_NEST_DEPTH])
     // enter target and its superstate
     ip = 1;
     path[1] = t; // save the superstate of target
-    t = (m_state_handler)me->sm->state_crt; // save source->super
+    t = (eos_state_handler)me->state_crt; // save source->super
 
     // find target->super->super
     r = HSM_TRIG_(path[1], Evt_Null);
     while (r == M_Ret_Super) {
         ++ ip;
-        path[ip] = (m_state_handler)me->sm->state_crt; // store the entry path
-        if ((m_state_handler)me->sm->state_crt == s) { // is it the source?
+        path[ip] = (eos_state_handler)me->state_crt; // store the entry path
+        if ((eos_state_handler)me->state_crt == s) { // is it the source?
             // indicate that the LCA was found
             iq = 1;
 
@@ -834,7 +777,7 @@ static int sm_tran(m_obj_t * const me, m_state_handler path[MAX_NEST_DEPTH])
         }
         // it is not the source, keep going up
         else
-            r = HSM_TRIG_((m_state_handler)me->sm->state_crt, Evt_Null);
+            r = HSM_TRIG_((eos_state_handler)me->state_crt, Evt_Null);
     }
 
     // LCA found yet?
@@ -871,7 +814,7 @@ static int sm_tran(m_obj_t * const me, m_state_handler path[MAX_NEST_DEPTH])
                 if (HSM_TRIG_(t, Evt_Exit) == M_Ret_Handled) {
                     (void)HSM_TRIG_(t, Evt_Null);
                 }
-                t = (m_state_handler)me->sm->state_crt; //  set to super of t
+                t = (eos_state_handler)me->state_crt; //  set to super of t
                 iq = ip;
                 do {
                     // is this LCA?
@@ -892,11 +835,11 @@ static int sm_tran(m_obj_t * const me, m_state_handler path[MAX_NEST_DEPTH])
     return ip;
 }
 
-static bool meow_condition_null(m_obj_t * const me)
+static eos_bool_t meow_condition_null(eos_sm_t * const me)
 {
     (void)me;
 
-    return true;
+    return EOS_True;
 }
 
 /* for unittest ------------------------------------------------------------- */

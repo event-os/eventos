@@ -6,7 +6,7 @@ M_MODULE_NAME("mewo_ut")
 
 // data struct -----------------------------------------------------------------
 typedef struct led_tag {
-    m_obj_t super;
+    eos_sm_t super;
     bool is_on;
     int count;
     int count_hook1;
@@ -14,31 +14,25 @@ typedef struct led_tag {
 } led_t;
 
 // state -----------------------------------------------------------------------
-static m_ret_t led_state_init(led_t * const me, m_evt_t const * const e);
-static m_ret_t led_state_on(led_t * const me, m_evt_t const * const e);
-static m_ret_t led_state_off(led_t * const me, m_evt_t const * const e);
+static eos_ret_t led_state_init(led_t * const me, eos_event_t const * const e);
+static eos_ret_t led_state_on(led_t * const me, eos_event_t const * const e);
+static eos_ret_t led_state_off(led_t * const me, eos_event_t const * const e);
 
-static void led_hook1(m_obj_t * const me, m_evt_t const * const e);
-static void led_hook2(m_obj_t * const me, m_evt_t const * const e);
+static void led_hook1(eos_sm_t * const me, eos_event_t const * const e);
+static void led_hook2(eos_sm_t * const me, eos_event_t const * const e);
 
 // api -------------------------------------------------------------------------
 static void led_init(led_t * me, const char* name, int priv, bool en_log)
 {
-    me->is_on = false;
+    me->is_on = EOS_False;
     me->count = 0;
     me->count_hook1 = 0;
     me->count_hook2 = 0;
 
-    obj_init((m_obj_t *)me, name, ObjType_Sm, priv, 200);
-    sm_start((m_obj_t *)me, STATE_CAST(led_state_init));
+    eos_sm_init((eos_sm_t *)me, name, priv, 200);
+    eos_sm_start((eos_sm_t *)me, STATE_CAST(led_state_init));
 
-    int ret = 0;
-    ret = sm_reg_hook((m_obj_t *)me, Evt_Test1, STATE_CAST(led_hook1));
-    M_ASSERT(ret == 0);
-    ret = sm_reg_hook((m_obj_t *)me, Evt_Test2, STATE_CAST(led_hook2));
-    M_ASSERT(ret == 0);
-
-    m_dbg_mod_enable(true, name);
+    m_dbg_mod_enable(EOS_True, name);
 }
 
 static int led_get_evt_count(led_t * me)
@@ -52,7 +46,7 @@ static void led_reset_evt_count(led_t * me)
 }
 
 // state function --------------------------------------------------------------
-static m_ret_t led_state_init(led_t * const me, m_evt_t const * const e)
+static eos_ret_t led_state_init(led_t * const me, eos_event_t const * const e)
 {
     (void)e;
 
@@ -61,33 +55,33 @@ static m_ret_t led_state_init(led_t * const me, m_evt_t const * const e)
     EVT_SUB(Evt_Test2);
     evt_publish_period(Evt_Time_500ms, 500);
 
-    return M_TRAN(led_state_off);
+    return EOS_TRAN(led_state_off);
 }
 
-static m_ret_t led_state_off(led_t * const me, m_evt_t const * const e)
+static eos_ret_t led_state_off(led_t * const me, eos_event_t const * const e)
 {
     switch (e->sig) {
         case Evt_Enter:
             M_ERROR("-------------------, Enter");
-            me->is_on = false;
+            me->is_on = EOS_False;
             return M_Ret_Handled;
 
         case Evt_Time_500ms:
             me->count ++;
-            return M_TRAN(led_state_on);
+            return EOS_TRAN(led_state_on);
 
         default:
-            return M_SUPER(m_state_top);
+            return EOS_SUPER(eos_state_top);
     }
 }
 
-static m_ret_t led_state_on(led_t * const me, m_evt_t const * const e)
+static eos_ret_t led_state_on(led_t * const me, eos_event_t const * const e)
 {
     switch (e->sig) {
         case Evt_Enter: {
             M_ERROR("--------------------, Enter");
             int num = 1;
-            me->is_on = true;
+            me->is_on = EOS_True;
             return M_Ret_Handled;
         }
 
@@ -97,80 +91,58 @@ static m_ret_t led_state_on(led_t * const me, m_evt_t const * const e)
 
         case Evt_Time_500ms:
             me->count ++;
-            return M_TRAN(led_state_off);
+            return EOS_TRAN(led_state_off);
 
         default:
-            return M_SUPER(m_state_top);
+            return EOS_SUPER(eos_state_top);
     }
 }
 
-static void led_hook1(m_obj_t * const me, m_evt_t const * const e)
+static void led_hook1(eos_sm_t * const me, eos_event_t const * const e)
 {
     ((led_t *)me)->count_hook1 ++;
 }
 
-static void led_hook2(m_obj_t * const me, m_evt_t const * const e)
+static void led_hook2(eos_sm_t * const me, eos_event_t const * const e)
 {
     ((led_t *)me)->count_hook2 ++;
 }
 
 
 /* unittest ----------------------------------------------------------------- */
-// #define EVT_APPLY_SIZE                      127
-// #define M_EPOOL_SIZE                        130
-// #define M_SM_NUM_MAX                        32
-// #define M_ETIMERPOOL_SIZE                   70
 
-typedef struct m_evt_timer_tag {
+typedef struct eos_event_timer_tag {
     int sig;
     int time_ms_delay;
-    uint64_t timeout_ms;
+    eos_u32_t timeout_ms;
     bool is_one_shoot;
-} m_evt_timer_t;
-
-typedef struct m_log_tag {
-    bool is_enabled;
-    int index;
-    char buffer[MEOW_LOG_SIZE];
-    int count;
-    int count_before_enter;
-    int level_set;
-    int time_ms_period;
-    uint64_t time_ms_bkp;
-} m_log_t;
-
-typedef struct m_log_time_tag {
-    int hour;
-    int minute;
-    int second;
-    int ms;
-} m_log_time_t;
+} eos_event_timer_t;
 
 typedef struct frame_tag {
-    uint32_t magic_head;
-    uint32_t evt_sub_tab[Evt_Max];                          // 事件订阅表
+    eos_u32_t magic_head;
+    eos_u32_t evt_sub_tab[Evt_Max];                          // 事件订阅表
 
     // 状态机池
-    int flag_obj_exist;
-    int flag_obj_enable;
-    m_obj_t * p_obj[M_SM_NUM_MAX];
+    eos_s32_t flag_obj_exist;
+    eos_s32_t flag_obj_enable;
+    eos_sm_t * p_obj[M_SM_NUM_MAX];
 
     // 关于事件池
-    m_evt_t e_pool[M_EPOOL_SIZE];                           // 事件池
-    uint32_t flag_epool[M_EPOOL_SIZE / 32 + 1];             // 事件池标志位
+    eos_event_t e_pool[M_EPOOL_SIZE];                           // 事件池
+    eos_u32_t flag_epool[M_EPOOL_SIZE / 32 + 1];             // 事件池标志位
 
     // 定时器池
-    m_evt_timer_t e_timer_pool[M_ETIMERPOOL_SIZE];
-    uint32_t flag_etimerpool[M_ETIMERPOOL_SIZE / 32 + 1];   // 事件池标志位
-    bool is_etimerpool_empty;
-    uint64_t timeout_ms_min;
+    eos_event_timer_t e_timer_pool[M_ETIMERPOOL_SIZE];
+    eos_u32_t flag_etimerpool[M_ETIMERPOOL_SIZE / 32 + 1];   // 事件池标志位
+    eos_bool_t is_etimerpool_empty;
+    eos_u32_t timeout_ms_min;
 
-    bool is_enabled;
-    bool is_running;
-    bool is_idle;
+    eos_bool_t is_enabled;
+    eos_bool_t is_running;
+    eos_bool_t is_idle;
     
-    uint64_t time_crt_ms;
-    uint32_t magic_tail;
+    eos_u32_t time_crt_ms;
+    eos_u32_t magic_tail;
 } frame_t;
 
 extern int meow_once(void);
@@ -182,16 +154,18 @@ extern void set_time_ms(uint64_t time_ms);
 int meow_unittest_sm(void)
 {
     m_dbg_init();
-    m_dbg_enable(true);
-    m_dbg_flush_enable(true);
+    m_dbg_enable(EOS_True);
+    m_dbg_flush_enable(EOS_True);
     m_dbg_level(MLogLevel_Print);
 
     frame_t * f = (frame_t *)meow_get_frame();
+    printf("sizeof frame_t: %u.\n", sizeof(frame_t));
     // -------------------------------------------------------------------------
     // 01 meow_init
     M_ASSERT(meow_once() == 1);
     // 检查事件池标志位，事件定时器标志位和事件申请区的标志位。
     eventos_init();
+    M_ASSERT(f->is_etimerpool_empty == EOS_True);
 
     uint32_t _flag_epool[M_EPOOL_SIZE / 32 + 1] = {
         0, 0, 0, 0, 0xfffffffc
@@ -200,10 +174,11 @@ int meow_unittest_sm(void)
     uint32_t _flag_etimerpool[M_ETIMERPOOL_SIZE / 32 + 1] = {
         0, 0, 0xffffffc0
     };
-    M_ASSERT(f->is_etimerpool_empty == true);
+    printf("f->is_etimerpool_empty: %d.\n", f->is_etimerpool_empty);
+    M_ASSERT(f->is_etimerpool_empty == EOS_True);
     M_ASSERT_MEM(f->flag_etimerpool, _flag_etimerpool, ((M_ETIMERPOOL_SIZE / 32 + 1) * 4));
-    M_ASSERT(f->is_enabled == true);
-    M_ASSERT(f->is_idle == true);
+    M_ASSERT(f->is_enabled == EOS_True);
+    M_ASSERT(f->is_idle == EOS_True);
 
     // -------------------------------------------------------------------------
     // 02 meow_stop
@@ -217,9 +192,9 @@ int meow_unittest_sm(void)
     eventos_init();
 
     static led_t led_test, led2;
-    led_init(&led_test, "LedTest", 1, true);
-    led_init(&led2, "Led2", 0, true);
-    M_ASSERT(f->is_etimerpool_empty == false);
+    led_init(&led_test, "LedTest", 1, EOS_True);
+    led_init(&led2, "Led2", 0, EOS_True);
+    M_ASSERT(f->is_etimerpool_empty == EOS_False);
     for (int i = 0; i < 10; i ++)
         M_ASSERT(meow_once() == 202);
 
@@ -230,26 +205,26 @@ int meow_unittest_sm(void)
 
     M_ASSERT(f->flag_epool[0] == 1);
     // 检查每个状态机的事件队列
-    M_ASSERT(led_test.super.is_equeue_empty == false);
+    M_ASSERT(led_test.super.is_equeue_empty == EOS_False);
     M_ASSERT(led_test.super.head == 1);
     M_ASSERT(led_test.super.tail == 0);
-    M_ASSERT(led2.super.is_equeue_empty == false);
+    M_ASSERT(led2.super.is_equeue_empty == EOS_False);
     M_ASSERT(led2.super.head == 1);
     M_ASSERT(led2.super.tail == 0);
     // 优先级高的状态机，消费掉此事件。
     M_ASSERT(meow_once() == 0);
-    M_ASSERT(led_test.super.is_equeue_empty == false);
+    M_ASSERT(led_test.super.is_equeue_empty == EOS_False);
     M_ASSERT(led_test.super.head == 1);
     M_ASSERT(led_test.super.tail == 0);
-    M_ASSERT(led2.super.is_equeue_empty == true);
+    M_ASSERT(led2.super.is_equeue_empty == EOS_True);
     M_ASSERT(led2.super.head == 0);
     M_ASSERT(led2.super.tail == 0);
     // 优先级低的状态机，消费掉此事件。
     M_ASSERT(meow_once() == 0);
-    M_ASSERT(led_test.super.is_equeue_empty == true);
+    M_ASSERT(led_test.super.is_equeue_empty == EOS_True);
     M_ASSERT(led_test.super.head == 0);
     M_ASSERT(led_test.super.tail == 0);
-    M_ASSERT(led2.super.is_equeue_empty == true);
+    M_ASSERT(led2.super.is_equeue_empty == EOS_True);
     M_ASSERT(led2.super.head == 0);
     M_ASSERT(led2.super.tail == 0);
     M_ASSERT(meow_once() == 203);
@@ -308,7 +283,7 @@ int meow_unittest_sm(void)
     // 06 evt_publish_delay
     evt_subscribe(&led2.super, Evt_Time_500ms);
     M_ASSERT(f->flag_etimerpool[0] == 1);
-    M_ASSERT(f->is_etimerpool_empty == false);
+    M_ASSERT(f->is_etimerpool_empty == EOS_False);
     M_ASSERT(f->e_timer_pool[0].timeout_ms == 500);
     set_time_ms(200);
     M_ASSERT(meow_evttimer() == 211);
@@ -371,58 +346,8 @@ int meow_unittest_sm(void)
     M_ASSERT(f->e_timer_pool[0].timeout_ms == 2000);
     M_ASSERT(f->flag_epool[0] == 0);
 
-    // -------------------------------------------------------------------------
-    // 08 hook
-    M_ASSERT(led_test.count_hook1 == 0);
-    M_ASSERT(led2.count_hook1 == 0);
-    M_ASSERT(led_test.count_hook2 == 0);
-    M_ASSERT(led2.count_hook2 == 0);
-    // 检查led_test的回调函数链表
-    M_ASSERT(led_test.super.sm->hook_list->hook == led_hook2);
-    M_ASSERT(led_test.super.sm->hook_list->next->hook == led_hook1);
-    M_ASSERT(led_test.super.sm->hook_list->next->next == (m_hook_list *)0);
-    // 检查led2的回调函数链表
-    M_ASSERT(led2.super.sm->hook_list->hook == led_hook2);
-    M_ASSERT(led2.super.sm->hook_list->next->hook == led_hook1);
-    M_ASSERT(led2.super.sm->hook_list->next->next == (m_hook_list *)0);
-    // 发送事件，检查事件值
-    EVT_PUB(Evt_Test1);
-    M_ASSERT(meow_once() == 0);
-    M_ASSERT(led_test.count_hook1 == 0);
-    M_ASSERT(led2.count_hook1 == 1);
-    M_ASSERT(meow_once() == 0);
-    M_ASSERT(led_test.count_hook1 == 1);
-    M_ASSERT(led2.count_hook1 == 1);
-    EVT_PUB(Evt_Test2);
-    M_ASSERT(meow_once() == 0);
-    M_ASSERT(led_test.count_hook2 == 0);
-    M_ASSERT(led2.count_hook2 == 1);
-    M_ASSERT(meow_once() == 0);
-    M_ASSERT(led_test.count_hook2 == 1);
-    M_ASSERT(led2.count_hook2 == 1);
-    // 同时发送两个事件
-    EVT_PUB(Evt_Test1);
-    EVT_PUB(Evt_Test2);
-    led_test.count_hook1 = 0;
-    led_test.count_hook2 = 0;
-    led2.count_hook1 = 0;
-    led2.count_hook2 = 0;
-    M_ASSERT(meow_once() == 0);
-    M_ASSERT(led_test.count_hook1 == 0);
-    M_ASSERT(led2.count_hook1 == 1);
-    M_ASSERT(meow_once() == 0);
-    M_ASSERT(led_test.count_hook2 == 0);
-    M_ASSERT(led2.count_hook2 == 1);
-    M_ASSERT(meow_once() == 0);
-    M_ASSERT(led_test.count_hook1 == 1);
-    M_ASSERT(led2.count_hook1 == 1);
-    M_ASSERT(meow_once() == 0);
-    M_ASSERT(led_test.count_hook2 == 1);
-    M_ASSERT(led2.count_hook2 == 1);
-
     m_print("ALL UNITTEST END!!!! ============================================");
-    M_ASSERT(meow_once() == 203);
-/*
-*/
+    M_ASSERT(meow_once() == 202);
+    
     return 0;
 }

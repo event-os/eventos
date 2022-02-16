@@ -4,13 +4,13 @@
 #include "stdio.h"
 #include <stdlib.h>
 
-static uint64_t time_ms_count = 0;
-void set_time_ms(uint64_t time_ms)
+static eos_u32_t time_ms_count = 0;
+void set_time_ms(eos_u32_t time_ms)
 {
     time_ms_count = time_ms;
 }
 
-uint64_t port_get_time_ms(void)
+eos_u32_t port_get_time_ms(void)
 {
     return time_ms_count;
 }
@@ -40,7 +40,7 @@ void hook_stop(void)
 
 }
 
-void * port_malloc(uint32_t size, const char * name)
+void * port_malloc(eos_u32_t size, const char * name)
 {
     return malloc(size);
 }
