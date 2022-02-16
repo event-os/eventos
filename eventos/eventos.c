@@ -17,14 +17,10 @@ extern "C" {
 // todo ------------------------------------------------------------------------
 // TODO 【已经隐式实现】事件的分级
 // 事件分为系统事件、全局事件、局部事件。如何对这三种事件进行实现，应该仔细考虑。
-// TODO 【暂不实现，未看到明显优势】事件带参的一般化实现
+// TODO 事件带参的一般化实现
 // TODO 【暂不实现，未看到明显优势】可以考虑使用链表实现时间定时器，可以实现无限多个，而且遍历会更加快速。
 // TODO 【暂不实现，未看到明显优势】状态机也考虑用链表管理，可以突破数量的限制。最高优先级为0。
-// TODO 【放弃】增加平面状态机模式。
-// TODO 【完成】使优先级最高为0。
-// TODO 【放弃】是否考虑使时间定时器产生的事件直接执行，而不通过事件池，减少开销？
-// TODO 【完成】加快定时器的执行效率。
-// TODO 【完成】在eos_sm_t中增加list，绑定事件和回调函数，加入事件的回调函数机制。
+// TODO 增加平面状态机模式。
 // TODO 【暂不修改】如果事件队列满，进入断言。这样的设计很不合理，需要进行修改。
 // TODO 增加延时或周期执行回调函数的功能。
 // TODO 增加对Shell在内核中的无缝集成。
@@ -124,9 +120,8 @@ static void sm_dispath(eos_sm_t * const me, eos_event_t const * const e);
 static eos_s32_t sm_tran(eos_sm_t * const me, eos_state_handler path[MAX_NEST_DEPTH]);
 
 // meow ------------------------------------------------------------------------
-void eos_clear(void)
+static void eos_clear(void)
 {
-    printf("sizeof frame_t: %u.\n", sizeof(frame_t));
     // 清空事件池
     for (int i = 0; i < M_EPOOL_SIZE / 32 + 1; i ++)
         frame.flag_epool[i] = 0xffffffff;
@@ -173,7 +168,7 @@ int meow_evttimer(void)
             continue;
         }
 
-        evt_publish(frame.e_timer_pool[i].sig);
+        eos_event_pub_topic(frame.e_timer_pool[i].sig);
         // 清零标志位
         if (frame.e_timer_pool[i].is_one_shoot == EOS_True)
             frame.flag_etimerpool[i / 32] &= table_left_shift_rev[i % 32];
@@ -303,18 +298,18 @@ void eventos_stop(void)
 }
 
 // state machine ---------------------------------------------------------------
-void eos_sm_init(eos_sm_t * const me, const char* name, eos_s32_t priv, eos_s32_t e_queue_depth)
+void eos_sm_init(   eos_sm_t * const me,
+                    eos_u32_t priority,
+                    void *memory_queue, eos_u32_t queue_size,
+                    void *memory_stack, eos_u32_t stask_size)
 {
-    M_ASSERT(strlen(name) < OBJ_NAME_MAX);
-
     // 框架需要先启动起来
     M_ASSERT(frame.is_enabled == EOS_True);
     M_ASSERT(frame.is_running == EOS_False);
     // 参数检查
     M_ASSERT(me != (eos_sm_t *)0);
-    M_ASSERT(priv >= 0 && priv < M_SM_NUM_MAX);
+    M_ASSERT(priority >= 0 && priority < M_SM_NUM_MAX);
 
-    me->name = name;
     me->magic_head = MEOW_MAGIC_HEAD;
     me->magic_tail = MEOW_MAGIC_TAIL;
     me->state_crt = (void *)eos_state_top;
@@ -325,21 +320,21 @@ void eos_sm_init(eos_sm_t * const me, const char* name, eos_s32_t priv, eos_s32_
         return;
 
     // 检查优先级的重复注册
-    M_ASSERT((frame.flag_obj_exist & table_left_shift[priv]) == 0);
+    M_ASSERT((frame.flag_obj_exist & table_left_shift[priority]) == 0);
 
     // 注册到框架里
-    frame.flag_obj_exist |= table_left_shift[priv];
-    frame.p_obj[priv] = me;
+    frame.flag_obj_exist |= table_left_shift[priority];
+    frame.p_obj[priority] = me;
     // 状态机   
-    me->priv = priv;
+    me->priv = priority;
 
     // 事件队列
     port_critical_enter();
-    me->e_queue = (int *)port_malloc(e_queue_depth * sizeof(int), name);
+    me->e_queue = memory_queue;
     M_ASSERT_ID(105, me->e_queue != 0);
     me->head = 0;
     me->tail = 0;
-    me->depth = e_queue_depth;
+    me->depth = queue_size;
     me->is_equeue_empty = EOS_True;
     port_critical_exit();
 }
@@ -392,10 +387,10 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 }
 
 // event -----------------------------------------------------------------------
-void evt_publish(int evt_id)
+void eos_event_pub_topic(eos_topic_t topic)
 {
-    eos_s32_t para;
-    evt_publish_para(evt_id, &para);
+    eos_u32_t para[MEOW_EVT_PARAS_NUM];
+    evt_publish_para(topic, para);
 }
 
 void evt_publish_para(int evt_id, eos_s32_t paras[])
@@ -446,7 +441,7 @@ void evt_publish_para(int evt_id, eos_s32_t paras[])
             M_ASSERT_ID(104, EOS_False);
         // 事件队列未满，将事件池序号放入事件队列
         *(frame.p_obj[i]->e_queue + frame.p_obj[i]->head) = index_empty;
-
+        
         frame.p_obj[i]->head ++;
         frame.p_obj[i]->head %= frame.p_obj[i]->depth;
         if (frame.p_obj[i]->is_equeue_empty == EOS_True)
@@ -456,89 +451,14 @@ void evt_publish_para(int evt_id, eos_s32_t paras[])
     port_critical_exit();
 }
 
-void evt_send(const char * obj_name, eos_s32_t evt_id)
+void eos_event_sub(eos_sm_t * const me, eos_topic_t topic)
 {
-    eos_s32_t para;
-    evt_send_para(obj_name, evt_id, &para);
+    frame.evt_sub_tab[topic] |= table_left_shift[me->priv];
 }
 
-void evt_send_para(const char * obj_name, eos_s32_t evt_id, eos_s32_t para[])
+void eos_event_unsub(eos_sm_t * const me, eos_topic_t topic)
 {
-    // 保证框架已经运行
-    M_ASSERT(frame.is_enabled == EOS_True);
-    // 没有状态机使能，返回
-    if (frame.flag_obj_enable == 0)
-        return;
-    // 如果事件池满，进入断言；如果未满，获取到空位置，并将此位置1
-    port_critical_enter();
-    eos_s32_t index_empty = 0xffffffff;
-    for (int i = 0; i < (M_EPOOL_SIZE / 32 + 1); i ++) {
-        if (frame.flag_epool[i] == 0xffffffff)
-            continue;
-        for (int j = 0; j < 32; j ++) {
-            if ((frame.flag_epool[i] & table_left_shift[j]) == 0) {
-                frame.flag_epool[i] |= table_left_shift[j];
-                index_empty = i * 32 + j;
-                break;
-            }
-        }
-        break;
-    }
-    M_ASSERT_ID(101, index_empty != 0xffffffff);
-    // 新建事件
-    static eos_event_t e;
-    e.sig = evt_id;
-    e.mode = EvtMode_Send;
-    for (int i = 0; i < MEOW_EVT_PARAS_NUM; i ++)
-        e.para[i].s32 = para[i];
-    // 放入事件池
-    frame.e_pool[index_empty] = *(eos_event_t *)&e;
-    port_critical_exit();
-
-    // 根据名字寻找相应的对象
-    eos_s32_t priv = M_SM_NUM_MAX;
-    for (int i = 0; i < M_SM_NUM_MAX; i ++) {
-        if ((frame.flag_obj_exist & table_left_shift[i]) == 0)
-            continue;
-        if (frame.p_obj[i]->is_enabled == EOS_False)
-            continue;
-        if (strncmp(frame.p_obj[i]->name, obj_name, OBJ_NAME_MAX) == 0) {
-            priv = i;
-            break;
-        }
-    }
-    if (priv == M_SM_NUM_MAX)
-        M_ASSERT_ID(109, EOS_False);
-
-    port_critical_enter();
-    // 如果事件队列满，进入断言
-    if (((frame.p_obj[priv]->head + 1) % frame.p_obj[priv]->depth) == frame.p_obj[priv]->tail)
-        M_ASSERT_ID(104, EOS_False);
-    // 事件队列未满，将事件池序号放入事件队列
-    *(frame.p_obj[priv]->e_queue + frame.p_obj[priv]->head) = index_empty;
-
-    frame.p_obj[priv]->head ++;
-    frame.p_obj[priv]->head %= frame.p_obj[priv]->depth;
-    if (frame.p_obj[priv]->is_equeue_empty == EOS_True)
-        frame.p_obj[priv]->is_equeue_empty = EOS_False;
-    frame.is_idle = EOS_False;
-    port_critical_exit();
-}
-
-void evt_subscribe(eos_sm_t * const me, eos_s32_t e_id)
-{
-    frame.evt_sub_tab[e_id] |= table_left_shift[me->priv];
-}
-
-void evt_unsubscribe(eos_sm_t * const me, eos_s32_t e_id)
-{
-    frame.evt_sub_tab[e_id] &= table_left_shift_rev[me->priv];
-}
-
-void evt_unsub_all(eos_sm_t * const me)
-{
-    for (int i = 0; i < Evt_Max; i ++)
-        frame.evt_sub_tab[i] = 0;
+    frame.evt_sub_tab[topic] &= table_left_shift_rev[me->priv];
 }
 
 static void evt_publish_time(int evt_id, eos_s32_t time_ms, eos_bool_t is_oneshoot)
@@ -547,7 +467,7 @@ static void evt_publish_time(int evt_id, eos_s32_t time_ms, eos_bool_t is_onesho
     M_ASSERT(!(time_ms == 0 && is_oneshoot == EOS_False));
 
     if (time_ms == 0) {
-        EVT_PUB(evt_id);
+        eos_event_pub_topic(evt_id);
         return;
     }
 
@@ -602,12 +522,12 @@ static void evt_publish_time(int evt_id, eos_s32_t time_ms, eos_bool_t is_onesho
     frame.timeout_ms_min = min_time_out_ms;
 }
 
-void evt_publish_delay(int evt_id, eos_s32_t time_ms)
+void eos_event_pub_delay(eos_topic_t evt_id, eos_u32_t time_ms)
 {
     evt_publish_time(evt_id, time_ms, EOS_True);
 }
 
-void evt_publish_period(int evt_id, eos_s32_t time_ms_period)
+void eos_event_pub_period(eos_topic_t evt_id, eos_u32_t time_ms_period)
 {
     evt_publish_time(evt_id, time_ms_period, EOS_False);
 }

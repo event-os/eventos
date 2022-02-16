@@ -25,7 +25,7 @@ EventOS Nano，是开源的嵌入式开发平台EventOS（整理中）在小资�
     + **unity** 单元测试框架
 + **例程代码**
     + **freertos** 对FreeRTOS的适配例程（未完成）。
-    + **freertos** 对符合POSIX标准的操作系统（如Linux、VxWork、MinGW等)的适配例程（未完成）。
+    + **posix** 对符合POSIX标准的操作系统（如Linux、VxWork、MinGW等)的适配例程（未完成）。
     + **arm-cm0** 对ARM Cortex-M0芯片的裸机运行（无RTOS）的例程（未完成）。
     + **arm-cm3** 对ARM Cortex-M3芯片的裸机运行（无RTOS）的例程（未完成）。
     + **unittest** 对源码进行的单元测试例程。
@@ -36,11 +36,11 @@ EventOS Nano，是开源的嵌入式开发平台EventOS（整理中）在小资�
 文档包含Doxygen代码文档的生成路径（未完成）、图片、代码相关文档（如快速入门文档、移植文档、开发环境搭建说明文档等）。
 
 ### EventOS Nano项目未来的开发路线
-EventOS Nano曾经让我在过去的工作中受益匪浅。未来，EventOS Nano这个项目我会一直完善下去。我的目标是，在2022年，将EventOS Nano项目做成Gitee上的GVP项目。但目前已经完成的工作还远远不足。就我识别到的，将来需要完善的工作列举如下：
+EventOS Nano曾经让我在过去的工作中受益匪浅，让我非常高效的写出了很多可靠的程序。未来，EventOS Nano这个项目我会一直完善下去。我的目标是，在2022年，将EventOS Nano项目做成Gitee上的GVP项目。但目前已经完成的工作还远远不足，就我识别到的，将来需要完善的工作列举如下：
 1. 良好的注释和文档
-    + 快速入门文档
-    + 移植文档（含裸机和RTOS上的移植）
-    + 开发环境搭建说明
+    + UM-001 快速入门文档
+    + UM-002 移植文档（含裸机和RTOS上的移植）
+    + UM-003 开发环境搭建说明
 1. 将所有的变量和API以EventOS风格进行重构
 1. 将C99标准实现的代码，修改为Clean C来实现。
 1. 【完成】将构建工具修改为SCons

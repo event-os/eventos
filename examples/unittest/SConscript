@@ -1,6 +1,6 @@
 src = ['main.c', 'unittest.c', 'port_unittest.c']
 
-paths = ['.', '../../eventos', '../../3rd/mdebug']
+paths = ['.', '../../eventos', '../../3rd/mdebug', '../../3rd/unity']
 
 defines = ['main_function']
 ccflags = []
