@@ -38,16 +38,7 @@ static void led_init(led_t * me, const char* name, int priv, bool en_log)
     ret = sm_reg_hook((m_obj_t *)me, Evt_Test2, STATE_CAST(led_hook2));
     M_ASSERT(ret == 0);
 
-    ret = sm_state_name((m_obj_t *)me, STATE_CAST(led_state_off), "LedOff");
-    M_ASSERT(ret == 0);
-    ret = sm_state_name((m_obj_t *)me, STATE_CAST(led_state_on), "LedOn");
-    M_ASSERT(ret == 0);
-
-    evt_name(Evt_Time_500ms, "Time_500ms");
-
     m_dbg_mod_enable(true, name);
-
-    sm_log_en((m_obj_t *)me, en_log);
 }
 
 static int led_get_evt_count(led_t * me)
@@ -158,9 +149,6 @@ typedef struct m_log_time_tag {
 typedef struct frame_tag {
     uint32_t magic_head;
     uint32_t evt_sub_tab[Evt_Max];                          // 事件订阅表
-#if (MEOW_SYSTEMLOG_EN != 0)
-    const char * evt_name[Evt_Max];                         // 事件名称表
-#endif
 
     // 状态机池
     int flag_obj_exist;
@@ -177,7 +165,6 @@ typedef struct frame_tag {
     bool is_etimerpool_empty;
     uint64_t timeout_ms_min;
 
-    bool is_log_enabled;
     bool is_enabled;
     bool is_running;
     bool is_idle;
@@ -204,8 +191,7 @@ int meow_unittest_sm(void)
     // 01 meow_init
     M_ASSERT(meow_once() == 1);
     // 检查事件池标志位，事件定时器标志位和事件申请区的标志位。
-    meow_init();
-    meow_log_enable(true);
+    eventos_init();
 
     uint32_t _flag_epool[M_EPOOL_SIZE / 32 + 1] = {
         0, 0, 0, 0, 0xfffffffc
@@ -222,14 +208,13 @@ int meow_unittest_sm(void)
     // -------------------------------------------------------------------------
     // 02 meow_stop
     M_ASSERT(meow_once() == 201);
-    meow_stop();
+    eventos_stop();
     M_ASSERT(meow_once() == 1);
     M_ASSERT(meow_evttimer() == 210);
 
     // -------------------------------------------------------------------------
     // 03 sm_init sm_start
-    meow_init();
-    meow_log_enable(true);
+    eventos_init();
 
     static led_t led_test, led2;
     led_init(&led_test, "LedTest", 1, true);

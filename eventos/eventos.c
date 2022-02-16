@@ -23,14 +23,11 @@ extern "C" {
 // TODO 【放弃】增加平面状态机模式。
 // TODO 【完成】使优先级最高为0。
 // TODO 【放弃】是否考虑使时间定时器产生的事件直接执行，而不通过事件池，减少开销？
-// TODO 【完成】增加LOG功能在内核中的无缝嵌入。
 // TODO 【完成】加快定时器的执行效率。
 // TODO 【完成】在m_obj_t中增加list，绑定事件和回调函数，加入事件的回调函数机制。
 // TODO 【暂不修改】如果事件队列满，进入断言。这样的设计很不合理，需要进行修改。
 // TODO 增加延时或周期执行回调函数的功能。
-// TODO 【完成】增加了周期清空log缓冲区，或者80%满清空缓冲区的功能。
 // TODO 增加对Shell在内核中的无缝集成。
-// TODO 【完成】在打印的LOG上加上时间。
 // TODO 行为树并行节点子节点缓冲区，可以使用vector容器实现，可以实现每个控制节点无限个子节点。
 // TODO 行为树的栈也可以使用vector实现，可以实现行为树无限深度。
 // TODO 【完成】删去此类型BtfNode_Root
@@ -53,14 +50,6 @@ extern "C" {
 // TODO 【完成】对Meow框架中每一块RAM添加头尾Magic，以便防止内存被覆盖。
 // TODO 【完成】添加编译开关，关闭行为树功能。
 
-// bug list --------------------------------------------------------------------
-// TODO Bug01 【解决】MCU下运行获取到当前时间是不对的。
-// TODO Bug02 【解决】对事件池中的事件没有很好的销毁掉。
-// TODO Bug03 【解决】Evt_Enter执行的内容总是先于Evt_Enter本身打印出来。
-// TODO Bug04 宏HSM_ENTER存在bug，在添加了sm_state_log之后，会导致，第一个状态不能执
-//            行Evt_Enter。
-// TODO Bug05 【解决】随机数发生函数，并不能在任何情况下，都能有效产生随机数，删去此函数。
-
 // framework -------------------------------------------------------------------
 typedef struct m_evt_timer_tag {
     int sig;
@@ -72,9 +61,6 @@ typedef struct m_evt_timer_tag {
 typedef struct frame_tag {
     uint32_t magic_head;
     uint32_t evt_sub_tab[Evt_Max];                          // 事件订阅表
-#if (MEOW_SYSTEMLOG_EN != 0)
-    const char * evt_name[Evt_Max];                         // 事件名称表
-#endif
 
     // 状态机池
     int flag_obj_exist;
@@ -91,7 +77,6 @@ typedef struct frame_tag {
     bool is_etimerpool_empty;
     uint64_t timeout_ms_min;
 
-    bool is_log_enabled;
     bool is_enabled;
     bool is_running;
     bool is_idle;
@@ -132,14 +117,8 @@ static const uint32_t table_left_shift_rev[32] = {
     ((*(state_))(me, &meow_system_evt_table[sig_]))
 
 #define HSM_EXIT_(state_) do {                                                 \
-        sm_state_log(me, state_, Evt_Exit);                                    \
         HSM_TRIG_(state_, Evt_Exit);                                           \
     } while (false)
-
-// #define HSM_ENTER_(state_) do {                                                \
-//         sm_state_log(me, state_, Evt_Enter);                                   \
-//         HSM_TRIG_(state_, Evt_Enter);                                          \
-//     } while (false)
 
 #define HSM_ENTER_(state_) do {                                                \
         HSM_TRIG_(state_, Evt_Enter);                                          \
@@ -149,7 +128,6 @@ static const uint32_t table_left_shift_rev[32] = {
 static void sm_dispath(m_obj_t * const me, m_evt_t const * const e);
 static void hook_execute(m_obj_t * const me, m_evt_t const * const e);
 static int sm_tran(m_obj_t * const me, m_state_handler path[MAX_NEST_DEPTH]);
-static int sm_state_log(m_obj_t * const me, m_state_handler state, int evt_id);
 
 // meow ------------------------------------------------------------------------
 static void meow_clear(void)
@@ -165,24 +143,16 @@ static void meow_clear(void)
     for (int i = 0; i < M_ETIMERPOOL_SIZE; i ++)
         frame.flag_etimerpool[i / 32] &= table_left_shift_rev[i % 32];
     frame.is_etimerpool_empty = true;
-    // 清空事件名字区
-    for (int i = 0; i < Evt_Max; i ++)
-        frame.evt_name[i] = 0;
 }
 
-void meow_init(void)
+void eventos_init(void)
 {
     meow_clear();
     frame.is_enabled = true;
     frame.is_running = false;
-    frame.is_log_enabled = false;
     frame.is_idle = true;
     frame.magic_head = MEOW_MAGIC_HEAD;
     frame.magic_tail = MEOW_MAGIC_TAIL;
-
-    evt_name(Evt_Enter, "Enter");
-    evt_name(Evt_Exit, "Exit");
-    evt_name(Evt_Init, "Init");
 }
 
 int meow_evttimer(void)
@@ -313,7 +283,7 @@ int meow_once(void)
     return ret;
 }
 
-int meow_run(void)
+int eventos_run(void)
 {
     M_ASSERT(frame.is_enabled == true);
     hook_start();
@@ -336,7 +306,7 @@ int meow_run(void)
     }
 }
 
-void meow_stop(void)
+void eventos_stop(void)
 {
     frame.is_enabled = false;
     hook_stop();
@@ -367,7 +337,6 @@ void obj_init(m_obj_t * const me, const char* name, m_obj_type_t obj_type,
         me->sm->state_crt = (void *)m_state_top;
         me->sm->state_tgt = (void *)m_state_top;
         me->sm->hook_list = (m_hook_list *)0;
-        me->sm->state_log_list = (m_state_log_t *)0;
     }
     else {
         M_ASSERT(false);
@@ -440,8 +409,6 @@ void sm_start(m_obj_t * const me, m_state_handler state_init)
         t = path[0];
 
         _ret = HSM_TRIG_(t, Evt_Init);
-        if (_ret == M_Ret_Tran)
-            sm_state_log(me, path[ip], Evt_Init);
     } while (_ret == M_Ret_Tran);
 
     me->sm->state_crt = (void *)t;
@@ -470,39 +437,7 @@ int sm_reg_hook(m_obj_t * const me, int evt_id, m_state_handler hook)
     return 0;
 }
 
-int sm_state_name(m_obj_t * const me, m_state_handler state, const char * name)
-{
-    // 检查已注册名称
-    m_state_log_t * p_list = me->sm->state_log_list;
-    if (p_list != (m_state_log_t *)0)
-        do {
-            if (p_list->state == state)
-                return 1;
-            p_list = p_list->next;
-        } while (p_list != (m_state_log_t *)0);
-
-    // 建立新节点
-    m_state_log_t * p_new = (m_state_log_t *)port_malloc(sizeof(m_state_log_t), name);
-    M_ASSERT(p_new != 0);
-    p_new->next = me->sm->state_log_list;
-    p_new->state = (void *)state;
-    p_new->name = name;
-    me->sm->state_log_list = p_new;
-
-    return 0;
-}
-
-void sm_log_en(m_obj_t * const me, bool log_en)
-{
-    me->is_log_enabled = log_en;
-}
-
 // event -----------------------------------------------------------------------
-void evt_name(int evt_id, const char * name)
-{
-    frame.evt_name[evt_id] = name;
-}
-
 void evt_publish(int evt_id)
 {
     int para;
@@ -748,37 +683,7 @@ m_ret_t m_state_top(m_obj_t * const me, m_evt_t const * const e)
     return M_Ret_Null;
 }
 
-/* log ---------------------------------------------------------------------- */
-void meow_log_enable(bool log_enable)
-{
-    frame.is_log_enabled = log_enable;
-}
-
 // static function -------------------------------------------------------------
-static int sm_state_log(m_obj_t * const me, m_state_handler state, int evt_id)
-{
-    if (me->is_log_enabled == false)
-        return 1;
-    
-    const char * name_state = 0;
-    // 获取状态名称
-    m_state_log_t * p_state_list = me->sm->state_log_list;
-    while (p_state_list != (m_state_log_t *)0) {
-        if (state == p_state_list->state)
-            name_state= p_state_list->name;
-        p_state_list = p_state_list->next;
-    }
-    if (name_state == 0)
-        return 2;
-
-    if (frame.evt_name[evt_id] == 0)
-        return 3;
-
-    m_dbg_evt(me->name, name_state, frame.evt_name[evt_id]);
-
-    return 0;
-}
-
 static void sm_dispath(m_obj_t * const me, m_evt_t const * const e)
 {
     M_ASSERT(e != (m_evt_t *)0);
@@ -794,7 +699,6 @@ static void sm_dispath(m_obj_t * const me, m_evt_t const * const e)
     do {
         s = (m_state_handler)me->sm->state_crt;
         r = (*s)(me, e);                              // 执行状态S下的事件处理
-        sm_state_log(me, s, e->sig);
     } while (r == M_Ret_Super);
 
     // 如果不存在状态转移
@@ -817,7 +721,6 @@ static void sm_dispath(m_obj_t * const me, m_evt_t const * const e)
         if (HSM_TRIG_(t, Evt_Exit) == M_Ret_Handled) {
             (void)HSM_TRIG_(t, Evt_Null); // find superstate of t
         }
-        sm_state_log(me, t, Evt_Exit);
         t = (m_state_handler)me->sm->state_crt; // stateTgt_ holds the superstate
     }
 
@@ -832,7 +735,6 @@ static void sm_dispath(m_obj_t * const me, m_evt_t const * const e)
 
     // 一级一级的钻入各层
     while (HSM_TRIG_(t, Evt_Init) == M_Ret_Tran) {
-        sm_state_log(me, t, Evt_Init);
         ip = 0;
         path[0] = (m_state_handler)me->sm->state_crt;
         (void)HSM_TRIG_((m_state_handler)me->sm->state_crt, Evt_Null);       // 获取其父状态
@@ -969,7 +871,6 @@ static int sm_tran(m_obj_t * const me, m_state_handler path[MAX_NEST_DEPTH])
                 if (HSM_TRIG_(t, Evt_Exit) == M_Ret_Handled) {
                     (void)HSM_TRIG_(t, Evt_Null);
                 }
-                sm_state_log(me, t, Evt_Exit);
                 t = (m_state_handler)me->sm->state_crt; //  set to super of t
                 iq = ip;
                 do {

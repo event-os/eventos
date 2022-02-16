@@ -76,17 +76,11 @@ typedef struct hook_list_tag {
     int evt_id;
 } m_hook_list;
 
-typedef struct m_state_log_tag {
-    struct m_state_log_tag * next;
-    void * state;
-    const char * name;
-} m_state_log_t;
 // 数据结构 - 行为树相关 --------------------------------------------------------
 // 状态机模式
 typedef struct m_mode_sm_tag {
     volatile void * state_crt;
     volatile void * state_tgt;
-    m_state_log_t * state_log_list;
     m_hook_list * hook_list;
 } m_mode_sm_t;
 
@@ -97,7 +91,6 @@ typedef struct m_obj_tag {
     m_obj_type_t obj_type;
     int priv;
     bool is_enabled;
-    bool is_log_enabled;
     // 状态机模式
     m_mode_sm_t * sm;
     // evt queue
@@ -115,24 +108,21 @@ typedef m_ret_t (* m_state_handler)(m_obj_t * const me, m_evt_t const * const e)
 // api -------------------------------------------------------------------------
 // 关于Meow框架 ---------------------------------------------
 // 对框架进行初始化，在各状态机初始化之前调用。
-void meow_init(void);
+void eventos_init(void);
 // 启动框架，放在main函数的末尾。
-int meow_run(void);
+int eventos_run(void);
 // 停止框架的运行（不常用）
 // 停止框架后，框架会在执行完当前状态机的当前事件后，清空各状态机事件队列，清空事件池，
 // 不再执行任何功能，直至框架被再次启动。
-void meow_stop(void);
+void eventos_stop(void);
 
 // 关于状态机 -----------------------------------------------
 // 状态机初始化函数
 void obj_init(m_obj_t * const me, const char* name, m_obj_type_t obj_type, int pri, int fifo_depth);
 void sm_start(m_obj_t * const me, m_state_handler state_init);
 int sm_reg_hook(m_obj_t * const me, int evt_id, m_state_handler hook);
-int sm_state_name(m_obj_t * const me, m_state_handler state, const char * name);
-void sm_log_en(m_obj_t * const me, bool log_en);
 
 // 关于事件 -------------------------------------------------
-void evt_name(int evt_id, const char * name);
 void evt_subscribe(m_obj_t * const me, int e_id);
 void evt_unsubscribe(m_obj_t * const me, int e_id);
 void evt_unsub_all(m_obj_t * const me);
@@ -160,10 +150,6 @@ m_ret_t m_state_top(m_obj_t * const me, m_evt_t const * const e);
 #define M_TRAN(target)              m_tran((m_obj_t * )me, (m_state_handler)target)
 #define M_SUPER(super)              m_super((m_obj_t * )me, (m_state_handler)super)
 #define STATE_CAST(state)           (m_state_handler)(state)
-
-/* log ---------------------------------------------------------------------- */
-void meow_log_enable(bool log_enable);
-void meow_smf_log_enable(bool smf_log_enable);
 
 /* port --------------------------------------------------------------------- */
 uint64_t port_get_time_ms(void);
