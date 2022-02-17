@@ -1,15 +1,12 @@
 #include "eventos.h"
 #include "event_def.h"
-#include "m_assert.h"
-#include "m_debug.h"
 #include "unity.h"
-
-M_MODULE_NAME("mewo_ut")
+#include <stdbool.h>
 
 // data struct -----------------------------------------------------------------
 typedef struct led_tag {
     eos_sm_t super;
-    bool is_on;
+    bool status;
     int count;
 } led_t;
 
@@ -21,7 +18,7 @@ static eos_ret_t led_state_off(led_t * const me, eos_event_t const * const e);
 // api -------------------------------------------------------------------------
 static void led_init(led_t * const me, eos_u8_t priv, void *queue, eos_u32_t queue_size)
 {
-    me->is_on = EOS_False;
+    me->status = EOS_False;
     me->count = 0;
 
     eos_sm_init(&me->super, priv, queue, queue_size, 0, 0);
@@ -44,6 +41,7 @@ static eos_ret_t led_state_init(led_t * const me, eos_event_t const * const e)
     (void)e;
 
     EOS_EVENT_SUB(Event_Time_500ms);
+
     eos_event_pub_period(Event_Time_500ms, 500);
 
     return EOS_TRAN(led_state_off);
@@ -53,8 +51,7 @@ static eos_ret_t led_state_off(led_t * const me, eos_event_t const * const e)
 {
     switch (e->topic) {
         case Event_Enter:
-            M_ERROR("-------------------, Enter");
-            me->is_on = EOS_False;
+            me->status = EOS_False;
             return EOS_Ret_Handled;
 
         case Event_Time_500ms:
@@ -70,14 +67,12 @@ static eos_ret_t led_state_on(led_t * const me, eos_event_t const * const e)
 {
     switch (e->topic) {
         case Event_Enter: {
-            M_ERROR("--------------------, Enter");
             int num = 1;
-            me->is_on = EOS_True;
+            me->status = EOS_True;
             return EOS_Ret_Handled;
         }
 
         case Event_Exit:
-            M_ERROR("++++++++++++++++++++, Exit");
             return EOS_Ret_Handled;
 
         case Event_Time_500ms:
@@ -89,14 +84,12 @@ static eos_ret_t led_state_on(led_t * const me, eos_event_t const * const e)
     }
 }
 
-
 /* unittest ----------------------------------------------------------------- */
-
 typedef struct eos_event_timer_tag {
     int topic;
     int time_ms_delay;
     eos_u32_t timeout_ms;
-    bool is_one_shoot;
+    bool statuse_shoot;
 } eos_event_timer_t;
 
 typedef struct frame_tag {
@@ -132,14 +125,8 @@ extern void set_time_ms(uint64_t time_ms);
 
 static eos_u32_t eos_sub_table[Event_Max];
 
-#include "stdio.h"
 void eos_test(void)
 {
-    m_dbg_init();
-    m_dbg_enable(EOS_True);
-    m_dbg_flush_enable(EOS_True);
-    m_dbg_level(MLogLevel_Print);
-
     frame_t * f = (frame_t *)eos_get_framework();
     // -------------------------------------------------------------------------
     // 01 meow_init
@@ -151,13 +138,16 @@ void eos_test(void)
     uint32_t _flag_epool[EOS_EPOOL_SIZE / 32 + 1] = {
         0, 0, 0, 0, 0xfffffffc
     };
-    M_ASSERT_MEM(f->flag_epool, _flag_epool, ((EOS_EPOOL_SIZE / 32 + 1) * 4));
+    for (int i = 0; i < (EOS_EPOOL_SIZE / 32 + 1); i ++) {
+        TEST_ASSERT_EQUAL_INT32(_flag_epool[i], f->flag_epool[i]);
+    }
     uint32_t _flag_etimerpool[EOS_ETIMERPOOL_SIZE / 32 + 1] = {
         0, 0, 0xffffffc0
     };
-    printf("f->is_etimerpool_empty: %d.\n", f->is_etimerpool_empty);
     TEST_ASSERT_EQUAL_INT8(EOS_True, f->is_etimerpool_empty);
-    M_ASSERT_MEM(f->flag_etimerpool, _flag_etimerpool, ((EOS_ETIMERPOOL_SIZE / 32 + 1) * 4));
+    for (int i = 0; i < (EOS_ETIMERPOOL_SIZE / 32 + 1); i ++) {
+        TEST_ASSERT_EQUAL_INT32(_flag_etimerpool[i], f->flag_etimerpool[i]);
+    }
     TEST_ASSERT_EQUAL_INT8(EOS_True, f->is_enabled);
     TEST_ASSERT_EQUAL_INT8(EOS_True, f->is_idle);
 
@@ -187,108 +177,108 @@ void eos_test(void)
     // 04 sm_init sm_start
     eos_event_pub_delay(Event_Time_500ms, 0);
     // 检查事件池
-    M_ASSERT(f->flag_epool[0] == 1);
+    TEST_ASSERT_EQUAL_UINT32(1, f->flag_epool[0]);
     // 检查每个状态机的事件队列
-    TEST_ASSERT_EQUAL_INT8(EOS_False, led_test.super.is_equeue_empty);
+    TEST_ASSERT_EQUAL_INT8(EOS_False, led_test.super.equeue_empty);
     TEST_ASSERT_EQUAL_UINT8(1, led_test.super.priv);
     TEST_ASSERT_EQUAL_UINT32(0, led_test.super.tail);
     TEST_ASSERT_EQUAL_UINT32(1, led_test.super.head);
-    TEST_ASSERT_EQUAL_INT8(EOS_False, led2.super.is_equeue_empty);
+    TEST_ASSERT_EQUAL_INT8(EOS_False, led2.super.equeue_empty);
     TEST_ASSERT_EQUAL_UINT8(0, led2.super.priv);
     TEST_ASSERT_EQUAL_UINT32(0, led2.super.tail);
     TEST_ASSERT_EQUAL_UINT32(1, led2.super.head);
     // 优先级高的状态机，消费掉此事件。
-    M_ASSERT(eos_once() == 0);
-    M_ASSERT(led_test.super.is_equeue_empty == EOS_False);
-    M_ASSERT(led_test.super.head == 1);
-    M_ASSERT(led_test.super.tail == 0);
-    M_ASSERT(led2.super.is_equeue_empty == EOS_True);
-    M_ASSERT(led2.super.head == 0);
-    M_ASSERT(led2.super.tail == 0);
+    TEST_ASSERT_EQUAL_INT32(0, eos_once());
+    TEST_ASSERT_EQUAL_UINT8(EOS_False, led_test.super.equeue_empty);
+    TEST_ASSERT_EQUAL_UINT32(1, led_test.super.head);
+    TEST_ASSERT_EQUAL_UINT32(0, led_test.super.tail);
+    TEST_ASSERT_EQUAL_UINT8(EOS_True, led2.super.equeue_empty);
+    TEST_ASSERT_EQUAL_UINT32(0, led2.super.head);
+    TEST_ASSERT_EQUAL_UINT32(0, led2.super.tail);
     // 优先级低的状态机，消费掉此事件。
-    M_ASSERT(eos_once() == 0);
-    M_ASSERT(led_test.super.is_equeue_empty == EOS_True);
-    M_ASSERT(led_test.super.head == 0);
-    M_ASSERT(led_test.super.tail == 0);
-    M_ASSERT(led2.super.is_equeue_empty == EOS_True);
-    M_ASSERT(led2.super.head == 0);
-    M_ASSERT(led2.super.tail == 0);
-    M_ASSERT(eos_once() == 203);
-    M_ASSERT(eos_once() == 202);
-    M_ASSERT(f->flag_epool[0] == 0);
+    TEST_ASSERT_EQUAL_INT32(0, eos_once());
+    TEST_ASSERT_EQUAL_UINT8(EOS_True, led_test.super.equeue_empty);
+    TEST_ASSERT_EQUAL_UINT32(0, led_test.super.head);
+    TEST_ASSERT_EQUAL_UINT32(0, led_test.super.tail);
+    TEST_ASSERT_EQUAL_UINT32(EOS_True, led2.super.equeue_empty);
+    TEST_ASSERT_EQUAL_UINT32(0, led2.super.head);
+    TEST_ASSERT_EQUAL_UINT32(0, led2.super.tail);
+    TEST_ASSERT_EQUAL_INT32(203, eos_once());
+    TEST_ASSERT_EQUAL_INT32(202, eos_once());
+    TEST_ASSERT_EQUAL_UINT32(0, f->flag_epool[0]);
     
     // -------------------------------------------------------------------------
     // 04 eos_event_pub_topic
     eos_event_pub_topic(Event_Time_500ms);
-    M_ASSERT(f->flag_epool[0] == 1);
-    M_ASSERT(eos_once() == 0);
-    M_ASSERT(eos_once() == 0);
-    M_ASSERT(eos_once() == 203);
-    M_ASSERT(eos_once() == 202);
-    M_ASSERT(f->flag_epool[0] == 0);
-    printf("---------------------------\n");
+    TEST_ASSERT_EQUAL_UINT32(1, f->flag_epool[0]);
+    TEST_ASSERT_EQUAL_INT32(0, eos_once());
+    TEST_ASSERT_EQUAL_INT32(0, eos_once());
+    TEST_ASSERT_EQUAL_INT32(203, eos_once());
+    TEST_ASSERT_EQUAL_INT32(202, eos_once());
+    TEST_ASSERT_EQUAL_UINT32(0, f->flag_epool[0]);
     int evt_num = EOS_EPOOL_SIZE - 1;
     // 测试事件池满的情形
     for (int i = 0; i < evt_num; i ++) {
         eos_event_pub_topic(Event_Time_500ms);
-        printf("--------------------------- %d.\n", i);
-        M_ASSERT_ID(i, f->flag_epool[i / 32] & (1 << (i % 32)) != 0);
-        M_ASSERT(led2.super.head == (i + 1));
-        M_ASSERT(*(led2.super.e_queue + i) == i);
+        TEST_ASSERT_NOT_EQUAL_UINT32(0, f->flag_epool[i / 32] & (1 << (i % 32)));
+        TEST_ASSERT_EQUAL_UINT32((i + 1), led2.super.head);
+        TEST_ASSERT_EQUAL_UINT32(i, *(led2.super.e_queue + i));
     }
-    printf("---------------------------\n");
+
     // 事件池满，测试通过
     // eos_event_pub_topic(Event_Time_500ms);
     // 优先级高的状态机执行其事件。
     for (int i = 0; i < evt_num; i ++) {
-        M_ASSERT(eos_once() == 0);
+        TEST_ASSERT_EQUAL_INT32(0, eos_once());
     }
 
     // 优先级低的状态机执行其事件。
     for (int i = 0; i < evt_num; i ++) {
-        M_ASSERT(eos_once() == 0);
-        M_ASSERT((f->flag_epool[i / 32] & (1 << (i % 32))) == 0);
+        TEST_ASSERT_EQUAL_INT32(0, eos_once());
+        TEST_ASSERT_EQUAL_UINT32(0, (f->flag_epool[i / 32] & (1 << (i % 32))));
     }
-    M_ASSERT(eos_once() == 203);
-    M_ASSERT(eos_once() == 202);
-    M_ASSERT_MEM(f->flag_epool, _flag_epool, ((EOS_EPOOL_SIZE / 32 + 1) * 4));
-    printf("---------------------------\n");
+    TEST_ASSERT_EQUAL_INT32(203, eos_once());
+    TEST_ASSERT_EQUAL_INT32(202, eos_once());
+    for (int i = 0; i < (EOS_EPOOL_SIZE / 32 + 1); i ++) {
+        TEST_ASSERT_EQUAL_UINT32(_flag_epool[i], f->flag_epool[i]);
+    }
+
     // -------------------------------------------------------------------------
     // 05 evt_unsubscribe
     eos_event_pub_topic(Event_Time_500ms);
     eos_event_pub_topic(Event_Time_500ms);
     eos_event_unsub(&led2.super, Event_Time_500ms);
-    M_ASSERT(eos_once() == 204);
-    M_ASSERT(eos_once() == 204);
-    M_ASSERT(eos_once() == 0);
-    M_ASSERT(eos_once() == 0);
-    M_ASSERT(eos_once() == 203);
-    M_ASSERT(eos_once() == 202);
-    M_ASSERT(f->flag_epool[0] == 0);
+    TEST_ASSERT_EQUAL_UINT32(204, eos_once());
+    TEST_ASSERT_EQUAL_UINT32(204, eos_once());
+    TEST_ASSERT_EQUAL_UINT32(0, eos_once());
+    TEST_ASSERT_EQUAL_UINT32(0, eos_once());
+    TEST_ASSERT_EQUAL_UINT32(203, eos_once());
+    TEST_ASSERT_EQUAL_UINT32(202, eos_once());
+    TEST_ASSERT_EQUAL_UINT32(0, (f->flag_epool[0]));
 
     // -------------------------------------------------------------------------
     // 06 eos_event_pub_topiclish_delay
     eos_event_sub(&led2.super, Event_Time_500ms);
-    M_ASSERT(f->flag_etimerpool[0] == 1);
-    M_ASSERT(f->is_etimerpool_empty == EOS_False);
-    M_ASSERT(f->e_timer_pool[0].timeout_ms == 500);
+    TEST_ASSERT_EQUAL_UINT32(1, f->flag_etimerpool[0]);
+    TEST_ASSERT_EQUAL_UINT8(EOS_False, f->is_etimerpool_empty);
+    TEST_ASSERT_EQUAL_UINT32(500, f->e_timer_pool[0].timeout_ms);
     set_time_ms(200);
-    M_ASSERT(eos_evttimer() == 211);
+    TEST_ASSERT_EQUAL_INT32(211, eos_evttimer());
     set_time_ms(500);
-    M_ASSERT(eos_evttimer() == 0);
-    M_ASSERT(f->time_crt_ms == 500);
-    M_ASSERT(f->e_timer_pool[0].timeout_ms == 1000);
+    TEST_ASSERT_EQUAL_INT32(0, eos_evttimer());
+    TEST_ASSERT_EQUAL_UINT32(500, f->time_crt_ms);
+    TEST_ASSERT_EQUAL_UINT32(1000, f->e_timer_pool[0].timeout_ms);
     set_time_ms(1000);
-    M_ASSERT(eos_evttimer() == 0);
-    M_ASSERT(f->time_crt_ms == 1000);
-    M_ASSERT(f->e_timer_pool[0].timeout_ms == 1500);
-    M_ASSERT(f->flag_epool[0] == 3);
-    M_ASSERT(eos_once() == 0);
-    M_ASSERT(eos_once() == 0);
-    M_ASSERT(eos_once() == 0);
-    M_ASSERT(eos_once() == 0);
-    M_ASSERT(eos_once() == 203);
-    M_ASSERT(eos_once() == 202);
+    TEST_ASSERT_EQUAL_INT32(0, eos_evttimer());
+    TEST_ASSERT_EQUAL_UINT32(1000, f->time_crt_ms);
+    TEST_ASSERT_EQUAL_UINT32(1500, f->e_timer_pool[0].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT32(3, f->flag_epool[0]);
+    TEST_ASSERT_EQUAL_INT32(0, eos_once());
+    TEST_ASSERT_EQUAL_INT32(0, eos_once());
+    TEST_ASSERT_EQUAL_INT32(0, eos_once());
+    TEST_ASSERT_EQUAL_INT32(0, eos_once());
+    TEST_ASSERT_EQUAL_INT32(203, eos_once());
+    TEST_ASSERT_EQUAL_INT32(202, eos_once());
 
     // 检查重复时间定时器的重复设定
     // eos_event_pub_topiclish_period(Event_Time_500ms, 200);
@@ -305,34 +295,33 @@ void eos_test(void)
     led_reset_evt_count(&led_test);
     led_reset_evt_count(&led2);
     for (int i = 0; i < count_etimer; i ++) {
-        M_ASSERT(eos_once() == 0);
+        TEST_ASSERT_EQUAL_INT32(0, eos_once());
     }
     for (int i = 0; i < count_etimer; i ++) {
-        M_ASSERT(eos_once() == 0);
+        TEST_ASSERT_EQUAL_INT32(0, eos_once());
     }
-    M_ASSERT(eos_once() == 203);
-    M_ASSERT(eos_once() == 202);
-    M_ASSERT(led_get_evt_count(&led_test) == count_etimer);
-    M_ASSERT(led_get_evt_count(&led2) == count_etimer);
+    TEST_ASSERT_EQUAL_INT32(203, eos_once());
+    TEST_ASSERT_EQUAL_INT32(202, eos_once());
+    TEST_ASSERT_EQUAL_UINT32(count_etimer, led_get_evt_count(&led_test));
+    TEST_ASSERT_EQUAL_UINT32(count_etimer, led_get_evt_count(&led2));
 
     // 周期延时事件的执行
     set_time_ms(1500);
     led_reset_evt_count(&led_test);
     led_reset_evt_count(&led2);
     // 一个状态机的执行
-    M_ASSERT(eos_once() == 0);
-    M_ASSERT(led_get_evt_count(&led_test) == 0);
-    M_ASSERT(led_get_evt_count(&led2) == 1);
+    TEST_ASSERT_EQUAL_INT32(0, eos_once());
+    TEST_ASSERT_EQUAL_UINT32(0, led_get_evt_count(&led_test));
+    TEST_ASSERT_EQUAL_UINT32(1, led_get_evt_count(&led2));
     // 另一个状态机的执行
-    M_ASSERT(eos_once() == 0);
-    M_ASSERT(eos_once() == 203);
-    M_ASSERT(eos_once() == 202);
-    M_ASSERT(led_get_evt_count(&led_test) == 1);
-    M_ASSERT(led_get_evt_count(&led2) == 1);
-    M_ASSERT(f->time_crt_ms == 1500);
-    M_ASSERT(f->e_timer_pool[0].timeout_ms == 2000);
-    M_ASSERT(f->flag_epool[0] == 0);
+    TEST_ASSERT_EQUAL_INT32(0, eos_once());
+    TEST_ASSERT_EQUAL_INT32(203, eos_once());
+    TEST_ASSERT_EQUAL_INT32(202, eos_once());
+    TEST_ASSERT_EQUAL_UINT32(1, led_get_evt_count(&led_test));
+    TEST_ASSERT_EQUAL_UINT32(1, led_get_evt_count(&led2));
+    TEST_ASSERT_EQUAL_UINT32(1500, f->time_crt_ms);
+    TEST_ASSERT_EQUAL_UINT32(2000, f->e_timer_pool[0].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT32(0, f->flag_epool[0]);
 
-    m_print("ALL UNITTEST END!!!! ============================================");
-    M_ASSERT(eos_once() == 202);
+    TEST_ASSERT_EQUAL_INT32(202, eos_once());
 }

@@ -1,8 +1,8 @@
-src = ['main.c', 'eos_test.c', 'port_unittest.c']
+src = ['main.c']
 
-paths = ['.', '../../eventos', '../../3rd/mdebug', '../../3rd/unity']
+paths = ['.']
 
-defines = ['main_function']
+defines = ['hello']
 ccflags = []
 
 env = Environment()

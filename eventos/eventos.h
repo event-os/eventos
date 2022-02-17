@@ -1,32 +1,55 @@
 
+/*
+ * EventOS
+ * Copyright (c) 2021, EventOS Team, <event-os@outlook.com>
+ *
+ * SPDX-License-Identifier: MIT
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the 'Software'), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+ * copies of the Software, and to permit persons to whom the Software is furnished
+ * to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS 
+ * OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+ * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * https://www.event-os.cn
+ * https://github.com/eventos-nano
+ * https://gitee.com/eventos-nano
+ * 
+ * Change Logs:
+ * Date           Author        Notes
+ * 2021-11-23     Lao Wang      V0.0.2
+ */
+
 #ifndef EVENTOS_H_
 #define EVENTOS_H_
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /* include ------------------------------------------------------------------ */
 #include "eventos_def.h"
 #include "eventos_config.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* data struct -------------------------------------------------------------- */
 // 系统事件、时间事件与局部事件区的定义
 enum eos_event_topic {
-    // 系统事件
-    Event_Null = 0, Event_Enter, Event_Exit, Event_Init, Event_DefaultMax,
-    Event_Tick, Event_SystemMax,
-    // 系统时间事件
-    Event_Time_10ms = Event_SystemMax,
-    Event_Time_50ms,
-    Event_Time_100ms,
-    Event_Time_200ms,
-    Event_Time_500ms,
-    Event_Time_1000ms,
-    Event_Time_2000ms,
-    Event_Time_5000ms,
-    Event_Time_Max,
-    Event_User = Event_Time_Max,
+    Event_Null = 0,
+    Event_Enter,
+    Event_Exit,
+    Event_Init,
+    Event_User,
 };
 
 typedef eos_u16_t                       eos_topic_t;
@@ -41,12 +64,10 @@ typedef union eos_time {
 
 // 状态返回值的定义
 typedef enum eos_ret {
-    EOS_Ret_Null = 0,                     // 状态机与行为树共用
-    EOS_Ret_Super,                        // 状态机专用
-    EOS_Ret_Handled,                      // 状态机专用
-    EOS_Ret_Tran,                       // 状态机专用
-
-    EOS_Ret_Max
+    EOS_Ret_Null = 0,                       // 无效值
+    EOS_Ret_Super,                          // 到超状态
+    EOS_Ret_Handled,                        // 已处理，不产生跳转
+    EOS_Ret_Tran,                           // 跳转
 } eos_ret_t;
 
 // 带16字节参数的事件类
@@ -64,16 +85,16 @@ typedef eos_ret_t (* eos_state_handler)(struct eos_sm *const me, eos_event_t con
 // 行为对象类
 typedef struct eos_sm {
     eos_u32_t magic;
-    eos_s32_t priv;
-    eos_bool_t is_enabled;
-    volatile eos_state_handler state_crt;
-    volatile eos_state_handler state_tgt;
+    volatile eos_state_handler state;
+    // volatile eos_state_handler state_tgt;
     // evt queue
     eos_topic_t* e_queue;
-    eos_topic_t head;
-    eos_topic_t tail;
-    eos_topic_t depth;
-    eos_bool_t is_equeue_empty;
+    volatile eos_topic_t head;
+    volatile eos_topic_t tail;
+    volatile eos_topic_t depth;
+    eos_u8_t priv;
+    eos_bool_t enabled;
+    volatile eos_bool_t equeue_empty;
 } eos_sm_t;
 
 // api -------------------------------------------------------------------------
@@ -119,6 +140,7 @@ eos_ret_t eos_state_top(eos_sm_t * const me, eos_event_t const * const e);
 eos_u32_t eos_port_get_time_ms(void);
 void eos_port_critical_enter(void);
 void eos_port_critical_exit(void);
+void eos_port_assert(const char * module, const char * name, eos_u32_t id);
 
 /* hook --------------------------------------------------------------------- */
 void eos_hook_idle(void);
