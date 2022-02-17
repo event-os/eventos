@@ -140,12 +140,19 @@ eos_ret_t eos_state_top(eos_sm_t * const me, eos_event_t const * const e);
 eos_u32_t eos_port_get_time_ms(void);
 void eos_port_critical_enter(void);
 void eos_port_critical_exit(void);
-void eos_port_assert(const char * module, const char * name, eos_u32_t id);
+void eos_port_assert(eos_u32_t error_id);
 
 /* hook --------------------------------------------------------------------- */
 void eos_hook_idle(void);
 void eos_hook_stop(void);
 void eos_hook_start(void);
+
+/* assert ------------------------------------------------------------------- */
+#define EOS_ASSERT(test_) ((test_)                                             \
+    ? (void)0 : eos_port_assert(__LINE__))
+
+#define EOS_ASSERT_ID(id_, test_) ((test_)                                     \
+    ? (void)0 : eos_port_assert(id_))
 
 #ifdef __cplusplus
 }

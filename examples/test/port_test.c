@@ -1,5 +1,4 @@
 #include "eventos.h"
-#include <sys/time.h>
 #include <unistd.h>
 #include "stdio.h"
 #include <stdlib.h>
@@ -40,7 +39,13 @@ void eos_hook_stop(void)
 
 }
 
-void * port_malloc(eos_u32_t size, const char * name)
+void eos_port_assert(eos_u32_t error_id)
 {
-    return malloc(size);
+    printf("------------------------------------\n");
+    printf("ASSERT >>> Module: EventOS Nano, ErrorId: %d.\n", error_id);
+    printf("------------------------------------\n");
+
+    while (1) {
+        usleep(100000);
+    }
 }

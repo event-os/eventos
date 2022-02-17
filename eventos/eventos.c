@@ -2,10 +2,6 @@
 // include ---------------------------------------------------------------------
 #include "eventos.h"
 #include <string.h>
-#include "m_debug.h"
-#include "m_assert.h"
-
-M_MODULE_NAME("EventOS")
 
 #ifdef __cplusplus
 extern "C" {
@@ -188,7 +184,7 @@ eos_s32_t eos_once(void)
     for (eos_u32_t i = 0; i < EOS_SM_NUM_MAX; i ++) {
         if ((eos.flag_obj_exist & (1 << i)) == 0)
             continue;
-        M_ASSERT(eos.sm[i]->magic == EOS_MAGIC);
+        EOS_ASSERT(eos.sm[i]->magic == EOS_MAGIC);
         if (eos.sm[i]->equeue_empty == EOS_True)
             continue;
         sm = eos.sm[i];
@@ -235,13 +231,13 @@ eos_s32_t eos_once(void)
 
 eos_s32_t eventos_run(void)
 {
-    M_ASSERT(eos.enabled == EOS_True);
+    EOS_ASSERT(eos.enabled == EOS_True);
     eos_hook_start();
     eos.running = EOS_True;
 
     while (EOS_True) {
         // 检查Magic
-        M_ASSERT(eos.magic == EOS_MAGIC);
+        EOS_ASSERT(eos.magic == EOS_MAGIC);
         eos_s32_t ret = eos_once();
         if ((int)(ret / 100) == 2) {
             eos_hook_idle();
@@ -268,11 +264,11 @@ void eos_sm_init(   eos_sm_t * const me,
                     void *memory_stack, eos_u32_t stask_size)
 {
     // 框架需要先启动起来
-    M_ASSERT(eos.enabled == EOS_True);
-    M_ASSERT(eos.running == EOS_False);
+    EOS_ASSERT(eos.enabled == EOS_True);
+    EOS_ASSERT(eos.running == EOS_False);
     // 参数检查
-    M_ASSERT(me != (eos_sm_t *)0);
-    M_ASSERT(priority >= 0 && priority < EOS_SM_NUM_MAX);
+    EOS_ASSERT(me != (eos_sm_t *)0);
+    EOS_ASSERT(priority >= 0 && priority < EOS_SM_NUM_MAX);
 
     me->magic = EOS_MAGIC;
     me->state = (void *)eos_state_top;
@@ -282,7 +278,7 @@ void eos_sm_init(   eos_sm_t * const me,
         return;
 
     // 检查优先级的重复注册
-    M_ASSERT((eos.flag_obj_exist & (1 << priority)) == 0);
+    EOS_ASSERT((eos.flag_obj_exist & (1 << priority)) == 0);
 
     // 注册到框架里
     eos.flag_obj_exist |= (1 << priority);
@@ -293,7 +289,7 @@ void eos_sm_init(   eos_sm_t * const me,
     // 事件队列
     eos_port_critical_enter();
     me->e_queue = memory_queue;
-    M_ASSERT_ID(105, me->e_queue != 0);
+    EOS_ASSERT_ID(105, me->e_queue != 0);
     me->head = 0;
     me->tail = 0;
     me->depth = queue_size;
@@ -313,7 +309,7 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 
     // 进入初始状态，执行TRAN动作。这也意味着，进入初始状态，必须无条件执行Tran动作。
     eos_ret_t ret = me->state(me, &eos_event_table[Event_Null]);
-    M_ASSERT(ret == EOS_Ret_Tran);
+    EOS_ASSERT(ret == EOS_Ret_Tran);
 
     // 由初始状态转移，引发的各层状态的进入
     // 每一个循环，都代表着一个Event_Init的执行
@@ -325,7 +321,7 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
         HSM_TRIG_(me->state, Event_Null);
         while (me->state != t) {
             ++ ip;
-            M_ASSERT(ip < EOS_MAX_NEST_DEPTH);
+            EOS_ASSERT(ip < EOS_MAX_NEST_DEPTH);
             path[ip] = me->state;
             HSM_TRIG_(me->state, Event_Null);
         }
@@ -354,9 +350,9 @@ void eos_event_pub_topic(eos_topic_t topic)
 void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
 {
     // 保证框架已经运行
-    M_ASSERT(eos.enabled == EOS_True);
+    EOS_ASSERT(eos.enabled == EOS_True);
     // 保证参数不大于最大支持数
-    M_ASSERT(size <= EOS_EVENT_PARAS_NUM);
+    EOS_ASSERT(size <= EOS_EVENT_PARAS_NUM);
     // 没有状态机使能，返回
     if (eos.flag_obj_enable == 0)
         return;
@@ -384,7 +380,7 @@ void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
         }
         break;
     }
-    M_ASSERT_ID(101, index_empty != EOS_U32_MAX);
+    EOS_ASSERT_ID(101, index_empty != EOS_U32_MAX);
     eos.e_pool[index_empty] = *(eos_event_t *)&e;
 
     // 根据flagSub的信息，将事件推入各对象
@@ -397,7 +393,7 @@ void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
             continue;
         // 如果事件队列满，进入断言
         if (((eos.sm[i]->head + 1) % eos.sm[i]->depth) == eos.sm[i]->tail)
-            M_ASSERT_ID(104, EOS_False);
+            EOS_ASSERT_ID(104, EOS_False);
         // 事件队列未满，将事件池序号放入事件队列
         *(eos.sm[i]->e_queue + eos.sm[i]->head) = index_empty;
         
@@ -422,8 +418,8 @@ void eos_event_unsub(eos_sm_t * const me, eos_topic_t topic)
 
 static void evt_publish_time(eos_s32_t topic, eos_s32_t time_ms, eos_bool_t is_oneshoot)
 {
-    M_ASSERT(time_ms >= 0);
-    M_ASSERT(!(time_ms == 0 && is_oneshoot == EOS_False));
+    EOS_ASSERT(time_ms >= 0);
+    EOS_ASSERT(!(time_ms == 0 && is_oneshoot == EOS_False));
 
     if (time_ms == 0) {
         eos_event_pub_topic(topic);
@@ -443,7 +439,7 @@ static void evt_publish_time(eos_s32_t topic, eos_s32_t time_ms, eos_bool_t is_o
             is_topic_set = EOS_True;
             break;
         }
-        M_ASSERT_ID(106, is_topic_set == EOS_False);
+        EOS_ASSERT_ID(106, is_topic_set == EOS_False);
     }
 
     // 寻找到空的时间定时器
@@ -460,7 +456,7 @@ static void evt_publish_time(eos_s32_t topic, eos_s32_t time_ms, eos_bool_t is_o
         }
         break;
     }
-    M_ASSERT_ID(102, index_empty != EOS_U32_MAX);
+    EOS_ASSERT_ID(102, index_empty != EOS_U32_MAX);
 
     eos_u32_t time_crt_ms = eos_port_get_time_ms();
     eos.e_timer_pool[index_empty] = (eos_event_timer_t) {
@@ -522,7 +518,7 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
     eos_state_handler s;
     eos_ret_t r;
 
-    M_ASSERT(e != (eos_event_t *)0);
+    EOS_ASSERT(e != (eos_event_t *)0);
 
     // 层次化的处理事件
     // 注：分为两种情况：
@@ -576,7 +572,7 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
         me->state = (void *)path[0];
 
         // 层数不能大于MAX_NEST_DEPTH_
-        M_ASSERT(ip < EOS_MAX_NEST_DEPTH);
+        EOS_ASSERT(ip < EOS_MAX_NEST_DEPTH);
 
         // retrace the entry path in reverse (correct) order...
         do {
@@ -646,7 +642,7 @@ static eos_s32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX
             iq = 1;
 
             // entry path must not overflow
-            M_ASSERT(ip < EOS_MAX_NEST_DEPTH);
+            EOS_ASSERT(ip < EOS_MAX_NEST_DEPTH);
             --ip;  // do not enter the source
             r = EOS_Ret_Handled; // terminate the loop
         }
@@ -658,7 +654,7 @@ static eos_s32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX
     // LCA found yet?
     if (iq == 0) {
         // entry path must not overflow
-        M_ASSERT(ip < EOS_MAX_NEST_DEPTH);
+        EOS_ASSERT(ip < EOS_MAX_NEST_DEPTH);
 
         HSM_EXIT_(s); // exit the source
 

@@ -1,6 +1,6 @@
 src = Glob('*.c')
 
-paths = ['.', '../3rd/mdebug', '../examples/unittest/']
+paths = ['.', '../examples/unittest/']
 
 defines = ['eventos']
 ccflags = []

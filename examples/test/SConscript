@@ -1,6 +1,6 @@
 src = ['main.c', 'eos_test.c', 'port_test.c']
 
-paths = ['.', '../../eventos', '../../3rd/mdebug', '../../3rd/unity']
+paths = ['.', '../../eventos', '../../3rd/unity']
 
 defines = ['test']
 ccflags = []
