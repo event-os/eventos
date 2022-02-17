@@ -42,23 +42,21 @@ static eos_ret_t led_state_init(led_t * const me, eos_event_t const * const e)
 {
     (void)e;
 
-    EOS_EVENT_SUB(Evt_Time_500ms);
-    EOS_EVENT_SUB(Evt_Test1);
-    EOS_EVENT_SUB(Evt_Test2);
-    eos_event_pub_period(Evt_Time_500ms, 500);
+    EOS_EVENT_SUB(Event_Time_500ms);
+    eos_event_pub_period(Event_Time_500ms, 500);
 
     return EOS_TRAN(led_state_off);
 }
 
 static eos_ret_t led_state_off(led_t * const me, eos_event_t const * const e)
 {
-    switch (e->sig) {
-        case Evt_Enter:
+    switch (e->topic) {
+        case Event_Enter:
             M_ERROR("-------------------, Enter");
             me->is_on = EOS_False;
-            return M_Ret_Handled;
+            return EOS_Ret_Handled;
 
-        case Evt_Time_500ms:
+        case Event_Time_500ms:
             me->count ++;
             return EOS_TRAN(led_state_on);
 
@@ -69,19 +67,19 @@ static eos_ret_t led_state_off(led_t * const me, eos_event_t const * const e)
 
 static eos_ret_t led_state_on(led_t * const me, eos_event_t const * const e)
 {
-    switch (e->sig) {
-        case Evt_Enter: {
+    switch (e->topic) {
+        case Event_Enter: {
             M_ERROR("--------------------, Enter");
             int num = 1;
             me->is_on = EOS_True;
-            return M_Ret_Handled;
+            return EOS_Ret_Handled;
         }
 
-        case Evt_Exit:
+        case Event_Exit:
             M_ERROR("++++++++++++++++++++, Exit");
-            return M_Ret_Handled;
+            return EOS_Ret_Handled;
 
-        case Evt_Time_500ms:
+        case Event_Time_500ms:
             me->count ++;
             return EOS_TRAN(led_state_off);
 
@@ -94,7 +92,7 @@ static eos_ret_t led_state_on(led_t * const me, eos_event_t const * const e)
 /* unittest ----------------------------------------------------------------- */
 
 typedef struct eos_event_timer_tag {
-    int sig;
+    int topic;
     int time_ms_delay;
     eos_u32_t timeout_ms;
     bool is_one_shoot;
@@ -102,7 +100,7 @@ typedef struct eos_event_timer_tag {
 
 typedef struct frame_tag {
     eos_u32_t magic_head;
-    eos_u32_t EOS_evENt_sub_tab[Evt_Max];                          // 事件订阅表
+    eos_u32_t EOS_evENt_sub_tab[Event_Max];                          // 事件订阅表
 
     // 状态机池
     eos_s32_t flag_obj_exist;
@@ -128,19 +126,19 @@ typedef struct frame_tag {
 } frame_t;
 
 extern int meow_once(void);
-extern void * meow_get_frame(void);
+extern void * eos_get_framework(void);
 extern int meow_evttimer(void);
 extern void set_time_ms(uint64_t time_ms);
 
 #include "stdio.h"
-void meow_unittest_sm(void)
+void eos_test(void)
 {
     m_dbg_init();
     m_dbg_enable(EOS_True);
     m_dbg_flush_enable(EOS_True);
     m_dbg_level(MLogLevel_Print);
 
-    frame_t * f = (frame_t *)meow_get_frame();
+    frame_t * f = (frame_t *)eos_get_framework();
     // -------------------------------------------------------------------------
     // 01 meow_init
     TEST_ASSERT_EQUAL_INT32(1, meow_once());
@@ -185,7 +183,7 @@ void meow_unittest_sm(void)
     }
     // -------------------------------------------------------------------------
     // 04 sm_init sm_start
-    eos_event_pub_delay(Evt_Time_500ms, 0);
+    eos_event_pub_delay(Event_Time_500ms, 0);
     // 检查事件池
     M_ASSERT(f->flag_epool[0] == 1);
     // 检查每个状态机的事件队列
@@ -219,7 +217,7 @@ void meow_unittest_sm(void)
     
     // -------------------------------------------------------------------------
     // 04 eos_event_pub_topic
-    eos_event_pub_topic(Evt_Time_500ms);
+    eos_event_pub_topic(Event_Time_500ms);
     M_ASSERT(f->flag_epool[0] == 1);
     M_ASSERT(meow_once() == 0);
     M_ASSERT(meow_once() == 0);
@@ -230,7 +228,7 @@ void meow_unittest_sm(void)
     int evt_num = M_EPOOL_SIZE - 1;
     // 测试事件池满的情形
     for (int i = 0; i < evt_num; i ++) {
-        eos_event_pub_topic(Evt_Time_500ms);
+        eos_event_pub_topic(Event_Time_500ms);
         printf("--------------------------- %d.\n", i);
         M_ASSERT_ID(i, f->flag_epool[i / 32] & (1 << (i % 32)) != 0);
         M_ASSERT(led2.super.head == (i + 1));
@@ -238,7 +236,7 @@ void meow_unittest_sm(void)
     }
     printf("---------------------------\n");
     // 事件池满，测试通过
-    // eos_event_pub_topic(Evt_Time_500ms);
+    // eos_event_pub_topic(Event_Time_500ms);
     // 优先级高的状态机执行其事件。
     for (int i = 0; i < evt_num; i ++) {
         M_ASSERT(meow_once() == 0);
@@ -255,9 +253,9 @@ void meow_unittest_sm(void)
     printf("---------------------------\n");
     // -------------------------------------------------------------------------
     // 05 evt_unsubscribe
-    eos_event_pub_topic(Evt_Time_500ms);
-    eos_event_pub_topic(Evt_Time_500ms);
-    eos_event_unsub(&led2.super, Evt_Time_500ms);
+    eos_event_pub_topic(Event_Time_500ms);
+    eos_event_pub_topic(Event_Time_500ms);
+    eos_event_unsub(&led2.super, Event_Time_500ms);
     M_ASSERT(meow_once() == 204);
     M_ASSERT(meow_once() == 204);
     M_ASSERT(meow_once() == 0);
@@ -268,7 +266,7 @@ void meow_unittest_sm(void)
 
     // -------------------------------------------------------------------------
     // 06 eos_event_pub_topiclish_delay
-    eos_event_sub(&led2.super, Evt_Time_500ms);
+    eos_event_sub(&led2.super, Event_Time_500ms);
     M_ASSERT(f->flag_etimerpool[0] == 1);
     M_ASSERT(f->is_etimerpool_empty == EOS_False);
     M_ASSERT(f->e_timer_pool[0].timeout_ms == 500);
@@ -291,14 +289,14 @@ void meow_unittest_sm(void)
     M_ASSERT(meow_once() == 202);
 
     // 检查重复时间定时器的重复设定
-    // eos_event_pub_topiclish_period(Evt_Time_500ms, 200);
+    // eos_event_pub_topiclish_period(Event_Time_500ms, 200);
 
     int count_etimer = (M_ETIMERPOOL_SIZE - 1);
     // 检查时间定时器满
     for (int i = 0; i < count_etimer; i ++) {
-        eos_event_pub_delay(Evt_Time_500ms, 200);
+        eos_event_pub_delay(Event_Time_500ms, 200);
     }
-    // eos_event_pub_topiclish_delay(Evt_Time_500ms, 200);
+    // eos_event_pub_topiclish_delay(Event_Time_500ms, 200);
 
     // 检查事件定时器发送出的延时事件的执行
     set_time_ms(1200);

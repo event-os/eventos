@@ -10,32 +10,32 @@ void set_time_ms(eos_u32_t time_ms)
     time_ms_count = time_ms;
 }
 
-eos_u32_t port_get_time_ms(void)
+eos_u32_t eos_port_get_time_ms(void)
 {
     return time_ms_count;
 }
 
-void port_critical_enter(void)
+void eos_port_critical_enter(void)
 {
     // NULL
 }
 
-void port_critical_exit(void)
+void eos_port_critical_exit(void)
 {
     // NULL
 }
 
-void hook_idle(void)
+void eos_hook_idle(void)
 {
 
 }
 
-void hook_start(void)
+void eos_hook_start(void)
 {
 
 }
 
-void hook_stop(void)
+void eos_hook_stop(void)
 {
 
 }

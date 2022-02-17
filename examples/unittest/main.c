@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
 
     UNITY_BEGIN();
 
-    RUN_TEST(meow_unittest_sm);
+    RUN_TEST(eos_test);
 
     UNITY_END();
 

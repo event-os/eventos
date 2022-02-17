@@ -12,30 +12,25 @@ extern "C" {
 
 /* data struct -------------------------------------------------------------- */
 // 系统事件、时间事件与局部事件区的定义
-enum m_evt_id_tag {
+enum eos_event_topic {
     // 系统事件
-    Evt_Null = 0, Evt_Enter, Evt_Exit, Evt_Init, Evt_DefaultMax,
-    Evt_Tick, Evt_SystemMax,
+    Event_Null = 0, Event_Enter, Event_Exit, Event_Init, Event_DefaultMax,
+    Event_Tick, Event_SystemMax,
     // 系统时间事件
-    Evt_Time_10ms = Evt_SystemMax,
-    Evt_Time_50ms,
-    Evt_Time_100ms,
-    Evt_Time_200ms,
-    Evt_Time_500ms,
-    Evt_Time_1000ms,
-    Evt_Time_2000ms,
-    Evt_Time_5000ms,
-    Evt_Time_Max,
-    Evt_User = Evt_Time_Max,
-};
-
-enum {
-    EvtMode_Ps = 0,
-    EvtMode_Send = !EvtMode_Ps
+    Event_Time_10ms = Event_SystemMax,
+    Event_Time_50ms,
+    Event_Time_100ms,
+    Event_Time_200ms,
+    Event_Time_500ms,
+    Event_Time_1000ms,
+    Event_Time_2000ms,
+    Event_Time_5000ms,
+    Event_Time_Max,
+    Event_User = Event_Time_Max,
 };
 
 // 用户事件的定义
-#include "evt_def.h"
+#include "event_def.h"
 
 typedef eos_u16_t                       eos_topic_t;
 
@@ -49,26 +44,25 @@ typedef union eos_time {
 
 // 状态返回值的定义
 typedef enum eos_ret {
-    M_Ret_Null = 0,                     // 状态机与行为树共用
-    M_Ret_Super,                        // 状态机专用
-    M_Ret_Handled,                      // 状态机专用
+    EOS_Ret_Null = 0,                     // 状态机与行为树共用
+    EOS_Ret_Super,                        // 状态机专用
+    EOS_Ret_Handled,                      // 状态机专用
     EOS_Ret_Tran,                       // 状态机专用
 
-    M_Ret_Max
+    EOS_Ret_Max
 } eos_ret_t;
 
 // 带16字节参数的事件类
 typedef struct eos_event {
-    eos_s32_t sig;
+    eos_s32_t topic;
     eos_u32_t flag_sub;
-    eos_s32_t mode;
     union {
         eos_u32_t u32;
         eos_s32_t s32;
         eos_u16_t u16[2];
-        short s16[2];
+        eos_s16_t s16[2];
         eos_u8_t u8[4];
-        char s8[4];
+        eos_s8_t s8[4];
         float f32;
     } para[MEOW_EVT_PARAS_NUM];
 } eos_event_t;
@@ -86,10 +80,10 @@ typedef struct eos_sm {
     volatile eos_state_handler state_crt;
     volatile eos_state_handler state_tgt;
     // evt queue
-    eos_u32_t* e_queue;
-    eos_u32_t head;
-    eos_u32_t tail;
-    eos_u32_t depth;
+    eos_topic_t* e_queue;
+    eos_topic_t head;
+    eos_topic_t tail;
+    eos_topic_t depth;
     eos_bool_t is_equeue_empty;
     eos_u32_t magic_tail;
 } eos_sm_t;
@@ -149,7 +143,7 @@ void eos_hook_stop(void);
 void eos_hook_start(void);
 
 /* for unittest ------------------------------------------------------------- */
-void meow_unittest_sm(void);
+void eos_test(void);
 
 #ifdef __cplusplus
 }
