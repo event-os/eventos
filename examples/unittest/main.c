@@ -6,6 +6,8 @@
 void setUp(void) {}
 void tearDown(void) {}
 
+extern void eos_test(void);
+
 int main(int argc, char* argv[])
 {
     (void)argc;

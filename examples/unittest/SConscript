@@ -1,4 +1,4 @@
-src = ['main.c', 'unittest.c', 'port_unittest.c']
+src = ['main.c', 'eos_test.c', 'port_unittest.c']
 
 paths = ['.', '../../eventos', '../../3rd/mdebug', '../../3rd/unity']
 

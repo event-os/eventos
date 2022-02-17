@@ -29,9 +29,6 @@ enum eos_event_topic {
     Event_User = Event_Time_Max,
 };
 
-// 用户事件的定义
-#include "event_def.h"
-
 typedef eos_u16_t                       eos_topic_t;
 
 typedef union eos_time {
@@ -56,15 +53,7 @@ typedef enum eos_ret {
 typedef struct eos_event {
     eos_s32_t topic;
     eos_u32_t flag_sub;
-    union {
-        eos_u32_t u32;
-        eos_s32_t s32;
-        eos_u16_t u16[2];
-        eos_s16_t s16[2];
-        eos_u8_t u8[4];
-        eos_s8_t s8[4];
-        float f32;
-    } para[MEOW_EVT_PARAS_NUM];
+    eos_u8_t para[EOS_EVENT_PARAS_NUM];
 } eos_event_t;
 
 // 数据结构 - 行为树相关 --------------------------------------------------------
@@ -74,7 +63,7 @@ typedef eos_ret_t (* eos_state_handler)(struct eos_sm *const me, eos_event_t con
 
 // 行为对象类
 typedef struct eos_sm {
-    eos_u32_t magic_head;
+    eos_u32_t magic;
     eos_s32_t priv;
     eos_bool_t is_enabled;
     volatile eos_state_handler state_crt;
@@ -85,16 +74,13 @@ typedef struct eos_sm {
     eos_topic_t tail;
     eos_topic_t depth;
     eos_bool_t is_equeue_empty;
-    eos_u32_t magic_tail;
 } eos_sm_t;
 
-
 // api -------------------------------------------------------------------------
-// 关于Meow框架 ---------------------------------------------
 // 对框架进行初始化，在各状态机初始化之前调用。
-void eventos_init(void);
+void eventos_init(eos_u32_t *flag_sub);
 // 启动框架，放在main函数的末尾。
-int eventos_run(void);
+eos_s32_t eventos_run(void);
 // 停止框架的运行（不常用）
 // 停止框架后，框架会在执行完当前状态机的当前事件后，清空各状态机事件队列，清空事件池，
 // 不再执行任何功能，直至框架被再次启动。
@@ -111,12 +97,9 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init);
 // 关于事件 -------------------------------------------------
 void eos_event_sub(eos_sm_t * const me, eos_topic_t topic);
 void eos_event_unsub(eos_sm_t * const me, eos_topic_t topic);
+// 注：只有下面两个函数能在中断服务函数中使用，其他都没有必要。如果使用，可能会导致崩溃问题。
 void eos_event_pub_topic(eos_topic_t topic);
 void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size);
-// 注：只有此函数能在中断服务函数中使用，其他都没有必要。如果使用，可能会导致崩溃问题。
-void eos_event_pub_topic_isr(eos_topic_t topic);
-void eos_event_pub_isr(eos_topic_t topic, void *data, eos_u32_t size);
-
 void eos_event_pub_delay(eos_topic_t topic, eos_u32_t time_ms);
 void eos_event_pub_period(eos_topic_t topic, eos_u32_t time_ms);
 
@@ -141,9 +124,6 @@ void eos_port_critical_exit(void);
 void eos_hook_idle(void);
 void eos_hook_stop(void);
 void eos_hook_start(void);
-
-/* for unittest ------------------------------------------------------------- */
-void eos_test(void);
 
 #ifdef __cplusplus
 }
