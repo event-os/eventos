@@ -1,14 +1,14 @@
 src = Glob('*.c')
 
-paths = ['.', '../meowc']
+paths = ['.', '../../eventos']
 
-defines = ['app']
+defines = ['posix']
 ccflags = []
 
 env = Environment()
 env.Append(CPPDEFINES = defines)
 env.Append(CCCOMSTR = "CC $SOURCES")
-env.Append(CPPPATH=paths)
+env.Append(CPPPATH = paths)
 
 obj = env.Object(src)
  

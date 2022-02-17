@@ -1,7 +1,6 @@
 
 // include ---------------------------------------------------------------------
 #include "eventos.h"
-#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -360,7 +359,7 @@ void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
     if (eos.evt_sub_tab[topic] == 0)
         return;
     // 新建事件
-    static eos_event_t e;
+    eos_event_t e;
     e.topic = topic;
     e.flag_sub = eos.evt_sub_tab[topic];
     for (eos_u32_t i = 0; i < size; i ++)

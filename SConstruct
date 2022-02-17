@@ -18,3 +18,9 @@ env.Program(target = 'eos', source = objs)
 objs = SConscript('examples/hello/SConscript', variant_dir = 'build/examples/test', duplicate = 0)
 
 env.Program(target = 'hello', source = objs)
+
+# The posix example ------------------------------------------------------------
+objs = SConscript('examples/posix/SConscript', variant_dir = 'build/examples/posix', duplicate = 0)
+objs += SConscript('eventos/SConscript', variant_dir = 'build/eventos', duplicate = 0)
+
+env.Program(target = 'posix', source = objs)
