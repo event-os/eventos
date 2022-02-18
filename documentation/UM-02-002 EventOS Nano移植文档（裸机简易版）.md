@@ -6,12 +6,14 @@ EventOS Nano在单片机裸机上的移植，目前有四个接口函数和三�
 这些接口函数，都是EventOS Nano对硬件或者平台产生依赖的地方。
 
 1. **时间接口函数**
-获取当前的时间基准。在ARM Cortex-M系列单片机，可以参考以下的实现。
+获取当前的时间基准。在ARM Cortex-M系列单片机，可以参考以下的实现。注意EventOS使用的时间，是以毫秒为单位。因此定时器中断时间单位，决定了系统时间递增的单位。
     ``` C
+    // 1ms中断
     static eos_u32_t system_time = 0;
-    void SysTickHandler(void)
+    void SysTickHandler(void)                       // 1ms中断
     {
         system_time ++;                             // 此变量具备原子性，不必关中断。
+        // system_time += 10;                       // 如果是10ms中断，此处应递增10。
     }
 
     eos_u32_t eos_port_get_time_ms(void)
@@ -25,12 +27,12 @@ EventOS Nano在单片机裸机上的移植，目前有四个接口函数和三�
     ``` C
     void eos_port_critical_enter(void)
     {
-        __disable_irq();
+        __disable_irq();                            // 当IDE为MDK时
     }
 
     void eos_port_critical_exit(void)
     {
-        __enable_irq();
+        __enable_irq();                            // 当IDE为MDK时
     }
     ```
 
@@ -40,6 +42,7 @@ EventOS Nano推崇防御式编程，内部运用了大量的断言检查程序�
     void eos_port_assert(eos_u32_t error_id)
     {
         // 断言信息的打印。
+        // 注意user_print时用户自己实现的打印函数，可以是串口、RTT或者其他打印方式。
         user_print("------------------------------------\n");
         user_print("ASSERT >>> Module: EventOS Nano, ErrorId: %d.\n", error_id);
         user_print("------------------------------------\n");
@@ -61,7 +64,7 @@ EventOS Nano推崇防御式编程，内部运用了大量的断言检查程序�
     ```
 
 1. **启动回调函数**
-在EventOS初始化完毕，且状态机运行之前，会调用这个回调函数。这里可以对硬件设备进行初始化、对功能模块或者中间件进行初始化等。
+在EventOS初始化完毕，且状态机运行之前，会调用这个回调函数。这里可以对硬件设备进行初始化、对功能模块或者中间件进行初始化等。当然，这些初始化函数，在main函数或者其他位置实现也是没问题的。
 
     ``` C
     void eos_hook_start(void)
