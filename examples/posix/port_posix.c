@@ -37,7 +37,7 @@ void eos_port_assert(eos_u32_t error_id)
 
 void eos_hook_idle(void)
 {
-    usleep(10000);
+    usleep(1000);
 }
 
 void eos_hook_start(void)

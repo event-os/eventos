@@ -129,7 +129,6 @@ eos_s32_t eos_evttimer(void)
             etimerpool_empty = EOS_False;
             continue;
         }
-
         eos_event_pub_topic(eos.e_timer_pool[i].topic);
         // 清零标志位
         if (eos.e_timer_pool[i].is_one_shoot == EOS_True)
