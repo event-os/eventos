@@ -148,11 +148,11 @@ void eos_hook_stop(void);
 void eos_hook_start(void);
 
 /* assert ------------------------------------------------------------------- */
-#define EOS_ASSERT(test_) ((test_)                                             \
-    ? (void)0 : eos_port_assert(__LINE__))
+#define EOS_ASSERT(test_) do { if (!(test_)) {                                 \
+    eos_hook_stop(); eos_port_assert(__LINE__); } } while (0)
 
-#define EOS_ASSERT_ID(id_, test_) ((test_)                                     \
-    ? (void)0 : eos_port_assert(id_))
+#define EOS_ASSERT_ID(id_, test_) do { if (!(test_)) {                         \
+    eos_hook_stop(); eos_port_assert(id_); } } while (0);
 
 #ifdef __cplusplus
 }
