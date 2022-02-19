@@ -1,8 +1,10 @@
+/* include ------------------------------------------------------------------ */
 #include "eos_led.h"
 #include "eventos.h"
 #include "event_def.h"
 #include <stdio.h>
 
+/* data structure ----------------------------------------------------------- */
 typedef struct eos_led_tag {
     eos_sm_t super;
 
@@ -11,21 +13,22 @@ typedef struct eos_led_tag {
 
 static eos_led_t led;
 
-// state -----------------------------------------------------------------------
+/* static state function ---------------------------------------------------- */
 static eos_ret_t state_init(eos_led_t * const me, eos_event_t const * const e);
 static eos_ret_t state_on(eos_led_t * const me, eos_event_t const * const e);
 static eos_ret_t state_off(eos_led_t * const me, eos_event_t const * const e);
 
+/* api ---------------------------------------------------- */
 void eos_led_init(void)
 {
     static eos_u32_t queue[32];
-    eos_sm_init(&led.super, 1, queue, 32, 0, 0);
+    eos_sm_init(&led.super, 1, queue, 32);
     eos_sm_start(&led.super, EOS_STATE_CAST(state_init));
 
     led.status = 0;
 }
 
-// state -----------------------------------------------------------------------
+/* static state function ---------------------------------------------------- */
 static eos_ret_t state_init(eos_led_t * const me, eos_event_t const * const e)
 {
     EOS_EVENT_SUB(Event_Time_500ms);

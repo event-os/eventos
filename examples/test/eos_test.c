@@ -21,7 +21,7 @@ static void led_init(led_t * const me, eos_u8_t priv, void *queue, eos_u32_t que
     me->status = EOS_False;
     me->count = 0;
 
-    eos_sm_init(&me->super, priv, queue, queue_size, 0, 0);
+    eos_sm_init(&me->super, priv, queue, queue_size);
     eos_sm_start(&me->super, EOS_STATE_CAST(led_state_init));
 }
 

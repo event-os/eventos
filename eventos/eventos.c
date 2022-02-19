@@ -254,8 +254,8 @@ eos_s32_t eventos_run(void)
 
     EOS_ASSERT(eos.enabled == EOS_True);
     EOS_ASSERT(eos.sub_table != 0);
-    EOS_ASSERT(eos.heap.data == (void *)0);
-    EOS_ASSERT(eos.heap.size == 0);
+    EOS_ASSERT(eos.heap.data != (void *)0);
+    EOS_ASSERT(eos.heap.size != 0);
 
     eos.running = EOS_True;
 
@@ -284,8 +284,7 @@ void eventos_stop(void)
 // state machine ---------------------------------------------------------------
 void eos_sm_init(   eos_sm_t * const me,
                     eos_u32_t priority,
-                    void *memory_queue, eos_u32_t queue_size,
-                    void *memory_stack, eos_u32_t stask_size)
+                    void *memory_queue, eos_u32_t queue_size)
 {
     // 框架需要先启动起来
     EOS_ASSERT(eos.enabled == EOS_True);

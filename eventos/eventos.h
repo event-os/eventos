@@ -111,8 +111,7 @@ void eventos_stop(void);
 // 状态机初始化函数
 void eos_sm_init(   eos_sm_t * const me,
                     eos_u32_t priority,
-                    void *memory_queue, eos_u32_t queue_size,
-                    void *memory_stack, eos_u32_t stask_size);
+                    void *memory_queue, eos_u32_t queue_size);
 void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init);
 
 // 关于事件 -------------------------------------------------
