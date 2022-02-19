@@ -9,4 +9,6 @@
 
 #define EOS_EVENT_PARAS_NUM                     4
 
+#define EOS_HEAP_EN                             1
+
 #endif

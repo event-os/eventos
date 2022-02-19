@@ -85,71 +85,87 @@ static eos_ret_t led_state_on(led_t * const me, eos_event_t const * const e)
 }
 
 /* unittest ----------------------------------------------------------------- */
-typedef struct eos_event_timer_tag {
-    int topic;
-    int time_ms_delay;
+typedef struct eos_event_timer {
+    eos_topic_t topic;
+    eos_bool_t is_one_shoot;
+    eos_s32_t time_ms_delay;
     eos_u32_t timeout_ms;
-    bool statuse_shoot;
 } eos_event_timer_t;
 
-typedef struct frame_tag {
+typedef struct eos_block {
+    struct eos_block *next;
+    eos_u32_t is_free                               : 1;
+    eos_u32_t size                                  : 24;
+} eos_block_t;
+
+typedef struct eos_heap {
+    void * data;
+    eos_block_t *list;
+    eos_u32_t size                                  : 24;       /* total size */
+    eos_u32_t error_id                              : 4;
+} eos_heap_t;
+
+typedef struct eos_event_inner {
+    eos_u32_t topic;
+    void *data;
+    eos_u32_t flag_sub;
+} eos_event_inner_t;
+
+typedef struct eos_tag {
     eos_u32_t magic;
-    eos_u32_t *evt_sub_tab;                                 // 事件订阅表
+    eos_u32_t *sub_table;                                     // 事件订阅表
 
     // 状态机池
-    eos_s32_t flag_obj_exist;
-    eos_s32_t flag_obj_enable;
-    eos_sm_t * p_obj[EOS_SM_NUM_MAX];
+    eos_s32_t sm_exist;
+    eos_s32_t sm_enabled;
+    eos_sm_t * sm[EOS_SM_NUM_MAX];
 
     // 关于事件池
-    eos_event_t e_pool[EOS_EPOOL_SIZE];                           // 事件池
-    eos_u32_t flag_epool[EOS_EPOOL_SIZE / 32 + 1];             // 事件池标志位
+    eos_heap_t heap;
 
     // 定时器池
     eos_event_timer_t e_timer_pool[EOS_ETIMERPOOL_SIZE];
-    eos_u32_t flag_etimerpool[EOS_ETIMERPOOL_SIZE / 32 + 1];   // 事件池标志位
-    eos_bool_t is_etimerpool_empty;
+    eos_u32_t flag_etimerpool[EOS_ETIMERPOOL_SIZE / 32 + 1];    // 事件池标志位
     eos_u32_t timeout_ms_min;
-
-    eos_bool_t is_enabled;
-    eos_bool_t is_running;
-    eos_bool_t is_idle;
-    
     eos_u32_t time_crt_ms;
+
+    eos_bool_t etimerpool_empty;
+    eos_bool_t enabled;
+    eos_bool_t running;
+    eos_bool_t idle;
 } frame_t;
 
 extern int eos_once(void);
 extern void * eos_get_framework(void);
 extern int eos_evttimer(void);
-extern void set_time_ms(uint64_t time_ms);
+extern void set_time_ms(eos_u32_t time_ms);
 
 static eos_u32_t eos_sub_table[Event_Max];
+static eos_u8_t eos_heap_memory[40960];
 
 void eos_test(void)
 {
     frame_t * f = (frame_t *)eos_get_framework();
+    set_time_ms(0);
+    
     // -------------------------------------------------------------------------
     // 01 meow_init
     TEST_ASSERT_EQUAL_INT32(1, eos_once());
     // 检查事件池标志位，事件定时器标志位和事件申请区的标志位。
-    eventos_init(eos_sub_table);
-    TEST_ASSERT_EQUAL_INT8(EOS_True, f->is_etimerpool_empty);
+    eventos_init();
+    eos_sub_init(eos_sub_table);
+    eos_event_pool_init(eos_heap_memory, 40960);
+    TEST_ASSERT_EQUAL_INT8(EOS_True, f->etimerpool_empty);
 
-    uint32_t _flag_epool[EOS_EPOOL_SIZE / 32 + 1] = {
-        0, 0, 0, 0, 0xfffffffc
-    };
-    for (int i = 0; i < (EOS_EPOOL_SIZE / 32 + 1); i ++) {
-        TEST_ASSERT_EQUAL_INT32(_flag_epool[i], f->flag_epool[i]);
-    }
     uint32_t _flag_etimerpool[EOS_ETIMERPOOL_SIZE / 32 + 1] = {
         0, 0, 0xffffffc0
     };
-    TEST_ASSERT_EQUAL_INT8(EOS_True, f->is_etimerpool_empty);
+    TEST_ASSERT_EQUAL_INT8(EOS_True, f->etimerpool_empty);
     for (int i = 0; i < (EOS_ETIMERPOOL_SIZE / 32 + 1); i ++) {
         TEST_ASSERT_EQUAL_INT32(_flag_etimerpool[i], f->flag_etimerpool[i]);
     }
-    TEST_ASSERT_EQUAL_INT8(EOS_True, f->is_enabled);
-    TEST_ASSERT_EQUAL_INT8(EOS_True, f->is_idle);
+    TEST_ASSERT_EQUAL_INT8(EOS_True, f->enabled);
+    TEST_ASSERT_EQUAL_INT8(EOS_True, f->idle);
 
     // -------------------------------------------------------------------------
     // 02 meow_stop
@@ -160,7 +176,9 @@ void eos_test(void)
 
     // -------------------------------------------------------------------------
     // 03 sm_init sm_start
-    eventos_init(eos_sub_table);
+    eventos_init();
+    eos_sub_init(eos_sub_table);
+    eos_event_pool_init(eos_heap_memory, 40960);
 
     static led_t led_test, led2;
     static eos_u32_t queue_test[130], queue2[130];
@@ -169,15 +187,13 @@ void eos_test(void)
     TEST_ASSERT_EQUAL_UINT32(1, led_test.super.priv);
 
     led_init(&led2, 0, queue2, 130);
-    TEST_ASSERT_EQUAL_INT8(EOS_False, f->is_etimerpool_empty);
+    TEST_ASSERT_EQUAL_INT8(EOS_False, f->etimerpool_empty);
     for (int i = 0; i < 10; i ++) {
         TEST_ASSERT_EQUAL_INT32(202, eos_once());
     }
     // -------------------------------------------------------------------------
     // 04 sm_init sm_start
     eos_event_pub_delay(Event_Time_500ms, 0);
-    // 检查事件池
-    TEST_ASSERT_EQUAL_UINT32(1, f->flag_epool[0]);
     // 检查每个状态机的事件队列
     TEST_ASSERT_EQUAL_INT8(EOS_False, led_test.super.equeue_empty);
     TEST_ASSERT_EQUAL_UINT8(1, led_test.super.priv);
@@ -205,26 +221,20 @@ void eos_test(void)
     TEST_ASSERT_EQUAL_UINT32(0, led2.super.tail);
     TEST_ASSERT_EQUAL_INT32(203, eos_once());
     TEST_ASSERT_EQUAL_INT32(202, eos_once());
-    TEST_ASSERT_EQUAL_UINT32(0, f->flag_epool[0]);
     
     // -------------------------------------------------------------------------
     // 04 eos_event_pub_topic
     eos_event_pub_topic(Event_Time_500ms);
-    TEST_ASSERT_EQUAL_UINT32(1, f->flag_epool[0]);
     TEST_ASSERT_EQUAL_INT32(0, eos_once());
     TEST_ASSERT_EQUAL_INT32(0, eos_once());
     TEST_ASSERT_EQUAL_INT32(203, eos_once());
     TEST_ASSERT_EQUAL_INT32(202, eos_once());
-    TEST_ASSERT_EQUAL_UINT32(0, f->flag_epool[0]);
     int evt_num = EOS_EPOOL_SIZE - 1;
     // 测试事件池满的情形
     for (int i = 0; i < evt_num; i ++) {
         eos_event_pub_topic(Event_Time_500ms);
-        TEST_ASSERT_NOT_EQUAL_UINT32(0, f->flag_epool[i / 32] & (1 << (i % 32)));
         TEST_ASSERT_EQUAL_UINT32((i + 1), led2.super.head);
-        TEST_ASSERT_EQUAL_UINT32(i, *(led2.super.e_queue + i));
     }
-
     // 事件池满，测试通过
     // eos_event_pub_topic(Event_Time_500ms);
     // 优先级高的状态机执行其事件。
@@ -235,14 +245,10 @@ void eos_test(void)
     // 优先级低的状态机执行其事件。
     for (int i = 0; i < evt_num; i ++) {
         TEST_ASSERT_EQUAL_INT32(0, eos_once());
-        TEST_ASSERT_EQUAL_UINT32(0, (f->flag_epool[i / 32] & (1 << (i % 32))));
     }
     TEST_ASSERT_EQUAL_INT32(203, eos_once());
     TEST_ASSERT_EQUAL_INT32(202, eos_once());
-    for (int i = 0; i < (EOS_EPOOL_SIZE / 32 + 1); i ++) {
-        TEST_ASSERT_EQUAL_UINT32(_flag_epool[i], f->flag_epool[i]);
-    }
-
+    
     // -------------------------------------------------------------------------
     // 05 evt_unsubscribe
     eos_event_pub_topic(Event_Time_500ms);
@@ -254,13 +260,12 @@ void eos_test(void)
     TEST_ASSERT_EQUAL_UINT32(0, eos_once());
     TEST_ASSERT_EQUAL_UINT32(203, eos_once());
     TEST_ASSERT_EQUAL_UINT32(202, eos_once());
-    TEST_ASSERT_EQUAL_UINT32(0, (f->flag_epool[0]));
 
     // -------------------------------------------------------------------------
     // 06 eos_event_pub_topiclish_delay
     eos_event_sub(&led2.super, Event_Time_500ms);
     TEST_ASSERT_EQUAL_UINT32(1, f->flag_etimerpool[0]);
-    TEST_ASSERT_EQUAL_UINT8(EOS_False, f->is_etimerpool_empty);
+    TEST_ASSERT_EQUAL_UINT8(EOS_False, f->etimerpool_empty);
     TEST_ASSERT_EQUAL_UINT32(500, f->e_timer_pool[0].timeout_ms);
     set_time_ms(200);
     TEST_ASSERT_EQUAL_INT32(211, eos_evttimer());
@@ -272,7 +277,6 @@ void eos_test(void)
     TEST_ASSERT_EQUAL_INT32(0, eos_evttimer());
     TEST_ASSERT_EQUAL_UINT32(1000, f->time_crt_ms);
     TEST_ASSERT_EQUAL_UINT32(1500, f->e_timer_pool[0].timeout_ms);
-    TEST_ASSERT_EQUAL_UINT32(3, f->flag_epool[0]);
     TEST_ASSERT_EQUAL_INT32(0, eos_once());
     TEST_ASSERT_EQUAL_INT32(0, eos_once());
     TEST_ASSERT_EQUAL_INT32(0, eos_once());
@@ -321,7 +325,6 @@ void eos_test(void)
     TEST_ASSERT_EQUAL_UINT32(1, led_get_evt_count(&led2));
     TEST_ASSERT_EQUAL_UINT32(1500, f->time_crt_ms);
     TEST_ASSERT_EQUAL_UINT32(2000, f->e_timer_pool[0].timeout_ms);
-    TEST_ASSERT_EQUAL_UINT32(0, f->flag_epool[0]);
 
     TEST_ASSERT_EQUAL_INT32(202, eos_once());
 }

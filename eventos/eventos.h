@@ -70,11 +70,10 @@ typedef enum eos_ret {
     EOS_Ret_Tran,                           // 跳转
 } eos_ret_t;
 
-// 带16字节参数的事件类
+// 事件类
 typedef struct eos_event {
-    eos_s32_t topic;
-    eos_u32_t flag_sub;
-    eos_u8_t para[EOS_EVENT_PARAS_NUM];
+    eos_u32_t topic;
+    void *data;
 } eos_event_t;
 
 // 数据结构 - 行为树相关 --------------------------------------------------------
@@ -86,9 +85,8 @@ typedef eos_ret_t (* eos_state_handler)(struct eos_sm *const me, eos_event_t con
 typedef struct eos_sm {
     eos_u32_t magic;
     volatile eos_state_handler state;
-    // volatile eos_state_handler state_tgt;
     // evt queue
-    eos_topic_t* e_queue;
+    void* e_queue;
     volatile eos_topic_t head;
     volatile eos_topic_t tail;
     volatile eos_topic_t depth;
@@ -99,7 +97,9 @@ typedef struct eos_sm {
 
 // api -------------------------------------------------------------------------
 // 对框架进行初始化，在各状态机初始化之前调用。
-void eventos_init(eos_u32_t *flag_sub);
+void eventos_init(void);
+void eos_sub_init(eos_u32_t *flag_sub);
+void eos_event_pool_init(void *event_pool, eos_u32_t size);
 // 启动框架，放在main函数的末尾。
 eos_s32_t eventos_run(void);
 // 停止框架的运行（不常用）
