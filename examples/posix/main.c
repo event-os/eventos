@@ -11,8 +11,7 @@ static eos_u8_t eos_heap_memory[1024];              // 事件池空间
 int main(void)
 {
     eventos_init();                                 // EventOS初始化
-    eos_sub_init(eos_sub_table);                    // 订阅表初始化
-    eos_event_pool_init(eos_heap_memory, 1024);     // 事件池初始化
+    eos_sub_init(eos_sub_table, Event_Max);         // 订阅表初始化
 
     eos_led_init();                                 // LED状态机初始化
 

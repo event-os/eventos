@@ -1,6 +1,8 @@
 #ifndef EVENTOS_DEF_H__
 #define EVENTOS_DEF_H__
 
+#include "eventos_config.h"
+
 /* basic data type ---------------------------------------------------------- */
 typedef unsigned int                    eos_u32_t;
 typedef int                             eos_s32_t;
@@ -16,5 +18,13 @@ typedef enum eos_bool {
 
 #define EOS_U32_MAX                     0xffffffff
 #define EOS_U32_MIN                     0
+
+#if (EOS_MCU_TYPE == 8)
+typedef eos_u8_t                        eos_mcu_t;
+#elif (EOS_MCU_TYPE == 16)
+typedef eos_u16_t                       eos_mcu_t;
+#else
+typedef eos_u32_t                       eos_mcu_t;
+#endif
 
 #endif

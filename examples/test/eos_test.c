@@ -85,12 +85,14 @@ static eos_ret_t led_state_on(led_t * const me, eos_event_t const * const e)
 }
 
 /* unittest ----------------------------------------------------------------- */
+#if (EOS_USE_TIME_EVENT != 0)
 typedef struct eos_event_timer {
     eos_topic_t topic;
     eos_bool_t is_one_shoot;
     eos_s32_t time_ms_delay;
     eos_u32_t timeout_ms;
 } eos_event_timer_t;
+#endif
 
 typedef struct eos_block {
     struct eos_block *next;
@@ -99,7 +101,7 @@ typedef struct eos_block {
 } eos_block_t;
 
 typedef struct eos_heap {
-    void * data;
+    eos_u8_t data[EOS_SIZE_HEAP];
     eos_block_t *list;
     eos_u32_t size                                  : 24;       /* total size */
     eos_u32_t error_id                              : 4;
@@ -112,24 +114,30 @@ typedef struct eos_event_inner {
 } eos_event_inner_t;
 
 typedef struct eos_tag {
-    eos_u32_t magic;
-    eos_u32_t *sub_table;                                     // 事件订阅表
+    eos_mcu_t magic;
+#if (EOS_USE_PUB_SUB != 0)
+    eos_mcu_t *sub_table;                                     // 事件订阅表
+#endif
 
     // 状态机池
-    eos_s32_t sm_exist;
-    eos_s32_t sm_enabled;
-    eos_sm_t * sm[EOS_SM_NUM_MAX];
+    eos_mcu_t actor_exist;
+    eos_mcu_t sm_enabled;
+    eos_actor_t * actor[EOS_MAX_ACTORS];
 
     // 关于事件池
+#if (EOS_USE_EVENT_DATA != 0)
     eos_heap_t heap;
+#endif
 
+#if (EOS_USE_TIME_EVENT != 0)
     // 定时器池
-    eos_event_timer_t e_timer_pool[EOS_ETIMERPOOL_SIZE];
-    eos_u32_t flag_etimerpool[EOS_ETIMERPOOL_SIZE / 32 + 1];    // 事件池标志位
+    eos_event_timer_t e_timer_pool[EOS_MAX_TIME_EVENT];
+    eos_u32_t flag_etimerpool[EOS_MAX_TIME_EVENT / 32 + 1];    // 事件池标志位
     eos_u32_t timeout_ms_min;
     eos_u32_t time_crt_ms;
-
     eos_bool_t etimerpool_empty;
+#endif
+
     eos_bool_t enabled;
     eos_bool_t running;
     eos_bool_t idle;
@@ -140,8 +148,10 @@ extern void * eos_get_framework(void);
 extern int eos_evttimer(void);
 extern void set_time_ms(eos_u32_t time_ms);
 
-static eos_u32_t eos_sub_table[Event_Max];
+static eos_mcu_t eos_sub_table[Event_Max];
 static eos_u8_t eos_heap_memory[40960];
+
+#define TEST_QUEUE_SIZE                     130
 
 void eos_test(void)
 {
@@ -153,16 +163,15 @@ void eos_test(void)
     TEST_ASSERT_EQUAL_INT32(1, eos_once());
     // 检查事件池标志位，事件定时器标志位和事件申请区的标志位。
     eventos_init();
-    eos_sub_init(eos_sub_table);
-    eos_event_pool_init(eos_heap_memory, 40960);
+    eos_sub_init(eos_sub_table, Event_Max);
     TEST_ASSERT_EQUAL_INT8(EOS_True, f->etimerpool_empty);
 
-    uint32_t _flag_etimerpool[EOS_ETIMERPOOL_SIZE / 32 + 1] = {
+    uint32_t _flag_etimerpool[EOS_MAX_TIME_EVENT / 32 + 1] = {
         0, 0, 0xffffffc0
     };
     TEST_ASSERT_EQUAL_INT8(EOS_True, f->etimerpool_empty);
-    for (int i = 0; i < (EOS_ETIMERPOOL_SIZE / 32 + 1); i ++) {
-        TEST_ASSERT_EQUAL_INT32(_flag_etimerpool[i], f->flag_etimerpool[i]);
+    for (int i = 0; i < (EOS_MAX_TIME_EVENT / 32 + 1); i ++) {
+        TEST_ASSERT_EQUAL_HEX32(_flag_etimerpool[i], f->flag_etimerpool[i]);
     }
     TEST_ASSERT_EQUAL_INT8(EOS_True, f->enabled);
     TEST_ASSERT_EQUAL_INT8(EOS_True, f->idle);
@@ -175,18 +184,20 @@ void eos_test(void)
     TEST_ASSERT_EQUAL_INT32(210, eos_evttimer());
 
     // -------------------------------------------------------------------------
-    // 03 sm_init sm_start
+    // 03 eventos_init eos_sub_init eos_sm_start
     eventos_init();
-    eos_sub_init(eos_sub_table);
-    eos_event_pool_init(eos_heap_memory, 40960);
+    eos_sub_init(eos_sub_table, Event_Max);
+    TEST_ASSERT_EQUAL_UINT32(0, eos_sub_table[Event_Time_500ms]);
 
     static led_t led_test, led2;
-    static eos_u32_t queue_test[130], queue2[130];
+    static eos_u32_t queue_test[TEST_QUEUE_SIZE], queue2[TEST_QUEUE_SIZE];
     TEST_ASSERT_EQUAL_UINT32(0, led_test.super.super.priority);
-    led_init(&led_test, 1, queue_test, 130);
+    led_init(&led_test, 1, queue_test, TEST_QUEUE_SIZE);
     TEST_ASSERT_EQUAL_UINT32(1, led_test.super.super.priority);
+    TEST_ASSERT_EQUAL_UINT32(2, eos_sub_table[Event_Time_500ms]);
 
-    led_init(&led2, 0, queue2, 130);
+    led_init(&led2, 0, queue2, TEST_QUEUE_SIZE);
+    TEST_ASSERT_EQUAL_UINT32(3, eos_sub_table[Event_Time_500ms]);
     TEST_ASSERT_EQUAL_INT8(EOS_False, f->etimerpool_empty);
     for (int i = 0; i < 10; i ++) {
         TEST_ASSERT_EQUAL_INT32(202, eos_once());
@@ -229,7 +240,7 @@ void eos_test(void)
     TEST_ASSERT_EQUAL_INT32(0, eos_once());
     TEST_ASSERT_EQUAL_INT32(203, eos_once());
     TEST_ASSERT_EQUAL_INT32(202, eos_once());
-    int evt_num = EOS_EPOOL_SIZE - 1;
+    int evt_num = TEST_QUEUE_SIZE - 1;
     // 测试事件池满的情形
     for (int i = 0; i < evt_num; i ++) {
         eos_event_pub_topic(Event_Time_500ms);
@@ -250,10 +261,12 @@ void eos_test(void)
     TEST_ASSERT_EQUAL_INT32(202, eos_once());
     
     // -------------------------------------------------------------------------
-    // 05 evt_unsubscribe
+    // 05 eos_event_unsub
     eos_event_pub_topic(Event_Time_500ms);
     eos_event_pub_topic(Event_Time_500ms);
-    eos_event_unsub(&led2.super, Event_Time_500ms);
+    TEST_ASSERT_EQUAL_UINT32(3, eos_sub_table[Event_Time_500ms]);
+    eos_event_unsub(&led2.super.super, Event_Time_500ms);
+    TEST_ASSERT_EQUAL_UINT32(2, eos_sub_table[Event_Time_500ms]);
     TEST_ASSERT_EQUAL_UINT32(204, eos_once());
     TEST_ASSERT_EQUAL_UINT32(204, eos_once());
     TEST_ASSERT_EQUAL_UINT32(0, eos_once());
@@ -263,7 +276,7 @@ void eos_test(void)
 
     // -------------------------------------------------------------------------
     // 06 eos_event_pub_topiclish_delay
-    eos_event_sub(&led2.super, Event_Time_500ms);
+    eos_event_sub(&led2.super.super, Event_Time_500ms);
     TEST_ASSERT_EQUAL_UINT32(1, f->flag_etimerpool[0]);
     TEST_ASSERT_EQUAL_UINT8(EOS_False, f->etimerpool_empty);
     TEST_ASSERT_EQUAL_UINT32(500, f->e_timer_pool[0].timeout_ms);
@@ -287,7 +300,7 @@ void eos_test(void)
     // 检查重复时间定时器的重复设定
     // eos_event_pub_topiclish_period(Event_Time_500ms, 200);
 
-    int count_etimer = (EOS_ETIMERPOOL_SIZE - 1);
+    int count_etimer = (EOS_MAX_TIME_EVENT - 1);
     // 检查时间定时器满
     for (int i = 0; i < count_etimer; i ++) {
         eos_event_pub_delay(Event_Time_500ms, 200);
