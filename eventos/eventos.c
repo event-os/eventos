@@ -9,6 +9,12 @@
 extern "C" {
 #endif
 
+// eos define ------------------------------------------------------------------
+enum eos_actor_mode {
+    EOS_Mode_Reactor = 0,
+    EOS_Mode_StateMachine = !EOS_Mode_Reactor
+};
+
 // eos data structure ----------------------------------------------------------
 typedef struct eos_event_timer {
     eos_topic_t topic;
@@ -41,9 +47,9 @@ typedef struct eos_tag {
     eos_u32_t *sub_table;                                     // 事件订阅表
 
     // 状态机池
-    eos_s32_t sm_exist;
+    eos_s32_t actor_exist;
     eos_s32_t sm_enabled;
-    eos_sm_t * sm[EOS_SM_NUM_MAX];
+    eos_actor_t * actor[EOS_SM_NUM_MAX];
 
     // 关于事件池
     eos_heap_t heap;
@@ -186,7 +192,7 @@ eos_s32_t eos_once(void)
     }
 
     // 检查是否有状态机的注册
-    if (eos.sm_exist == 0 || eos.sm_enabled == 0) {
+    if (eos.actor_exist == 0 || eos.sm_enabled == 0) {
         ret = 201;
         return ret;
     }
@@ -198,17 +204,17 @@ eos_s32_t eos_once(void)
         return ret;
     }
     // 寻找到优先级最高且事件队列不为空的状态机
-    eos_sm_t * sm = (eos_sm_t *)0;
+    eos_actor_t *actor = (eos_actor_t *)0;
     for (eos_u32_t i = 0; i < EOS_SM_NUM_MAX; i ++) {
-        if ((eos.sm_exist & (1 << i)) == 0)
+        if ((eos.actor_exist & (1 << i)) == 0)
             continue;
-        EOS_ASSERT(eos.sm[i]->magic == EOS_MAGIC);
-        if (eos.sm[i]->equeue_empty == EOS_True)
+        EOS_ASSERT(eos.actor[i]->magic == EOS_MAGIC);
+        if (eos.actor[i]->equeue_empty == EOS_True)
             continue;
-        sm = eos.sm[i];
+        actor = eos.actor[i];
         break;
     }
-    if (sm == (eos_sm_t *)0) {
+    if (actor == (eos_actor_t *)0) {
         eos.idle = EOS_True;
         
         ret = 203;
@@ -217,20 +223,27 @@ eos_s32_t eos_once(void)
 
     // 寻找到最老的事件
     eos_port_critical_enter();
-    eos_event_inner_t * _e = ((eos_event_inner_t **)sm->e_queue)[sm->tail];
-    sm->tail ++;
-    sm->tail %= sm->depth;
-    if (sm->tail == sm->head) {
-        sm->equeue_empty = EOS_True;
-        sm->tail = 0;
-        sm->head = 0;
+    eos_event_inner_t * _e = ((eos_event_inner_t **)actor->e_queue)[actor->tail];
+    actor->tail ++;
+    actor->tail %= actor->depth;
+    if (actor->tail == actor->head) {
+        actor->equeue_empty = EOS_True;
+        actor->tail = 0;
+        actor->head = 0;
     }
-    _e->flag_sub &= ~(1 << (sm->priv));
+    _e->flag_sub &= ~(1 << (actor->priority));
     eos_port_critical_exit();
     // 对事件进行执行
-    if ((eos.sub_table[_e->topic] & (1 << sm->priv)) != 0) {
-        // 执行状态的转换
-        eos_sm_dispath(sm, (eos_event_t *)_e);
+    if ((eos.sub_table[_e->topic] & (1 << actor->priority)) != 0) {
+        eos_sm_t *sm = (eos_sm_t *)actor;
+        eos_reactor_t *reactor = (eos_reactor_t *)actor;
+        if (actor->mode == EOS_Mode_StateMachine) {
+            // 执行状态的转换
+            eos_sm_dispath(sm, (eos_event_t *)_e);
+        }
+        else {
+            reactor->event_handler(reactor, (eos_event_t *)_e);
+        }
     }
     else
         ret = 204;
@@ -281,33 +294,32 @@ void eventos_stop(void)
     eos_hook_stop();
 }
 
-// state machine ---------------------------------------------------------------
-void eos_sm_init(   eos_sm_t * const me,
-                    eos_u32_t priority,
-                    void *memory_queue, eos_u32_t queue_size)
+// 关于Reactor -----------------------------------------------------------------
+static void eos_actor_init( eos_actor_t * const me,
+                            eos_u32_t priority,
+                            void *memory_queue, eos_u32_t queue_size)
 {
     // 框架需要先启动起来
     EOS_ASSERT(eos.enabled == EOS_True);
     EOS_ASSERT(eos.running == EOS_False);
     // 参数检查
-    EOS_ASSERT(me != (eos_sm_t *)0);
+    EOS_ASSERT(me != (eos_actor_t *)0);
     EOS_ASSERT(priority >= 0 && priority < EOS_SM_NUM_MAX);
 
     me->magic = EOS_MAGIC;
-    me->state = (void *)eos_state_top;
 
     // 防止二次启动
     if (me->enabled == EOS_True)
         return;
 
     // 检查优先级的重复注册
-    EOS_ASSERT((eos.sm_exist & (1 << priority)) == 0);
+    EOS_ASSERT((eos.actor_exist & (1 << priority)) == 0);
 
     // 注册到框架里
-    eos.sm_exist |= (1 << priority);
-    eos.sm[priority] = me;
+    eos.actor_exist |= (1 << priority);
+    eos.actor[priority] = me;
     // 状态机   
-    me->priv = priority;
+    me->priority = priority;
 
     // 事件队列
     eos_port_critical_enter();
@@ -320,15 +332,40 @@ void eos_sm_init(   eos_sm_t * const me,
     eos_port_critical_exit();
 }
 
+void eos_reactor_init(  eos_reactor_t * const me,
+                        eos_u32_t priority,
+                        void *memory_queue, eos_u32_t queue_size)
+{
+    eos_actor_init(&me->super, priority, memory_queue, queue_size);
+    me->super.mode = EOS_Mode_Reactor;
+}
+
+void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler)
+{
+    me->event_handler = event_handler;
+    me->super.enabled = EOS_True;
+    eos.sm_enabled |= (1 << me->super.priority);
+}
+
+// state machine ---------------------------------------------------------------
+void eos_sm_init(   eos_sm_t * const me,
+                    eos_u32_t priority,
+                    void *memory_queue, eos_u32_t queue_size)
+{
+    eos_actor_init(&me->super, priority, memory_queue, queue_size);
+    me->super.mode = EOS_Mode_StateMachine;
+    me->state = eos_state_top;
+}
+
 void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 {
     eos_state_handler path[EOS_MAX_NEST_DEPTH];
     eos_state_handler t = eos_state_top;
     eos_s8_t ip = 0;
 
-    me->state = (void *)state_init;
-    me->enabled = EOS_True;
-    eos.sm_enabled |= (1 << me->priv);
+    me->state = state_init;
+    me->super.enabled = EOS_True;
+    eos.sm_enabled |= (1 << me->super.priority);
 
     // 进入初始状态，执行TRAN动作。这也意味着，进入初始状态，必须无条件执行Tran动作。
     eos_ret_t ret = me->state(me, &eos_event_table[Event_Null]);
@@ -348,7 +385,7 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
             path[ip] = me->state;
             HSM_TRIG_(me->state, Event_Null);
         }
-        me->state = (void *)path[0];
+        me->state = path[0];
 
         // 各层状态的进入
         do {
@@ -360,7 +397,7 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
         ret = HSM_TRIG_(t, Event_Init);
     } while (ret == EOS_Ret_Tran);
 
-    me->state = (void *)t;
+    me->state = t;
 }
 
 // event -----------------------------------------------------------------------
@@ -397,22 +434,22 @@ void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
         ((eos_u8_t *)e->data)[i] = ((eos_u8_t *)data)[i];
     // 根据flagSub的信息，将事件推入各对象
     for (eos_u32_t i = 0; i < EOS_SM_NUM_MAX; i ++) {
-        if ((eos.sm_exist & (1 << i)) == 0)
+        if ((eos.actor_exist & (1 << i)) == 0)
             continue;
-        if (eos.sm[i]->enabled == EOS_False)
+        if (eos.actor[i]->enabled == EOS_False)
             continue;
         if ((eos.sub_table[e->topic] & (1 << i)) == 0)
             continue;
         // 如果事件队列满，进入断言
-        if (((eos.sm[i]->head + 1) % eos.sm[i]->depth) == eos.sm[i]->tail)
+        if (((eos.actor[i]->head + 1) % eos.actor[i]->depth) == eos.actor[i]->tail)
             EOS_ASSERT_ID(104, EOS_False);
         // 事件队列未满，将事件池序号放入事件队列
-        ((eos_event_inner_t **)eos.sm[i]->e_queue)[eos.sm[i]->head] = e;
+        ((eos_event_inner_t **)eos.actor[i]->e_queue)[eos.actor[i]->head] = e;
         
-        eos.sm[i]->head ++;
-        eos.sm[i]->head %= eos.sm[i]->depth;
-        if (eos.sm[i]->equeue_empty == EOS_True)
-            eos.sm[i]->equeue_empty = EOS_False;
+        eos.actor[i]->head ++;
+        eos.actor[i]->head %= eos.actor[i]->depth;
+        if (eos.actor[i]->equeue_empty == EOS_True)
+            eos.actor[i]->equeue_empty = EOS_False;
         eos.idle = EOS_False;
     }
     eos_port_critical_exit();
@@ -420,12 +457,12 @@ void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
 
 void eos_event_sub(eos_sm_t * const me, eos_topic_t topic)
 {
-    eos.sub_table[topic] |= (1 << me->priv);
+    eos.sub_table[topic] |= (1 << me->super.priority);
 }
 
 void eos_event_unsub(eos_sm_t * const me, eos_topic_t topic)
 {
-    eos.sub_table[topic] &= ~(1 << me->priv);
+    eos.sub_table[topic] &= ~(1 << me->super.priority);
 }
 
 static void evt_publish_time(eos_s32_t topic, eos_s32_t time_ms, eos_bool_t is_oneshoot)
@@ -542,8 +579,7 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
 
     // 如果不存在状态转移
     if (r != EOS_Ret_Tran) {
-        me->state = (void *)t;                                  // 更新当前状态
-        me->state = (void *)t;                                  // 防止覆盖
+        me->state = t;                                  // 更新当前状态
         return;
     }
 
@@ -568,7 +604,7 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
         HSM_ENTER_(path[ip]); // enter path[ip]
     }
     t = path[0];    // stick the target into register
-    me->state = (void *)t; // update the next state
+    me->state = t; // update the next state
 
     // 一级一级的钻入各层
     while (HSM_TRIG_(t, Event_Init) == EOS_Ret_Tran) {
@@ -580,7 +616,7 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
             path[ip] = me->state;
             (void)HSM_TRIG_(me->state, Event_Null);   // 获取其父状态
         }
-        me->state = (void *)path[0];
+        me->state = path[0];
 
         // 层数不能大于MAX_NEST_DEPTH_
         EOS_ASSERT(ip < EOS_MAX_NEST_DEPTH);
@@ -593,7 +629,7 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
         t = path[0];
     }
 
-    me->state = (void *)t;                                  // 更新当前状态
+    me->state = t;                                  // 更新当前状态
 }
 
 static eos_s32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX_NEST_DEPTH])

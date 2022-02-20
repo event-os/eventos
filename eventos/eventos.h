@@ -78,21 +78,38 @@ typedef struct eos_event {
 
 // 数据结构 - 行为树相关 --------------------------------------------------------
 struct eos_sm;
+struct eos_reactor;
+
+// 事件处理句柄的定义
+typedef eos_ret_t (* eos_event_handler)(struct eos_reactor *const me, eos_event_t const * const e);
+
 // 状态函数句柄的定义
 typedef eos_ret_t (* eos_state_handler)(struct eos_sm *const me, eos_event_t const * const e);
 
-// 行为对象类
-typedef struct eos_sm {
+// Actor类
+typedef struct eos_actor {
     eos_u32_t magic;
-    volatile eos_state_handler state;
     // evt queue
     void* e_queue;
     volatile eos_topic_t head;
     volatile eos_topic_t tail;
     volatile eos_topic_t depth;
-    eos_u8_t priv;
+    eos_u8_t priority;
+    eos_u8_t mode;
     eos_bool_t enabled;
     volatile eos_bool_t equeue_empty;
+} eos_actor_t;
+
+// React类
+typedef struct eos_reactor {
+    eos_actor_t super;
+    eos_event_handler event_handler;
+} eos_reactor_t;
+
+// 状态机类
+typedef struct eos_sm {
+    eos_actor_t super;
+    volatile eos_state_handler state;
 } eos_sm_t;
 
 // api -------------------------------------------------------------------------
@@ -107,12 +124,26 @@ eos_s32_t eventos_run(void);
 // 不再执行任何功能，直至框架被再次启动。
 void eventos_stop(void);
 
+// 关于Reactor -----------------------------------------------------------------
+void eos_reactor_init(  eos_reactor_t * const me,
+                        eos_u32_t priority,
+                        void *memory_queue, eos_u32_t queue_size);
+void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler);
+
 // 关于状态机 -----------------------------------------------
 // 状态机初始化函数
 void eos_sm_init(   eos_sm_t * const me,
                     eos_u32_t priority,
                     void *memory_queue, eos_u32_t queue_size);
 void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init);
+
+eos_ret_t eos_tran(eos_sm_t * const me, eos_state_handler state);
+eos_ret_t eos_super(eos_sm_t * const me, eos_state_handler state);
+eos_ret_t eos_state_top(eos_sm_t * const me, eos_event_t const * const e);
+
+#define EOS_TRAN(target)            eos_tran((eos_sm_t * )me, (eos_state_handler)target)
+#define EOS_SUPER(super)            eos_super((eos_sm_t * )me, (eos_state_handler)super)
+#define EOS_STATE_CAST(state)       (eos_state_handler)(state)
 
 // 关于事件 -------------------------------------------------
 void eos_event_sub(eos_sm_t * const me, eos_topic_t topic);
@@ -125,15 +156,6 @@ void eos_event_pub_period(eos_topic_t topic, eos_u32_t time_ms);
 
 #define EOS_EVENT_SUB(_evt)               eos_event_sub(&(me->super), _evt)
 #define EOS_EVENT_UNSUB(_evt)             eos_event_unsub(&(me->super), _evt)
-
-// 关于状态 -------------------------------------------------
-eos_ret_t eos_tran(eos_sm_t * const me, eos_state_handler state);
-eos_ret_t eos_super(eos_sm_t * const me, eos_state_handler state);
-eos_ret_t eos_state_top(eos_sm_t * const me, eos_event_t const * const e);
-
-#define EOS_TRAN(target)            eos_tran((eos_sm_t * )me, (eos_state_handler)target)
-#define EOS_SUPER(super)            eos_super((eos_sm_t * )me, (eos_state_handler)super)
-#define EOS_STATE_CAST(state)       (eos_state_handler)(state)
 
 /* port --------------------------------------------------------------------- */
 eos_u32_t eos_port_get_time_ms(void);

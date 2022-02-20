@@ -16,12 +16,12 @@ static eos_ret_t led_state_on(led_t * const me, eos_event_t const * const e);
 static eos_ret_t led_state_off(led_t * const me, eos_event_t const * const e);
 
 // api -------------------------------------------------------------------------
-static void led_init(led_t * const me, eos_u8_t priv, void *queue, eos_u32_t queue_size)
+static void led_init(led_t * const me, eos_u8_t priority, void *queue, eos_u32_t queue_size)
 {
     me->status = EOS_False;
     me->count = 0;
 
-    eos_sm_init(&me->super, priv, queue, queue_size);
+    eos_sm_init(&me->super, priority, queue, queue_size);
     eos_sm_start(&me->super, EOS_STATE_CAST(led_state_init));
 }
 
@@ -182,9 +182,9 @@ void eos_test(void)
 
     static led_t led_test, led2;
     static eos_u32_t queue_test[130], queue2[130];
-    TEST_ASSERT_EQUAL_UINT32(0, led_test.super.priv);
+    TEST_ASSERT_EQUAL_UINT32(0, led_test.super.super.priority);
     led_init(&led_test, 1, queue_test, 130);
-    TEST_ASSERT_EQUAL_UINT32(1, led_test.super.priv);
+    TEST_ASSERT_EQUAL_UINT32(1, led_test.super.super.priority);
 
     led_init(&led2, 0, queue2, 130);
     TEST_ASSERT_EQUAL_INT8(EOS_False, f->etimerpool_empty);
@@ -195,30 +195,30 @@ void eos_test(void)
     // 04 sm_init sm_start
     eos_event_pub_delay(Event_Time_500ms, 0);
     // 检查每个状态机的事件队列
-    TEST_ASSERT_EQUAL_INT8(EOS_False, led_test.super.equeue_empty);
-    TEST_ASSERT_EQUAL_UINT8(1, led_test.super.priv);
-    TEST_ASSERT_EQUAL_UINT32(0, led_test.super.tail);
-    TEST_ASSERT_EQUAL_UINT32(1, led_test.super.head);
-    TEST_ASSERT_EQUAL_INT8(EOS_False, led2.super.equeue_empty);
-    TEST_ASSERT_EQUAL_UINT8(0, led2.super.priv);
-    TEST_ASSERT_EQUAL_UINT32(0, led2.super.tail);
-    TEST_ASSERT_EQUAL_UINT32(1, led2.super.head);
+    TEST_ASSERT_EQUAL_INT8(EOS_False, led_test.super.super.equeue_empty);
+    TEST_ASSERT_EQUAL_UINT8(1, led_test.super.super.priority);
+    TEST_ASSERT_EQUAL_UINT32(0, led_test.super.super.tail);
+    TEST_ASSERT_EQUAL_UINT32(1, led_test.super.super.head);
+    TEST_ASSERT_EQUAL_INT8(EOS_False, led2.super.super.equeue_empty);
+    TEST_ASSERT_EQUAL_UINT8(0, led2.super.super.priority);
+    TEST_ASSERT_EQUAL_UINT32(0, led2.super.super.tail);
+    TEST_ASSERT_EQUAL_UINT32(1, led2.super.super.head);
     // 优先级高的状态机，消费掉此事件。
     TEST_ASSERT_EQUAL_INT32(0, eos_once());
-    TEST_ASSERT_EQUAL_UINT8(EOS_False, led_test.super.equeue_empty);
-    TEST_ASSERT_EQUAL_UINT32(1, led_test.super.head);
-    TEST_ASSERT_EQUAL_UINT32(0, led_test.super.tail);
-    TEST_ASSERT_EQUAL_UINT8(EOS_True, led2.super.equeue_empty);
-    TEST_ASSERT_EQUAL_UINT32(0, led2.super.head);
-    TEST_ASSERT_EQUAL_UINT32(0, led2.super.tail);
+    TEST_ASSERT_EQUAL_UINT8(EOS_False, led_test.super.super.equeue_empty);
+    TEST_ASSERT_EQUAL_UINT32(1, led_test.super.super.head);
+    TEST_ASSERT_EQUAL_UINT32(0, led_test.super.super.tail);
+    TEST_ASSERT_EQUAL_UINT8(EOS_True, led2.super.super.equeue_empty);
+    TEST_ASSERT_EQUAL_UINT32(0, led2.super.super.head);
+    TEST_ASSERT_EQUAL_UINT32(0, led2.super.super.tail);
     // 优先级低的状态机，消费掉此事件。
     TEST_ASSERT_EQUAL_INT32(0, eos_once());
-    TEST_ASSERT_EQUAL_UINT8(EOS_True, led_test.super.equeue_empty);
-    TEST_ASSERT_EQUAL_UINT32(0, led_test.super.head);
-    TEST_ASSERT_EQUAL_UINT32(0, led_test.super.tail);
-    TEST_ASSERT_EQUAL_UINT32(EOS_True, led2.super.equeue_empty);
-    TEST_ASSERT_EQUAL_UINT32(0, led2.super.head);
-    TEST_ASSERT_EQUAL_UINT32(0, led2.super.tail);
+    TEST_ASSERT_EQUAL_UINT8(EOS_True, led_test.super.super.equeue_empty);
+    TEST_ASSERT_EQUAL_UINT32(0, led_test.super.super.head);
+    TEST_ASSERT_EQUAL_UINT32(0, led_test.super.super.tail);
+    TEST_ASSERT_EQUAL_UINT32(EOS_True, led2.super.super.equeue_empty);
+    TEST_ASSERT_EQUAL_UINT32(0, led2.super.super.head);
+    TEST_ASSERT_EQUAL_UINT32(0, led2.super.super.tail);
     TEST_ASSERT_EQUAL_INT32(203, eos_once());
     TEST_ASSERT_EQUAL_INT32(202, eos_once());
     
@@ -233,7 +233,7 @@ void eos_test(void)
     // 测试事件池满的情形
     for (int i = 0; i < evt_num; i ++) {
         eos_event_pub_topic(Event_Time_500ms);
-        TEST_ASSERT_EQUAL_UINT32((i + 1), led2.super.head);
+        TEST_ASSERT_EQUAL_UINT32((i + 1), led2.super.super.head);
     }
     // 事件池满，测试通过
     // eos_event_pub_topic(Event_Time_500ms);
