@@ -76,7 +76,7 @@ typedef struct eos_event_timer {
 
 typedef struct eos_block {
     struct eos_block *next;
-    eos_u32_t is_free                               : 1;
+    eos_u32_t free                                  : 1;
     eos_u32_t size                                  : 24;
 } eos_block_t;
 
@@ -309,6 +309,7 @@ eos_s32_t eos_once(void)
 #endif
     eos_port_critical_exit();
     // 对事件进行执行
+    printf("eos.sub_table[_e->topic]: %x, _e->topic: %d.\n", eos.sub_table[_e->topic], _e->topic);
 #if (EOS_USE_PUB_SUB != 0)
     if ((eos.sub_table[_e->topic] & (1 << actor->priority)) != 0)
 #endif
@@ -385,7 +386,7 @@ void eventos_stop(void)
 // 关于Reactor -----------------------------------------------------------------
 static void eos_actor_init( eos_actor_t * const me,
                             eos_u32_t priority,
-                            void *memory_queue, eos_u32_t queue_size)
+                            eos_event_quote_t *event_queue, eos_u32_t queue_size)
 {
     // 框架需要先启动起来
     EOS_ASSERT(eos.enabled == EOS_True);
@@ -411,20 +412,20 @@ static void eos_actor_init( eos_actor_t * const me,
 
     // 事件队列
     eos_port_critical_enter();
-    me->e_queue = memory_queue;
+    me->e_queue = event_queue;
     EOS_ASSERT_ID(105, me->e_queue != 0);
     me->head = 0;
     me->tail = 0;
-    me->depth = queue_size;
+    me->depth = queue_size * 4;
     me->equeue_empty = EOS_True;
     eos_port_critical_exit();
 }
 
 void eos_reactor_init(  eos_reactor_t * const me,
                         eos_u32_t priority,
-                        void *memory_queue, eos_u32_t queue_size)
+                        eos_event_quote_t *event_queue, eos_u32_t queue_size)
 {
-    eos_actor_init(&me->super, priority, memory_queue, queue_size);
+    eos_actor_init(&me->super, priority, event_queue, queue_size);
     me->super.mode = EOS_Mode_Reactor;
 }
 
@@ -439,9 +440,9 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 #if (EOS_USE_SM_MODE != 0)
 void eos_sm_init(   eos_sm_t * const me,
                     eos_u32_t priority,
-                    void *memory_queue, eos_u32_t queue_size)
+                    eos_event_quote_t *event_queue, eos_u32_t queue_size)
 {
-    eos_actor_init(&me->super, priority, memory_queue, queue_size);
+    eos_actor_init(&me->super, priority, event_queue, queue_size);
     me->super.mode = EOS_Mode_StateMachine;
     me->state = eos_state_top;
 }
@@ -497,6 +498,7 @@ void eos_event_pub_topic(eos_topic_t topic)
     eos_event_pub(topic, &para, 1);
 }
 
+int count = 0;
 #if (EOS_USE_EVENT_DATA != 0)
 void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
 {
@@ -518,6 +520,7 @@ void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
     // 申请事件空间
 #if (EOS_USE_HEAP_LOCAL == 0)
     eos_event_inner_t *e = malloc(size + sizeof(eos_event_inner_t));
+    printf("malloc count: %d.\n", count ++);
 #else
     eos_event_inner_t *e = eos_heap_malloc(&eos.heap, (size + sizeof(eos_event_inner_t)));
 #endif
@@ -882,7 +885,7 @@ void eos_heap_init(eos_heap_t * const me)
     block_1st = (eos_block_t *)me->data;;
     block_1st->next = (void *)0;
     block_1st->size = EOS_SIZE_HEAP - (eos_u32_t)sizeof(eos_block_t);
-    block_1st->is_free = 1;
+    block_1st->free = 1;
 
     me->error_id = 0;
     me->size = EOS_SIZE_HEAP;
@@ -900,7 +903,7 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
     /* Find the first free block in the block-list. */
     block = (eos_block_t *)me->list;
     do {
-        if (block->is_free == 1 && block->size > (size + sizeof(eos_block_t))) {
+        if (block->free == 1 && block->size > (size + sizeof(eos_block_t))) {
             break;
         }
         else {
@@ -916,14 +919,14 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
     /* Divide the block into two blocks. */
     eos_block_t * new_block = (eos_block_t *)((eos_u32_t)block + size + sizeof(eos_block_t));
     new_block->size = block->size - size - sizeof(eos_block_t);
-    new_block->is_free = 1;
+    new_block->free = 1;
     new_block->next = (void *)0;
 
     /* Update the list. */
     new_block->next = block->next;
     block->next = new_block;
     block->size = size;
-    block->is_free = 0;
+    block->free = 0;
 
     me->error_id = 0;
 
@@ -940,7 +943,7 @@ void eos_heap_free(eos_heap_t * const me, void * data)
     eos_block_t * block = me->list;
     eos_block_t * block_last = (void *)0;
     do {
-        if (block->is_free == 0 && block == block_crt) {
+        if (block->free == 0 && block == block_crt) {
             break;
         }
         else {
@@ -955,18 +958,18 @@ void eos_heap_free(eos_heap_t * const me, void * data)
         return;
     }
 
-    block->is_free = 1;
+    block->free = 1;
     /* Check the block can be combined with the front one. */
-    if (block_last != (eos_block_t *)0 && block_last->is_free == 1) {
+    if (block_last != (eos_block_t *)0 && block_last->free == 1) {
         block_last->size += (block->size + sizeof(eos_block_t));
         block_last->next = block->next;
         block = block_last;
     }
     /* Check the block can be combined with the later one. */
-    if (block->next != (eos_block_t *)0 && block->next->is_free == 1) {
+    if (block->next != (eos_block_t *)0 && block->next->free == 1) {
         block->size += (block->next->size + (eos_u32_t)sizeof(eos_block_t));
         block->next = block->next->next;
-        block->is_free = 1;
+        block->free = 1;
     }
 
     me->error_id = 0;

@@ -13,3 +13,9 @@
 // TODO 定时事件，发送时返回其ID，以便可以取消此定时事件。
 // TODO 整理eos.enabled的用法，使之更加简洁。
 // TODO 修改优先级，0为最低优先级。
+// TODO 增加对优先级重复的检查。
+// TODO 增加对时间事件重复的检查。
+// TODO actor_exist和enabled可以合为一体。
+// TODO 对HEAP库进行单元测试。
+// TODO 对HSM模式和发布-订阅模式的裁剪，以适用于最小资源的单片机ROM，优化RAM的占用
+// TODO 对事件带参功能的裁剪，优化ROM的占用

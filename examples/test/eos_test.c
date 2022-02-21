@@ -96,7 +96,7 @@ typedef struct eos_event_timer {
 
 typedef struct eos_block {
     struct eos_block *next;
-    eos_u32_t is_free                               : 1;
+    eos_u32_t free                                  : 1;
     eos_u32_t size                                  : 24;
 } eos_block_t;
 
@@ -121,7 +121,7 @@ typedef struct eos_tag {
 
     // 状态机池
     eos_mcu_t actor_exist;
-    eos_mcu_t sm_enabled;
+    eos_mcu_t enabled;
     eos_actor_t * actor[EOS_MAX_ACTORS];
 
     // 关于事件池
@@ -138,10 +138,10 @@ typedef struct eos_tag {
     eos_bool_t etimerpool_empty;
 #endif
 
-    eos_bool_t enabled;
+    eos_bool_t is_enabled;
     eos_bool_t running;
     eos_bool_t idle;
-} frame_t;
+} eos_t;
 
 extern int eos_once(void);
 extern void * eos_get_framework(void);
@@ -149,13 +149,12 @@ extern int eos_evttimer(void);
 extern void set_time_ms(eos_u32_t time_ms);
 
 static eos_mcu_t eos_sub_table[Event_Max];
-static eos_u8_t eos_heap_memory[40960];
 
 #define TEST_QUEUE_SIZE                     130
 
 void eos_test(void)
 {
-    frame_t * f = (frame_t *)eos_get_framework();
+    eos_t * f = (eos_t *)eos_get_framework();
     set_time_ms(0);
     
     // -------------------------------------------------------------------------
@@ -173,7 +172,7 @@ void eos_test(void)
     for (int i = 0; i < (EOS_MAX_TIME_EVENT / 32 + 1); i ++) {
         TEST_ASSERT_EQUAL_HEX32(_flag_etimerpool[i], f->flag_etimerpool[i]);
     }
-    TEST_ASSERT_EQUAL_INT8(EOS_True, f->enabled);
+    TEST_ASSERT_EQUAL_INT8(EOS_True, f->is_enabled);
     TEST_ASSERT_EQUAL_INT8(EOS_True, f->idle);
 
     // -------------------------------------------------------------------------
@@ -202,6 +201,7 @@ void eos_test(void)
     for (int i = 0; i < 10; i ++) {
         TEST_ASSERT_EQUAL_INT32(202, eos_once());
     }
+    
     // -------------------------------------------------------------------------
     // 04 sm_init sm_start
     eos_event_pub_delay(Event_Time_500ms, 0);
@@ -232,7 +232,7 @@ void eos_test(void)
     TEST_ASSERT_EQUAL_UINT32(0, led2.super.super.tail);
     TEST_ASSERT_EQUAL_INT32(203, eos_once());
     TEST_ASSERT_EQUAL_INT32(202, eos_once());
-    
+
     // -------------------------------------------------------------------------
     // 04 eos_event_pub_topic
     eos_event_pub_topic(Event_Time_500ms);

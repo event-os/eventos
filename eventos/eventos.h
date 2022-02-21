@@ -35,12 +35,46 @@
 #define EVENTOS_H_
 
 /* include ------------------------------------------------------------------ */
-#include "eventos_def.h"
 #include "eventos_config.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* default configuration ---------------------------------------------------- */
+#ifndef EOS_MCU_TYPE
+#define EOS_MCU_TYPE                            32      // 默认32位单片机
+#endif
+
+#ifndef EOS_MAX_ACTORS
+#define EOS_MAX_ACTORS                          8      // 默认最多8个Actor
+#endif
+
+#ifndef EOS_USE_ASSERT
+#define EOS_USE_ASSERT                          1       // 默认打开断言
+#endif
+
+#ifndef EOS_USE_SM_MODE
+#define EOS_USE_SM_MODE                         0       // 默认关闭状态机
+#endif
+
+#ifndef EOS_USE_PUB_SUB
+#define EOS_USE_PUB_SUB                         0       // 默认关闭发布-订阅机制
+#endif
+
+#ifndef EOS_USE_TIME_EVENT
+#define EOS_USE_TIME_EVENT                      0       // 默认关闭时间事件
+#endif
+
+#ifndef EOS_USE_EVENT_DATA
+#define EOS_USE_EVENT_DATA                      0       // 默认关闭时间事件
+#endif
+
+#ifndef EOS_USE_EVENT_BRIDGE
+#define EOS_USE_EVENT_BRIDGE                    0       // 默认关闭事件桥
+#endif
+
+#include "eventos_def.h"
 
 /* data struct -------------------------------------------------------------- */
 enum eos_event_topic {
@@ -75,8 +109,9 @@ typedef enum eos_ret {
 
 // 事件类
 typedef struct eos_event {
-    eos_u32_t topic;
+    eos_topic_t topic;
     void *data;
+    // eos_u16_t size;
 } eos_event_t;
 
 // 数据结构 - 行为树相关 --------------------------------------------------------
@@ -89,6 +124,8 @@ typedef void (* eos_event_handler)(struct eos_reactor *const me, eos_event_t con
 struct eos_sm;
 typedef eos_ret_t (* eos_state_handler)(struct eos_sm *const me, eos_event_t const * const e);
 #endif
+
+typedef eos_u16_t                     eos_event_quote_t;
 
 // Actor类
 typedef struct eos_actor {
@@ -134,7 +171,7 @@ void eventos_stop(void);
 // 关于Reactor -----------------------------------------------------------------
 void eos_reactor_init(  eos_reactor_t * const me,
                         eos_u32_t priority,
-                        void *memory_queue, eos_u32_t queue_size);
+                        eos_event_quote_t *event_queue, eos_u32_t queue_size);
 void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler);
 
 
@@ -143,7 +180,7 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 // 状态机初始化函数
 void eos_sm_init(   eos_sm_t * const me,
                     eos_u32_t priority,
-                    void *memory_queue, eos_u32_t queue_size);
+                    eos_event_quote_t *event_queue, eos_u32_t queue_size);
 void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init);
 
 eos_ret_t eos_tran(eos_sm_t * const me, eos_state_handler state);

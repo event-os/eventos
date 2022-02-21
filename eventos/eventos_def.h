@@ -19,6 +19,9 @@ typedef enum eos_bool {
 #define EOS_U32_MAX                     0xffffffff
 #define EOS_U32_MIN                     0
 
+#define EOS_U16_MAX                     0xffff
+#define EOS_U16_MIN                     0
+
 #if (EOS_MCU_TYPE == 8)
 typedef eos_u8_t                        eos_mcu_t;
 #elif (EOS_MCU_TYPE == 16)
