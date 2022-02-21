@@ -55,7 +55,7 @@
 /* Event's Data Configuration ----------------------------------------------- */
 #define EOS_USE_EVENT_DATA                      1
 #define EOS_USE_HEAP_LOCAL                      1
-#define EOS_SIZE_HEAP                           40960
+#define EOS_SIZE_HEAP                           512
 
 /* Event Bridge Configuration ----------------------------------------------- */
 #define EOS_USE_EVENT_BRIDGE                    0

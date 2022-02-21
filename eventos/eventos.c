@@ -355,7 +355,6 @@ void eventos_run(void)
     EOS_ASSERT(eos.sub_table != 0);
 #endif
 #if (EOS_USE_EVENT_DATA != 0)
-    EOS_ASSERT(eos.heap.data != (void *)0);
     EOS_ASSERT(eos.heap.size != 0);
 #endif
 
@@ -393,7 +392,7 @@ static void eos_actor_init( eos_actor_t * const me,
     EOS_ASSERT(eos.running == EOS_False);
     // 参数检查
     EOS_ASSERT(me != (eos_actor_t *)0);
-    EOS_ASSERT(priority >= 0 && priority < EOS_MAX_ACTORS);
+    EOS_ASSERT(priority < EOS_MAX_ACTORS);
 
     me->magic = EOS_MAGIC;
 
@@ -451,7 +450,6 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 {
     eos_state_handler path[EOS_MAX_HSM_NEST_DEPTH];
     eos_state_handler t = eos_state_top;
-    eos_s8_t ip = 0;
 
     me->state = state_init;
     me->super.enabled = EOS_True;
@@ -463,6 +461,7 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 
     // 由初始状态转移，引发的各层状态的进入
     // 每一个循环，都代表着一个Event_Init的执行
+    eos_s32_t ip = 0;
     ret = EOS_Ret_Null;
     do {
         // 由当前层，探测需要进入的各层父状态
