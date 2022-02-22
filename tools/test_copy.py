@@ -12,6 +12,7 @@ def execute():
    index_eos_end = str_eos.find(str_end)
    f_eos.seek(index_eos_start)
    str_def = f_eos.read(index_eos_end - index_eos_start)
+   f_eos.close()
 
    f_test = open("examples/test/eos_test.c", mode = 'r+', encoding = 'utf-8', newline = '\r\n')
    str_test = f_test.read()
@@ -21,17 +22,20 @@ def execute():
    str_head = f_test.read(index_test_start)
    f_test.seek(index_test_end)
    str_tail = f_test.read()
-   #f_test.truncate(0)
+   f_test.seek(0)
+   f_test.truncate()
+   f_test.close()
 
    str_new_test = str_head
    str_new_test = str_new_test + str_def
    str_new_test = str_new_test + str_tail
    
-   # f_test.write(str_new_test)
+   f_test = open("examples/test/eos_test.c", mode = 'w', encoding = 'utf-8', newline = '')
+   f_test.write(str_new_test)
+   f_test.close()
    # print(str_new_test)
 
    # print("eos start", index_eos_start, "end", index_eos_end)
    # print("test start", index_test_start, "end", index_test_end)
 
-   f_eos.close()
    return
