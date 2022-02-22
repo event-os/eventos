@@ -1,4 +1,4 @@
-# EventOS Nano开发环境搭建
++ # EventOS Nano开发环境搭建
 -------
 #### 概述
 **EventOS**与**EventOS Nano**的开发环境，主要就是：MinGW、Python3、SCons构建工具三个部分。当然了，如果不安装这些开发环境，**EventOS Nano**也是可以通过MDK和IAR例程来使用的。
