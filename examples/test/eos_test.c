@@ -85,6 +85,7 @@ static eos_ret_t led_state_on(led_t * const me, eos_event_t const * const e)
 }
 
 /* unittest ----------------------------------------------------------------- */
+// **eos** ---------------------------------------------------------------------
 #if (EOS_USE_TIME_EVENT != 0)
 typedef struct eos_event_timer {
     eos_topic_t topic;
@@ -116,32 +117,30 @@ typedef struct eos_event_inner {
 typedef struct eos_tag {
     eos_mcu_t magic;
 #if (EOS_USE_PUB_SUB != 0)
-    eos_mcu_t *sub_table;                                     // 事件订阅表
+    eos_mcu_t *sub_table;                                     // event sub table
 #endif
 
-    // 状态机池
     eos_mcu_t actor_exist;
-    eos_mcu_t enabled;
+    eos_mcu_t sm_enabled;
     eos_actor_t * actor[EOS_MAX_ACTORS];
 
-    // 关于事件池
 #if (EOS_USE_EVENT_DATA != 0)
     eos_heap_t heap;
 #endif
 
 #if (EOS_USE_TIME_EVENT != 0)
-    // 定时器池
     eos_event_timer_t e_timer_pool[EOS_MAX_TIME_EVENT];
-    eos_u32_t flag_etimerpool[EOS_MAX_TIME_EVENT / 32 + 1];    // 事件池标志位
+    eos_u32_t flag_etimerpool[EOS_MAX_TIME_EVENT / 32 + 1];    // timer pool flag
     eos_u32_t timeout_ms_min;
     eos_u32_t time_crt_ms;
     eos_bool_t etimerpool_empty;
 #endif
 
-    eos_bool_t is_enabled;
+    eos_bool_t enabled;
     eos_bool_t running;
     eos_bool_t idle;
 } eos_t;
+// **eos end** -----------------------------------------------------------------
 
 extern int eos_once(void);
 extern void * eos_get_framework(void);
@@ -172,7 +171,7 @@ void eos_test(void)
     for (int i = 0; i < (EOS_MAX_TIME_EVENT / 32 + 1); i ++) {
         TEST_ASSERT_EQUAL_HEX32(_flag_etimerpool[i], f->flag_etimerpool[i]);
     }
-    TEST_ASSERT_EQUAL_INT8(EOS_True, f->is_enabled);
+    TEST_ASSERT_EQUAL_INT8(EOS_True, f->enabled);
     TEST_ASSERT_EQUAL_INT8(EOS_True, f->idle);
 
     // -------------------------------------------------------------------------

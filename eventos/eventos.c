@@ -64,7 +64,7 @@ enum eos_actor_mode {
     EOS_Mode_StateMachine = !EOS_Mode_Reactor
 };
 
-// eos data structure ----------------------------------------------------------
+// **eos** ---------------------------------------------------------------------
 #if (EOS_USE_TIME_EVENT != 0)
 typedef struct eos_event_timer {
     eos_topic_t topic;
@@ -96,23 +96,20 @@ typedef struct eos_event_inner {
 typedef struct eos_tag {
     eos_mcu_t magic;
 #if (EOS_USE_PUB_SUB != 0)
-    eos_mcu_t *sub_table;                                     // 事件订阅表
+    eos_mcu_t *sub_table;                                     // event sub table
 #endif
 
-    // 状态机池
     eos_mcu_t actor_exist;
     eos_mcu_t sm_enabled;
     eos_actor_t * actor[EOS_MAX_ACTORS];
 
-    // 关于事件池
 #if (EOS_USE_EVENT_DATA != 0)
     eos_heap_t heap;
 #endif
 
 #if (EOS_USE_TIME_EVENT != 0)
-    // 定时器池
     eos_event_timer_t e_timer_pool[EOS_MAX_TIME_EVENT];
-    eos_u32_t flag_etimerpool[EOS_MAX_TIME_EVENT / 32 + 1];    // 事件池标志位
+    eos_u32_t flag_etimerpool[EOS_MAX_TIME_EVENT / 32 + 1];    // timer pool flag
     eos_u32_t timeout_ms_min;
     eos_u32_t time_crt_ms;
     eos_bool_t etimerpool_empty;
@@ -122,6 +119,7 @@ typedef struct eos_tag {
     eos_bool_t running;
     eos_bool_t idle;
 } eos_t;
+// **eos end** -----------------------------------------------------------------
 
 static eos_t eos;
 
@@ -309,7 +307,6 @@ eos_s32_t eos_once(void)
 #endif
     eos_port_critical_exit();
     // 对事件进行执行
-    printf("eos.sub_table[_e->topic]: %x, _e->topic: %d.\n", eos.sub_table[_e->topic], _e->topic);
 #if (EOS_USE_PUB_SUB != 0)
     if ((eos.sub_table[_e->topic] & (1 << actor->priority)) != 0)
 #endif

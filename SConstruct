@@ -1,3 +1,12 @@
+import os
+import sys
+
+# 添加路径到环境变量
+sys.path.append("tools")
+
+from tools import test_copy
+
+test_copy.execute()
 
 defines = ['MAIN_DEF']
 ccflags = []

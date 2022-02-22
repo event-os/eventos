@@ -31,3 +31,4 @@ cmake-build-debug
 JLinkLog.txt
 imxrt105x.uvguix.*
 .sconsign.dblite
+__pycache__
