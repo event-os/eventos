@@ -137,7 +137,9 @@ static const eos_event_t eos_event_table[Event_User] = {
     {Event_Null, 0},
     {Event_Enter, 0},
     {Event_Exit, 0},
+#if (EOS_USE_HSM_MODE != 0)
     {Event_Init, 0},
+#endif
 };
 #endif
 
@@ -153,7 +155,9 @@ static const eos_event_t eos_event_table[Event_User] = {
 // static function -------------------------------------------------------------
 #if (EOS_USE_SM_MODE != 0)
 static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e);
+#if (EOS_USE_HSM_MODE != 0)
 static eos_s32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX_HSM_NEST_DEPTH]);
+#endif
 #endif
 #if (EOS_USE_EVENT_DATA != 0 && EOS_USE_HEAP_LOCAL != 0)
 void eos_heap_init(eos_heap_t * const me);
@@ -446,7 +450,9 @@ void eos_sm_init(   eos_sm_t * const me,
 
 void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 {
+#if (EOS_USE_HSM_MODE != 0)
     eos_state_handler path[EOS_MAX_HSM_NEST_DEPTH];
+#endif
     eos_state_handler t = eos_state_top;
 
     me->state = state_init;
@@ -454,9 +460,12 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
     eos.sm_enabled |= (1 << me->super.priority);
 
     // 进入初始状态，执行TRAN动作。这也意味着，进入初始状态，必须无条件执行Tran动作。
-    eos_ret_t ret = me->state(me, &eos_event_table[Event_Null]);
+    t = me->state;
+    eos_ret_t ret = t(me, &eos_event_table[Event_Null]);
     EOS_ASSERT(ret == EOS_Ret_Tran);
 
+#if (EOS_USE_HSM_MODE != 0)
+    t = eos_state_top;
     // 由初始状态转移，引发的各层状态的进入
     // 每一个循环，都代表着一个Event_Init的执行
     eos_s32_t ip = 0;
@@ -485,6 +494,7 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
     } while (ret == EOS_Ret_Tran);
 
     me->state = t;
+#endif
 }
 #endif
 
@@ -517,7 +527,6 @@ void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
     // 申请事件空间
 #if (EOS_USE_HEAP_LOCAL == 0)
     eos_event_inner_t *e = malloc(size + sizeof(eos_event_inner_t));
-    printf("malloc count: %d.\n", count ++);
 #else
     eos_event_inner_t *e = eos_heap_malloc(&eos.heap, (size + sizeof(eos_event_inner_t)));
 #endif
@@ -676,13 +685,18 @@ eos_ret_t eos_state_top(eos_sm_t * const me, eos_event_t const * const e)
 #if (EOS_USE_SM_MODE != 0)
 static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
 {
+#if (EOS_USE_HSM_MODE != 0)
     eos_state_handler path[EOS_MAX_HSM_NEST_DEPTH];
-    eos_state_handler t = me->state;
     eos_state_handler s;
     eos_ret_t r;
+#endif
+    eos_state_handler t = me->state;
 
     EOS_ASSERT(e != (eos_event_t *)0);
 
+#if (EOS_USE_HSM_MODE == 0)
+    t(me, e);
+#else
     // 层次化的处理事件
     // 注：分为两种情况：
     // (1) 当该状态存在数据时，处理此事件。
@@ -745,8 +759,10 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
     }
 
     me->state = t;                                  // 更新当前状态
+#endif
 }
 
+#if (EOS_USE_HSM_MODE != 0)
 static eos_s32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX_HSM_NEST_DEPTH])
 {
     // transition entry path index
@@ -867,6 +883,7 @@ static eos_s32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX
 
     return ip;
 }
+#endif
 #endif
 
 #if (EOS_USE_HEAP_LOCAL != 0)
