@@ -384,11 +384,6 @@
           <GroupName>User</GroupName>
           <Files>
             <File>
-              <FileName>eos_led.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\User\eos_led.c</FilePath>
-            </File>
-            <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\User\main.c</FilePath>
@@ -397,6 +392,16 @@
               <FileName>port_stm32f103.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\User\port_stm32f103.c</FilePath>
+            </File>
+            <File>
+              <FileName>eos_led_reactor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\eos_led_reactor.c</FilePath>
+            </File>
+            <File>
+              <FileName>eos_led_sm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\eos_led_sm.c</FilePath>
             </File>
           </Files>
         </Group>

@@ -20,3 +20,4 @@
 // TODO 对HSM模式和发布-订阅模式的裁剪，以适用于最小资源的单片机ROM，优化RAM的占用
 // TODO 对事件带参功能的裁剪，优化ROM的占用
 // TODO 处理掉eos_event_quote_t，这个不应该存在。
+// TODO 使非带参事件，不再申请Heap空间。

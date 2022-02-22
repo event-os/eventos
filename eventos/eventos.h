@@ -173,7 +173,7 @@ void eos_reactor_init(  eos_reactor_t * const me,
                         eos_u32_t priority,
                         eos_event_quote_t *event_queue, eos_u32_t queue_size);
 void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler);
-
+#define EOS_HANDLER_CAST(handler)       ((eos_event_handler)(handler))
 
 // 关于状态机 -----------------------------------------------
 #if (EOS_USE_SM_MODE != 0)
@@ -189,7 +189,7 @@ eos_ret_t eos_state_top(eos_sm_t * const me, eos_event_t const * const e);
 
 #define EOS_TRAN(target)            eos_tran((eos_sm_t * )me, (eos_state_handler)target)
 #define EOS_SUPER(super)            eos_super((eos_sm_t * )me, (eos_state_handler)super)
-#define EOS_STATE_CAST(state)       (eos_state_handler)(state)
+#define EOS_STATE_CAST(state)       ((eos_state_handler)(state))
 #endif
 
 // 关于事件 -------------------------------------------------

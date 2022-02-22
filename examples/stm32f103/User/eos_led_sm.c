@@ -4,44 +4,50 @@
 #include "event_def.h"
 #include <stdio.h>
 
+#if (EOS_USE_SM_MODE != 0)
 /* data structure ----------------------------------------------------------- */
-typedef struct eos_led_tag {
+typedef struct eos_sm_led_tag {
     eos_sm_t super;
 
     eos_u8_t status;
-} eos_led_t;
+} eos_sm_led_t;
 
-static eos_led_t led;
+eos_sm_led_t sm_led;
 
 /* static state function ---------------------------------------------------- */
-static eos_ret_t state_init(eos_led_t * const me, eos_event_t const * const e);
-static eos_ret_t state_on(eos_led_t * const me, eos_event_t const * const e);
-static eos_ret_t state_off(eos_led_t * const me, eos_event_t const * const e);
+static eos_ret_t state_init(eos_sm_led_t * const me, eos_event_t const * const e);
+static eos_ret_t state_on(eos_sm_led_t * const me, eos_event_t const * const e);
+static eos_ret_t state_off(eos_sm_led_t * const me, eos_event_t const * const e);
 
 /* api ---------------------------------------------------- */
-void eos_led_init(void)
+void eos_sm_led_init(void)
 {
     static eos_event_quote_t queue[8];
-    eos_sm_init(&led.super, 1, queue, 8);
-    eos_sm_start(&led.super, EOS_STATE_CAST(state_init));
+    eos_sm_init(&sm_led.super, 1, queue, 8);
+    eos_sm_start(&sm_led.super, EOS_STATE_CAST(state_init));
 
-    led.status = 0;
+    sm_led.status = 0;
 }
 
 /* static state function ---------------------------------------------------- */
-static eos_ret_t state_init(eos_led_t * const me, eos_event_t const * const e)
+static eos_ret_t state_init(eos_sm_led_t * const me, eos_event_t const * const e)
 {
+#if (EOS_USE_PUB_SUB != 0)
     EOS_EVENT_SUB(Event_Time_500ms);
+#endif
     eos_event_pub_period(Event_Time_500ms, 500);
 
     return EOS_TRAN(state_off);
 }
 
-static eos_ret_t state_on(eos_led_t * const me, eos_event_t const * const e)
+static eos_ret_t state_on(eos_sm_led_t * const me, eos_event_t const * const e)
 {
     switch (e->topic) {
         case Event_Enter:
             me->status = 1;
+            return EOS_Ret_Handled;
+        
+        case Event_Exit:
             return EOS_Ret_Handled;
 
         case Event_Time_500ms:
@@ -52,11 +58,14 @@ static eos_ret_t state_on(eos_led_t * const me, eos_event_t const * const e)
     }
 }
 
-static eos_ret_t state_off(eos_led_t * const me, eos_event_t const * const e)
+static eos_ret_t state_off(eos_sm_led_t * const me, eos_event_t const * const e)
 {
     switch (e->topic) {
         case Event_Enter:
             me->status = 0;
+            return EOS_Ret_Handled;
+        
+        case Event_Exit:
             return EOS_Ret_Handled;
 
         case Event_Time_500ms:
@@ -66,4 +75,4 @@ static eos_ret_t state_off(eos_led_t * const me, eos_event_t const * const e)
             return EOS_SUPER(eos_state_top);
     }
 }
-
+#endif

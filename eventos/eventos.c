@@ -120,8 +120,7 @@ typedef struct eos_tag {
     eos_bool_t idle;
 } eos_t;
 // **eos end** -----------------------------------------------------------------
-
-static eos_t eos;
+eos_t eos;
 
 #if (EOS_MCU_TYPE == 8)
 #define EOS_MAGIC                         0x4F
@@ -169,7 +168,7 @@ void eos_heap_free(eos_heap_t * const me, void * data);
 static void eos_clear(void)
 {
 #if (EOS_USE_TIME_EVENT != 0)
-    // 清空事件定时器池
+    // Clear all time-events' pool.
     for (eos_u32_t i = 0; i < EOS_MAX_TIME_EVENT / 32 + 1; i ++)
         eos.flag_etimerpool[i] = EOS_U32_MAX;
     for (eos_u32_t i = 0; i < EOS_MAX_TIME_EVENT; i ++)
@@ -306,9 +305,8 @@ eos_s32_t eos_once(void)
         actor->tail = 0;
         actor->head = 0;
     }
-#if (EOS_USE_PUB_SUB != 0)
+
     _e->flag_sub &= ~(1 << (actor->priority));
-#endif
     eos_port_critical_exit();
     // 对事件进行执行
 #if (EOS_USE_PUB_SUB != 0)
@@ -463,8 +461,10 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
     t = me->state;
     eos_ret_t ret = t(me, &eos_event_table[Event_Null]);
     EOS_ASSERT(ret == EOS_Ret_Tran);
-
-#if (EOS_USE_HSM_MODE != 0)
+#if (EOS_USE_HSM_MODE == 0)
+    ret = me->state(me, &eos_event_table[Event_Enter]);
+    EOS_ASSERT(ret != EOS_Ret_Tran);
+#else
     t = eos_state_top;
     // 由初始状态转移，引发的各层状态的进入
     // 每一个循环，都代表着一个Event_Init的执行
@@ -611,7 +611,7 @@ static void evt_publish_time(eos_s32_t topic, eos_s32_t time_ms, eos_bool_t is_o
         EOS_ASSERT_ID(106, is_topic_set == EOS_False);
     }
 
-    // 寻找到空的时间定时器
+    // Find an empty soft timer.
     eos_s32_t index_empty = EOS_U32_MAX;
     for (eos_u32_t i = 0; i < (EOS_MAX_TIME_EVENT / 32 + 1); i ++) {
         if (eos.flag_etimerpool[i] == EOS_U32_MAX)
@@ -633,7 +633,7 @@ static void evt_publish_time(eos_s32_t topic, eos_s32_t time_ms, eos_bool_t is_o
     };
     eos.etimerpool_empty = EOS_False;
     
-    // 寻找到最小的时间定时器
+    // Find the nearest soft timer.
     eos_u32_t min_time_out_ms = EOS_U32_MAX;
     for (eos_u32_t i = 0; i < EOS_MAX_TIME_EVENT; i ++) {
         if ((eos.flag_etimerpool[i / 32] & (1 << (i % 32))) == 0)
@@ -687,15 +687,25 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
 {
 #if (EOS_USE_HSM_MODE != 0)
     eos_state_handler path[EOS_MAX_HSM_NEST_DEPTH];
-    eos_state_handler s;
-    eos_ret_t r;
 #endif
-    eos_state_handler t = me->state;
+    eos_state_handler s = me->state;
+    eos_state_handler t;
+    eos_ret_t r;
 
     EOS_ASSERT(e != (eos_event_t *)0);
 
 #if (EOS_USE_HSM_MODE == 0)
-    t(me, e);
+    r = s(me, e);
+    if (r == EOS_Ret_Tran) {
+        t = me->state;
+        r = s(me, &eos_event_table[Event_Exit]);
+        r = t(me, &eos_event_table[Event_Enter]);
+        me->state = t;
+        EOS_ASSERT(r != EOS_Ret_Tran);
+    }
+    else {
+        me->state = s;
+    }
 #else
     // 层次化的处理事件
     // 注：分为两种情况：
