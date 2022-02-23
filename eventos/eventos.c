@@ -76,15 +76,15 @@ typedef struct eos_event_timer {
 
 typedef struct eos_block {
     struct eos_block *next;
-    eos_u32_t free                                  : 1;
-    eos_u32_t size                                  : 24;
+    eos_u8_t free;
+    eos_u16_t size;
 } eos_block_t;
 
 typedef struct eos_heap {
     eos_u8_t data[EOS_SIZE_HEAP];
     eos_block_t *list;
-    eos_u32_t size                                  : 24;       /* total size */
-    eos_u32_t error_id                              : 4;
+    eos_u16_t size;       /* total size */
+    eos_u8_t error_id;
 } eos_heap_t;
 
 typedef struct eos_event_inner {
@@ -354,7 +354,7 @@ void eventos_run(void)
 #if (EOS_USE_PUB_SUB != 0)
     EOS_ASSERT(eos.sub_table != 0);
 #endif
-#if (EOS_USE_EVENT_DATA != 0)
+#if (EOS_USE_EVENT_DATA != 0 && EOS_USE_HEAP != 0)
     EOS_ASSERT(eos.heap.size != 0);
 #endif
 
@@ -941,8 +941,12 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
     }
 
     /* Divide the block into two blocks. */
-    eos_block_t * new_block = (eos_block_t *)((eos_u32_t)block + size + sizeof(eos_block_t));
-    new_block->size = block->size - size - sizeof(eos_block_t);
+    /* ARM Cortex-M0不支持非对齐访问 */
+    eos_u32_t address = (eos_u32_t)block + size + sizeof(eos_block_t);
+    address = (address % 4 == 0) ? address : (address + 4 - (address % 4));
+    eos_block_t * new_block = (eos_block_t *)address;
+    eos_u32_t _size = block->size - size - sizeof(eos_block_t);
+    new_block->size = _size;
     new_block->free = 1;
     new_block->next = (void *)0;
 
