@@ -21,3 +21,4 @@
 // TODO 对事件带参功能的裁剪，优化ROM的占用
 // TODO 处理掉eos_event_quote_t，这个不应该存在。
 // TODO 使非带参事件，不再申请Heap空间。
+// TODO 修改为

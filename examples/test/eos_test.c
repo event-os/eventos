@@ -97,15 +97,15 @@ typedef struct eos_event_timer {
 
 typedef struct eos_block {
     struct eos_block *next;
-    eos_u32_t free                                  : 1;
-    eos_u32_t size                                  : 24;
+    eos_u8_t free;
+    eos_u16_t size;
 } eos_block_t;
 
 typedef struct eos_heap {
     eos_u8_t data[EOS_SIZE_HEAP];
     eos_block_t *list;
-    eos_u32_t size                                  : 24;       /* total size */
-    eos_u32_t error_id                              : 4;
+    eos_u16_t size;       /* total size */
+    eos_u8_t error_id;
 } eos_heap_t;
 
 typedef struct eos_event_inner {

@@ -451,7 +451,7 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 #if (EOS_USE_HSM_MODE != 0)
     eos_state_handler path[EOS_MAX_HSM_NEST_DEPTH];
 #endif
-    eos_state_handler t = eos_state_top;
+    eos_state_handler t;
 
     me->state = state_init;
     me->super.enabled = EOS_True;
@@ -699,9 +699,10 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
     if (r == EOS_Ret_Tran) {
         t = me->state;
         r = s(me, &eos_event_table[Event_Exit]);
+        EOS_ASSERT(r == EOS_Ret_Handled);
         r = t(me, &eos_event_table[Event_Enter]);
+        EOS_ASSERT(r == EOS_Ret_Handled);
         me->state = t;
-        EOS_ASSERT(r != EOS_Ret_Tran);
     }
     else {
         me->state = s;
@@ -946,11 +947,10 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
     address = (address % 4 == 0) ? address : (address + 4 - (address % 4));
     eos_block_t * new_block = (eos_block_t *)address;
     eos_u32_t _size = block->size - size - sizeof(eos_block_t);
-    new_block->size = _size;
-    new_block->free = 1;
-    new_block->next = (void *)0;
 
     /* Update the list. */
+    new_block->size = _size;
+    new_block->free = 1;
     new_block->next = block->next;
     block->next = new_block;
     block->size = size;
