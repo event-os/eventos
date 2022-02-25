@@ -70,7 +70,7 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size);
 void eos_heap_free(eos_heap_t * const me, void * data);
 
 /* test data & function ----------------------------------------------------- */
-#define EOS_HEAP_TEST_TIMES                     100000000
+#define EOS_HEAP_TEST_TIMES                     1000
 #define EOS_HEAP_TEST_PRINT_EN                  0
 static eos_heap_t heap;
 uint8_t * p_data;
