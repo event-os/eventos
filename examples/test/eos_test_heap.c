@@ -70,12 +70,12 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size);
 void eos_heap_free(eos_heap_t * const me, void * data);
 
 /* test data & function ----------------------------------------------------- */
-#define EOS_HEAP_TEST_PRINT_EN                  1
-#define HEAP_SIZE                               EOS_SIZE_HEAP
+#define EOS_HEAP_TEST_TIMES                     10000
+#define EOS_HEAP_TEST_PRINT_EN                  0
 static eos_heap_t heap;
 uint8_t * p_data;
 
-static void print_heap_list(eos_heap_t * const me);
+static void print_heap_list(eos_heap_t * const me, eos_u32_t index);
 
 /* test function ------------------------------------------------------------ */
 void eos_test_heap(void)
@@ -85,21 +85,24 @@ void eos_test_heap(void)
     /* Make sure the heap initilization is successful. */
     TEST_ASSERT_EQUAL_UINT16(0, heap.error_id);
 
-    for (int i = 0; i < 10000; i ++) {
-        p_data = eos_heap_malloc(&heap, i + 100);
+    for (int i = 0; i < EOS_HEAP_TEST_TIMES; i ++) {
+        eos_u32_t size = ((i + 100) % 10000) + 1;
+        eos_u32_t size_adjust = (size % 4 == 0) ? size : (size + 4 - (size % 4));
+        p_data = eos_heap_malloc(&heap, size);
         TEST_ASSERT(p_data != NULL);
-        TEST_ASSERT_EQUAL_UINT32(heap.list->size, 100 + i);
+        TEST_ASSERT_EQUAL_UINT32(heap.list->size, size_adjust);
         TEST_ASSERT(heap.list->next != NULL);
         TEST_ASSERT(heap.list->next->next == NULL);
-        if (p_data == NULL) {
-            break;
-        }
+
         eos_heap_free(&heap, p_data);
+#if (EOS_TEST_PLATFORM == 32)
         TEST_ASSERT_EQUAL_UINT32(p_data, (eos_u32_t)heap.list + (eos_u32_t)sizeof(eos_block_t));
-            
+#else
+        TEST_ASSERT_EQUAL_UINT64(p_data, (eos_pointer_t)heap.list + (eos_pointer_t)sizeof(eos_block_t));
+#endif
         TEST_ASSERT(heap.list->next == NULL);
         
-        TEST_ASSERT_EQUAL_UINT32(heap.list->size, HEAP_SIZE - sizeof(eos_block_t));
+        TEST_ASSERT_EQUAL_UINT32(heap.list->size, EOS_SIZE_HEAP - sizeof(eos_block_t));
     }
 
     // malloc大小
@@ -115,63 +118,67 @@ void eos_test_heap(void)
     for (int i = 0; i < 10; i ++) {
         data_ptr[i] = eos_heap_malloc(&heap, size_malloc[i]);
         TEST_ASSERT(data_ptr[i] != NULL);
-        printf("0-");
-        print_heap_list(&heap);
+        print_heap_list(&heap, i);
     }
     for (int i = 0; i < 10; i ++) {
         eos_heap_free(&heap, data_ptr[squen_free[i]]);
-        printf("1-");
-        print_heap_list(&heap);
+        print_heap_list(&heap, i);
     }
 
     TEST_ASSERT(heap.list->next == NULL);
-    TEST_ASSERT_EQUAL_UINT32(heap.list->size, HEAP_SIZE - sizeof(eos_block_t));
+    TEST_ASSERT_EQUAL_UINT32(heap.list->size, EOS_SIZE_HEAP - sizeof(eos_block_t));
 
     printf("\n");
 
     /* random test */
-    #define HEAP_RANDOM_TWST_TIMES              10000
-    void * malloc_data[HEAP_RANDOM_TWST_TIMES];
+    void * malloc_data[EOS_HEAP_TEST_TIMES];
     int count_malloc = 0;
     int count_free = 0;
 
     srand(time(0));
 
-    while (count_free < HEAP_RANDOM_TWST_TIMES) {
+    while (count_free < EOS_HEAP_TEST_TIMES) {
         int size = rand() % 256;
         if (size % 2 == 1 && size != 0 && size >= 16) {
-            if (count_malloc < HEAP_RANDOM_TWST_TIMES) {
+            if (count_malloc < EOS_HEAP_TEST_TIMES) {
                 malloc_data[count_malloc ++] = eos_heap_malloc(&heap, size);
-                printf("\033[1;31mmalloc: \033[0m", size);
-                print_heap_list(&heap);
+#if (EOS_HEAP_TEST_PRINT_EN != 0)
+                printf("\033[1;31mmalloc: \033[0m");
+#endif
+                if ((count_malloc % 1000) == 0)
+                    printf("malloc times: %u.\n", count_malloc);
+                print_heap_list(&heap, count_malloc);
             }
         }
         else {
             if (count_free < count_malloc) {
-                printf("\033[1;33mfree:   \033[0m", size);
+#if (EOS_HEAP_TEST_PRINT_EN != 0)
+                printf("\033[1;33mfree:   \033[0m");
+#endif
+                if ((count_free % 1000) == 0)
+                    printf("free times: %u.\n", count_free);
                 eos_heap_free(&heap, malloc_data[count_free ++]);
-                print_heap_list(&heap);
+                print_heap_list(&heap, count_free);
             }
         }
-        usleep(2000);
     }
 
     TEST_ASSERT(heap.list->next == NULL);
-    TEST_ASSERT_EQUAL_UINT32(heap.list->size, HEAP_SIZE - sizeof(eos_block_t));
+    TEST_ASSERT_EQUAL_UINT32(heap.list->size, EOS_SIZE_HEAP - sizeof(eos_block_t));
 }
 
-static void print_heap_list(eos_heap_t * const me)
+static void print_heap_list(eos_heap_t * const me, eos_u32_t index)
 {
 #if (EOS_HEAP_TEST_PRINT_EN == 0)
     (void)me;
 #else
-    printf("table: ");
+    printf("table %6u: ", index);
     eos_block_t * block = me->list;
     do {
         if (block->free == 1)
-            printf("\033[1;32m%lu, \033[0m", block->size);
+            printf("\033[1;32m%u, \033[0m", block->size);
         else
-            printf("%lu, ", block->size);
+            printf("%u, ", block->size);
         
         block = block->next;
     } while (block != NULL);
