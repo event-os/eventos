@@ -70,7 +70,7 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size);
 void eos_heap_free(eos_heap_t * const me, void * data);
 
 /* test data & function ----------------------------------------------------- */
-#define EOS_HEAP_TEST_TIMES                     10000
+#define EOS_HEAP_TEST_TIMES                     100000000
 #define EOS_HEAP_TEST_PRINT_EN                  0
 static eos_heap_t heap;
 uint8_t * p_data;
@@ -131,7 +131,11 @@ void eos_test_heap(void)
     printf("\n");
 
     /* random test */
-    void * malloc_data[EOS_HEAP_TEST_TIMES];
+    #define HEAP_TETS_MALLOC_QUEUE_SIZE         1024
+    void * malloc_data[HEAP_TETS_MALLOC_QUEUE_SIZE];
+    int malloc_head = 0;
+    int malloc_tail = 0;
+    int malloc_size = 0;
     int count_malloc = 0;
     int count_free = 0;
 
@@ -141,12 +145,17 @@ void eos_test_heap(void)
         int size = rand() % 256;
         if (size % 2 == 1 && size != 0 && size >= 16) {
             if (count_malloc < EOS_HEAP_TEST_TIMES) {
-                malloc_data[count_malloc ++] = eos_heap_malloc(&heap, size);
+                malloc_data[malloc_head] = eos_heap_malloc(&heap, size);
+                count_malloc ++;
+                malloc_head = ((malloc_head + 1) % HEAP_TETS_MALLOC_QUEUE_SIZE);
+                malloc_size ++;
+                TEST_ASSERT(malloc_size <= HEAP_TETS_MALLOC_QUEUE_SIZE);
 #if (EOS_HEAP_TEST_PRINT_EN != 0)
                 printf("\033[1;31mmalloc: \033[0m");
-#endif
+#else
                 if ((count_malloc % 1000) == 0)
                     printf("malloc times: %u.\n", count_malloc);
+#endif
                 print_heap_list(&heap, count_malloc);
             }
         }
@@ -154,10 +163,15 @@ void eos_test_heap(void)
             if (count_free < count_malloc) {
 #if (EOS_HEAP_TEST_PRINT_EN != 0)
                 printf("\033[1;33mfree:   \033[0m");
-#endif
-                if ((count_free % 1000) == 0)
+#else
+                if ((count_free % 100000) == 0)
                     printf("free times: %u.\n", count_free);
-                eos_heap_free(&heap, malloc_data[count_free ++]);
+#endif
+                eos_heap_free(&heap, malloc_data[malloc_tail]);
+                count_free ++;
+                malloc_tail = ((malloc_tail + 1) % HEAP_TETS_MALLOC_QUEUE_SIZE);
+                malloc_size --;
+                TEST_ASSERT(malloc_size >= 0);
                 print_heap_list(&heap, count_free);
             }
         }
