@@ -120,6 +120,7 @@ typedef struct eos_tag {
     eos_bool_t idle;
 } eos_t;
 // **eos end** -----------------------------------------------------------------
+
 eos_t eos;
 
 #if (EOS_MCU_TYPE == 8)

@@ -125,7 +125,7 @@ struct eos_sm;
 typedef eos_ret_t (* eos_state_handler)(struct eos_sm *const me, eos_event_t const * const e);
 #endif
 
-typedef eos_u16_t                     eos_event_quote_t;
+typedef eos_event_t *                       eos_event_quote_t;
 
 // Actor类
 typedef struct eos_actor {

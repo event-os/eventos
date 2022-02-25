@@ -1,4 +1,6 @@
 
+/* include ------------------------------------------------------------------ */
+#include "eos_test.h"
 #include "eventos.h"
 #include "event_def.h"
 #include "unity.h"
@@ -156,7 +158,7 @@ static eos_mcu_t eos_sub_table[Event_Max];
 
 #define TEST_QUEUE_SIZE                     130
 
-void eos_test(void)
+void eos_test_sm(void)
 {
     eos_t * f = (eos_t *)eos_get_framework();
     set_time_ms(0);

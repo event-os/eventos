@@ -1,4 +1,4 @@
-src = ['main.c', 'eos_test.c', 'port_test.c']
+src = Glob('*.c')
 
 paths = ['.', '../../eventos', '../../3rd/unity']
 
