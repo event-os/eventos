@@ -5,7 +5,6 @@ def execute():
    str_start = "// **eos**"
    str_end = "// **eos end**"
    path_eos = "eventos/eventos.c"
-   path_test = "examples/test/eos_test_sm.c"
 
    # 将EventOS数据结构定义部分拷贝出来
    f_eos = open(path_eos, mode = 'r', encoding = 'utf-8', newline = '\r\n')
@@ -17,8 +16,8 @@ def execute():
    f_eos.close()
 
    path_test = [
-      "examples/test/eos_test_sm.c",
-      "examples/test/eos_test_heap.c"
+      "test/eos_test_fsm.c",
+      "test/eos_test_heap.c"
    ]
 
    count = 0

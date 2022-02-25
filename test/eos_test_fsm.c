@@ -6,89 +6,6 @@
 #include "unity.h"
 #include <stdbool.h>
 
-// data struct -----------------------------------------------------------------
-typedef struct led_tag {
-    eos_sm_t super;
-    bool status;
-    int count;
-} led_t;
-
-// state -----------------------------------------------------------------------
-static eos_ret_t led_state_init(led_t * const me, eos_event_t const * const e);
-static eos_ret_t led_state_on(led_t * const me, eos_event_t const * const e);
-static eos_ret_t led_state_off(led_t * const me, eos_event_t const * const e);
-
-// api -------------------------------------------------------------------------
-static void led_init(led_t * const me, eos_u8_t priority, void *queue, eos_u32_t queue_size)
-{
-    me->status = EOS_False;
-    me->count = 0;
-
-    eos_sm_init(&me->super, priority, queue, queue_size);
-    eos_sm_start(&me->super, EOS_STATE_CAST(led_state_init));
-}
-
-static int led_get_evt_count(led_t * const me)
-{
-    return me->count;
-}
-
-static void led_reset_evt_count(led_t * const me)
-{
-    me->count = 0;
-}
-
-// state function --------------------------------------------------------------
-static eos_ret_t led_state_init(led_t * const me, eos_event_t const * const e)
-{
-    (void)e;
-
-#if (EOS_USE_PUB_SUB != 0)
-    EOS_EVENT_SUB(Event_Time_500ms);
-#endif
-
-    eos_event_pub_period(Event_Time_500ms, 500);
-
-    return EOS_TRAN(led_state_off);
-}
-
-static eos_ret_t led_state_off(led_t * const me, eos_event_t const * const e)
-{
-    switch (e->topic) {
-        case Event_Enter:
-            me->status = EOS_False;
-            return EOS_Ret_Handled;
-
-        case Event_Time_500ms:
-            me->count ++;
-            return EOS_TRAN(led_state_on);
-
-        default:
-            return EOS_SUPER(eos_state_top);
-    }
-}
-
-static eos_ret_t led_state_on(led_t * const me, eos_event_t const * const e)
-{
-    switch (e->topic) {
-        case Event_Enter: {
-            int num = 1;
-            me->status = EOS_True;
-            return EOS_Ret_Handled;
-        }
-
-        case Event_Exit:
-            return EOS_Ret_Handled;
-
-        case Event_Time_500ms:
-            me->count ++;
-            return EOS_TRAN(led_state_off);
-
-        default:
-            return EOS_SUPER(eos_state_top);
-    }
-}
-
 /* unittest ----------------------------------------------------------------- */
 // **eos** ---------------------------------------------------------------------
 #if (EOS_USE_TIME_EVENT != 0)
@@ -158,7 +75,7 @@ static eos_mcu_t eos_sub_table[Event_Max];
 
 #define TEST_QUEUE_SIZE                     130
 
-void eos_test_sm(void)
+void eos_test_fsm(void)
 {
     eos_t * f = (eos_t *)eos_get_framework();
     set_time_ms(0);
@@ -202,16 +119,16 @@ void eos_test_sm(void)
     TEST_ASSERT_EQUAL_UINT32(0, eos_sub_table[Event_Time_500ms]);
 #endif
 
-    static led_t led_test, led2;
+    static fsm_t led_test, led2;
     static eos_u32_t queue_test[TEST_QUEUE_SIZE], queue2[TEST_QUEUE_SIZE];
     TEST_ASSERT_EQUAL_UINT32(0, led_test.super.super.priority);
-    led_init(&led_test, 1, queue_test, TEST_QUEUE_SIZE);
+    fsm_init(&led_test, 1, queue_test, TEST_QUEUE_SIZE);
     TEST_ASSERT_EQUAL_UINT32(1, led_test.super.super.priority);
 #if (EOS_USE_PUB_SUB != 0)
     TEST_ASSERT_EQUAL_UINT32(2, eos_sub_table[Event_Time_500ms]);
 #endif
 
-    led_init(&led2, 0, queue2, TEST_QUEUE_SIZE);
+    fsm_init(&led2, 0, queue2, TEST_QUEUE_SIZE);
 #if (EOS_USE_PUB_SUB != 0)
     TEST_ASSERT_EQUAL_UINT32(3, eos_sub_table[Event_Time_500ms]);
 #endif
@@ -363,8 +280,8 @@ void eos_test_sm(void)
 
     // 检查事件定时器发送出的延时事件的执行
     set_time_ms(1200);
-    led_reset_evt_count(&led_test);
-    led_reset_evt_count(&led2);
+    fsm_reset_evt_count(&led_test);
+    fsm_reset_evt_count(&led2);
     for (int i = 0; i < count_etimer; i ++) {
         TEST_ASSERT_EQUAL_INT32(0, eos_once());
     }
@@ -373,25 +290,27 @@ void eos_test_sm(void)
     }
     TEST_ASSERT_EQUAL_INT32(203, eos_once());
     TEST_ASSERT_EQUAL_INT32(202, eos_once());
-    TEST_ASSERT_EQUAL_UINT32(count_etimer, led_get_evt_count(&led_test));
-    TEST_ASSERT_EQUAL_UINT32(count_etimer, led_get_evt_count(&led2));
+    TEST_ASSERT_EQUAL_UINT32(count_etimer, fsm_get_evt_count(&led_test));
+    TEST_ASSERT_EQUAL_UINT32(count_etimer, fsm_get_evt_count(&led2));
 
     // 周期延时事件的执行
     set_time_ms(1500);
-    led_reset_evt_count(&led_test);
-    led_reset_evt_count(&led2);
+    fsm_reset_evt_count(&led_test);
+    fsm_reset_evt_count(&led2);
     // 一个状态机的执行
     TEST_ASSERT_EQUAL_INT32(0, eos_once());
-    TEST_ASSERT_EQUAL_UINT32(0, led_get_evt_count(&led_test));
-    TEST_ASSERT_EQUAL_UINT32(1, led_get_evt_count(&led2));
+    TEST_ASSERT_EQUAL_UINT32(0, fsm_get_evt_count(&led_test));
+    TEST_ASSERT_EQUAL_UINT32(1, fsm_get_evt_count(&led2));
     // 另一个状态机的执行
     TEST_ASSERT_EQUAL_INT32(0, eos_once());
     TEST_ASSERT_EQUAL_INT32(203, eos_once());
     TEST_ASSERT_EQUAL_INT32(202, eos_once());
-    TEST_ASSERT_EQUAL_UINT32(1, led_get_evt_count(&led_test));
-    TEST_ASSERT_EQUAL_UINT32(1, led_get_evt_count(&led2));
+    TEST_ASSERT_EQUAL_UINT32(1, fsm_get_evt_count(&led_test));
+    TEST_ASSERT_EQUAL_UINT32(1, fsm_get_evt_count(&led2));
     TEST_ASSERT_EQUAL_UINT32(1500, f->time_crt_ms);
     TEST_ASSERT_EQUAL_UINT32(2000, f->e_timer_pool[0].timeout_ms);
 
     TEST_ASSERT_EQUAL_INT32(202, eos_once());
 }
+
+

@@ -1,6 +1,6 @@
 src = Glob('*.c')
 
-paths = ['.', '../../eventos', '../../3rd/unity']
+paths = ['.', '../eventos', '../3rd/unity']
 
 defines = ['test']
 ccflags = []
