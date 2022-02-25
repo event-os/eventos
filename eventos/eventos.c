@@ -32,9 +32,6 @@
 
 // include ---------------------------------------------------------------------
 #include "eventos.h"
-#if (EOS_USE_EVENT_DATA != 0 && EOS_USE_HEAP_LOCAL == 0)
-#include <stdlib.h>
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -100,7 +97,7 @@ typedef struct eos_tag {
 #endif
 
     eos_mcu_t actor_exist;
-    eos_mcu_t sm_enabled;
+    eos_mcu_t actor_enabled;
     eos_actor_t * actor[EOS_MAX_ACTORS];
 
 #if (EOS_USE_EVENT_DATA != 0)
@@ -159,7 +156,7 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e);
 static eos_s32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX_HSM_NEST_DEPTH]);
 #endif
 #endif
-#if (EOS_USE_EVENT_DATA != 0 && EOS_USE_HEAP_LOCAL != 0)
+#if (EOS_USE_EVENT_DATA != 0)
 void eos_heap_init(eos_heap_t * const me);
 void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size);
 void eos_heap_free(eos_heap_t * const me, void * data);
@@ -190,7 +187,7 @@ void eventos_init(void)
     eos.sub_table = 0;
 #endif
 
-#if (EOS_USE_EVENT_DATA != 0 && EOS_USE_HEAP_LOCAL != 0)
+#if (EOS_USE_EVENT_DATA != 0)
     eos_heap_init(&eos.heap);
 #endif
 }
@@ -265,7 +262,7 @@ eos_s32_t eos_once(void)
     }
 
     // 检查是否有状态机的注册
-    if (eos.actor_exist == 0 || eos.sm_enabled == 0) {
+    if (eos.actor_exist == 0 || eos.actor_enabled == 0) {
         ret = 201;
         return ret;
     }
@@ -335,11 +332,7 @@ eos_s32_t eos_once(void)
     // 销毁过期事件与其携带的参数
     if (_e->flag_sub == 0) {
         eos_port_critical_enter();
-#if (EOS_USE_HEAP_LOCAL == 0)
-        free(_e);
-#else
         eos_heap_free(&eos.heap, _e);
-#endif
         eos_port_critical_exit();
     }
 #endif
@@ -433,7 +426,7 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 {
     me->event_handler = event_handler;
     me->super.enabled = EOS_True;
-    eos.sm_enabled |= (1 << me->super.priority);
+    eos.actor_enabled |= (1 << me->super.priority);
 }
 
 // state machine ---------------------------------------------------------------
@@ -456,7 +449,7 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 
     me->state = state_init;
     me->super.enabled = EOS_True;
-    eos.sm_enabled |= (1 << me->super.priority);
+    eos.actor_enabled |= (1 << me->super.priority);
 
     // 进入初始状态，执行TRAN动作。这也意味着，进入初始状态，必须无条件执行Tran动作。
     t = me->state;
@@ -500,21 +493,13 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 #endif
 
 // event -----------------------------------------------------------------------
-void eos_event_pub_topic(eos_topic_t topic)
-{
-    eos_u8_t para;
-    eos_event_pub(topic, &para, 1);
-}
-
-int count = 0;
-#if (EOS_USE_EVENT_DATA != 0)
-void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
+int eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
 {
     // 保证框架已经运行
     EOS_ASSERT(eos.enabled == EOS_True);
     // 没有状态机使能，返回
-    if (eos.sm_enabled == 0) {
-        return;
+    if (eos.actor_enabled == 0) {
+        return 9001;
     }
     // 没有状态机订阅，返回
 #if (EOS_USE_PUB_SUB != 0)
@@ -522,16 +507,15 @@ void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
 #else
     if (eos.actor_exist == 0) {
 #endif
-        return;
+        return 9002;
     }
     eos_port_critical_enter();
     // 申请事件空间
-#if (EOS_USE_HEAP_LOCAL == 0)
-    eos_event_inner_t *e = malloc(size + sizeof(eos_event_inner_t));
-#else
     eos_event_inner_t *e = eos_heap_malloc(&eos.heap, (size + sizeof(eos_event_inner_t)));
-#endif
-    EOS_ASSERT(e != (eos_event_inner_t *)0);
+    if (e == (eos_event_inner_t *)0) {
+        eos_port_critical_exit();
+        return 9003;
+    }
     e->topic = topic;
 #if (EOS_USE_PUB_SUB != 0)
     e->flag_sub = eos.sub_table[e->topic];
@@ -558,8 +542,10 @@ void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
             continue;
         }
         // 如果事件队列满，进入断言
-        if (((eos.actor[i]->head + 1) % eos.actor[i]->depth) == eos.actor[i]->tail)
-            EOS_ASSERT_ID(104, EOS_False);
+        if (((eos.actor[i]->head + 1) % eos.actor[i]->depth) == eos.actor[i]->tail) {
+            eos_port_critical_exit();
+            return 9004;
+        }
         // 事件队列未满，将事件池序号放入事件队列
         ((eos_event_inner_t **)eos.actor[i]->e_queue)[eos.actor[i]->head] = e;
         
@@ -570,6 +556,21 @@ void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
         eos.idle = EOS_False;
     }
     eos_port_critical_exit();
+}
+
+void eos_event_pub_topic(eos_topic_t topic)
+{
+    eos_u8_t para;
+    eos_event_pub(topic, &para, 1);
+}
+
+int count = 0;
+#if (EOS_USE_EVENT_DATA != 0)
+void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
+{
+    int ret = eos_event_pub_ret(topic, data, size);
+    EOS_ASSERT(ret != 9003);
+    EOS_ASSERT(ret != 9004);
 }
 #endif
 
@@ -898,7 +899,6 @@ static eos_s32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX
 #endif
 #endif
 
-#if (EOS_USE_HEAP_LOCAL != 0)
 /* heap library ------------------------------------------------------------- */
 void eos_heap_init(eos_heap_t * const me)
 {
@@ -1003,7 +1003,6 @@ void eos_heap_free(eos_heap_t * const me, void * data)
 
     me->error_id = 0;
 }
-#endif
 
 /* for unittest ------------------------------------------------------------- */
 void * eos_get_framework(void)

@@ -43,7 +43,7 @@ typedef struct eos_tag {
 #endif
 
     eos_mcu_t actor_exist;
-    eos_mcu_t sm_enabled;
+    eos_mcu_t actor_enabled;
     eos_actor_t * actor[EOS_MAX_ACTORS];
 
 #if (EOS_USE_EVENT_DATA != 0)

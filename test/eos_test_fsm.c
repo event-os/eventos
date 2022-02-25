@@ -6,7 +6,6 @@
 #include "unity.h"
 #include <stdbool.h>
 
-/* unittest ----------------------------------------------------------------- */
 // **eos** ---------------------------------------------------------------------
 #if (EOS_USE_TIME_EVENT != 0)
 typedef struct eos_event_timer {
@@ -43,7 +42,7 @@ typedef struct eos_tag {
 #endif
 
     eos_mcu_t actor_exist;
-    eos_mcu_t sm_enabled;
+    eos_mcu_t actor_enabled;
     eos_actor_t * actor[EOS_MAX_ACTORS];
 
 #if (EOS_USE_EVENT_DATA != 0)
@@ -64,6 +63,7 @@ typedef struct eos_tag {
 } eos_t;
 // **eos end** -----------------------------------------------------------------
 
+/* unittest ----------------------------------------------------------------- */
 extern int eos_once(void);
 extern void * eos_get_framework(void);
 extern int eos_evttimer(void);
