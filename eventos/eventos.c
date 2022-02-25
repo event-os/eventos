@@ -944,8 +944,8 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
 
     /* Divide the block into two blocks. */
     /* ARM Cortex-M0不支持非对齐访问 */
-    eos_u32_t address = (eos_u32_t)block + size + sizeof(eos_block_t);
-    address = (address % 4 == 0) ? address : (address + 4 - (address % 4));
+    size = (size % 4 == 0) ? size : (size + 4 - (size % 4));
+    eos_pointer_t address = (eos_pointer_t)block + size + sizeof(eos_block_t);
     eos_block_t * new_block = (eos_block_t *)address;
     eos_u32_t _size = block->size - size - sizeof(eos_block_t);
 
@@ -959,14 +959,14 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
 
     me->error_id = 0;
 
-    void *p = (void *)((eos_u32_t)block + (eos_u32_t)sizeof(eos_block_t));
+    void *p = (void *)((eos_pointer_t)block + (eos_u32_t)sizeof(eos_block_t));
 
     return p;
 }
 
 void eos_heap_free(eos_heap_t * const me, void * data)
 {
-    eos_block_t * block_crt = (eos_block_t *)((eos_u32_t)data - sizeof(eos_block_t));
+    eos_block_t * block_crt = (eos_block_t *)((eos_pointer_t)data - sizeof(eos_block_t));
 
     /* Search for this block in the block-list. */
     eos_block_t * block = me->list;

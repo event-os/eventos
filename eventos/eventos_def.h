@@ -63,4 +63,11 @@ typedef eos_u16_t                       eos_mcu_t;
 typedef eos_u32_t                       eos_mcu_t;
 #endif
 
+#if (EOS_TEST_PLATFORM == 32)
+typedef eos_u32_t                       eos_pointer_t;
+#else
+#include <stdint.h>
+typedef uint64_t                        eos_pointer_t;
+#endif
+
 #endif

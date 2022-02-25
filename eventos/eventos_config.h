@@ -37,6 +37,7 @@
 /* EventOS Nano General Configuration --------------------------------------- */
 #define EOS_MCU_TYPE                            32
 #define EOS_MAX_ACTORS                          32
+#define EOS_TEST_PLATFORM                       64
 
 /* Assert Configuration ----------------------------------------------------- */
 #define EOS_USE_ASSERT                          1
@@ -70,6 +71,10 @@
 /* Error -------------------------------------------------------------------- */
 #if ((EOS_MCU_TYPE != 8) && (EOS_MCU_TYPE != 16) && (EOS_MCU_TYPE != 32))
 #error The MCU type must be 8-bit, 16-bit or 32-bit !
+#endif
+
+#if ((EOS_TEST_PLATFORM != 32) && (EOS_TEST_PLATFORM != 64))
+#error The test paltform must be 32-bit or 64-bit !
 #endif
 
 #if (EOS_MAX_ACTOR > EOS_MCU_TYPE || EOS_MAX_ACTORS <= 0)

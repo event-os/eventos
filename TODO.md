@@ -22,3 +22,4 @@
 // TODO 处理掉eos_event_quote_t，这个不应该存在。
 // TODO 使非带参事件，不再申请Heap空间。
 // TODO 修改为只有一个全局事件队列，进一步压缩对RAM的占用。
+// TODO heap库，需要优化RAM占用和速度。
