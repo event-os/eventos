@@ -699,9 +699,9 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
     if (r == EOS_Ret_Tran) {
         t = me->state;
         r = s(me, &eos_event_table[Event_Exit]);
-        EOS_ASSERT(r == EOS_Ret_Handled);
+        EOS_ASSERT(r == EOS_Ret_Handled || r == EOS_Ret_Super);
         r = t(me, &eos_event_table[Event_Enter]);
-        EOS_ASSERT(r == EOS_Ret_Handled);
+        EOS_ASSERT(r == EOS_Ret_Handled || r == EOS_Ret_Super);
         me->state = t;
     }
     else {

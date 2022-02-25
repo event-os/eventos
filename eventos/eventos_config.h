@@ -61,7 +61,7 @@
 #define EOS_USE_EVENT_DATA                      1
 #if (EOS_USE_EVENT_DATA != 0)
     #define EOS_USE_HEAP_LOCAL                  1           // 使用EventOS自有堆
-    #define EOS_SIZE_HEAP                       512         // 设定堆大小
+    #define EOS_SIZE_HEAP                       32768       // 设定堆大小
 #endif
 
 /* Event Bridge Configuration ----------------------------------------------- */
