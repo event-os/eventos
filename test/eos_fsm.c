@@ -9,12 +9,12 @@ static eos_ret_t state_on(fsm_t * const me, eos_event_t const * const e);
 static eos_ret_t state_off(fsm_t * const me, eos_event_t const * const e);
 
 // api -------------------------------------------------------------------------
-void fsm_init(fsm_t * const me, eos_u8_t priority, void *queue, eos_u32_t queue_size)
+void fsm_init(fsm_t * const me, eos_u8_t priority, void const * const parameter)
 {
     me->status = EOS_False;
     me->count = 0;
 
-    eos_sm_init(&me->super, priority, queue, queue_size);
+    eos_sm_init(&me->super, priority, parameter);
     eos_sm_start(&me->super, EOS_STATE_CAST(state_init));
 }
 

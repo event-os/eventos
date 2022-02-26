@@ -72,23 +72,33 @@ typedef struct eos_event_timer {
 #endif
 
 typedef struct eos_block {
-    struct eos_block *next;
-    eos_u8_t free;
-    eos_u16_t size;
+    // word[0]
+    eos_u32_t next                          : 15;
+    eos_u32_t q_next                        : 15;
+    eos_u32_t offset                        : 2;
+    // word[1]
+    eos_u32_t last                        : 15;
+    eos_u32_t q_last                        : 15;
+    eos_u32_t free                          : 1;
+    // word[2]
+    eos_u16_t size                          : 15;
 } eos_block_t;
+
+typedef struct eos_event_inner {
+    eos_sub_t flag_sub;
+    eos_topic_t topic;
+} eos_event_inner_t;
 
 typedef struct eos_heap {
     eos_u8_t data[EOS_SIZE_HEAP];
-    eos_block_t *list;
-    eos_u16_t size;       /* total size */
-    eos_u8_t error_id;
+    // word[0]
+    eos_u32_t size                          : 15;       /* total size */
+    eos_u32_t l_queue                       : 15;
+    eos_u32_t error_id                      : 2;
+    // word[1]
+    eos_u32_t empty                         : 1;
+    eos_sub_t sub_general;
 } eos_heap_t;
-
-typedef struct eos_event_inner {
-    eos_u32_t topic;
-    void *data;
-    eos_u32_t flag_sub;
-} eos_event_inner_t;
 
 typedef struct eos_tag {
     eos_mcu_t magic;
@@ -114,7 +124,6 @@ typedef struct eos_tag {
 
     eos_bool_t enabled;
     eos_bool_t running;
-    eos_bool_t idle;
 } eos_t;
 // **eos end** -----------------------------------------------------------------
 
@@ -122,10 +131,8 @@ eos_t eos;
 
 #if (EOS_MCU_TYPE == 8)
 #define EOS_MAGIC                         0x4F
-#elif (EOS_MCU_TYPE == 16)
-#define EOS_MAGIC                         0x4F2E
 #else
-#define EOS_MAGIC                         0x4F2EA035
+#define EOS_MAGIC                         0x4F2EA0
 #endif
 
 // data ------------------------------------------------------------------------
@@ -181,7 +188,6 @@ void eventos_init(void)
 
     eos.enabled = EOS_True;
     eos.running = EOS_False;
-    eos.idle = EOS_True;
     eos.magic = EOS_MAGIC;
 #if (EOS_USE_PUB_SUB != 0)
     eos.sub_table = 0;
@@ -258,12 +264,12 @@ eos_s32_t eos_once(void)
 
     if (eos.enabled == EOS_False) {
         eos_clear();
-        return 1;
+        return 8001;
     }
 
     // 检查是否有状态机的注册
     if (eos.actor_exist == 0 || eos.actor_enabled == 0) {
-        ret = 201;
+        ret = 8002;
         return ret;
     }
 
@@ -271,38 +277,32 @@ eos_s32_t eos_once(void)
     eos_evttimer();
 #endif
 
-    if (eos.idle == EOS_True) {
-        ret = 202;
+    if (eos.heap.empty == EOS_True) {
+        ret = 8003;
         return ret;
     }
-    // 寻找到优先级最高且事件队列不为空的状态机
+    // 寻找到优先级最高，且有事件需要处理的状态机
     eos_actor_t *actor = (eos_actor_t *)0;
     for (eos_u32_t i = 0; i < EOS_MAX_ACTORS; i ++) {
         if ((eos.actor_exist & (1 << i)) == 0)
             continue;
         EOS_ASSERT(eos.actor[i]->magic == EOS_MAGIC);
-        if (eos.actor[i]->equeue_empty == EOS_True)
+        if ((eos.heap.sub_general & (1 << i)) == 0)
             continue;
         actor = eos.actor[i];
         break;
     }
+    // 如果没有找到，返回
     if (actor == (eos_actor_t *)0) {
-        eos.idle = EOS_True;
+        eos.heap.empty = EOS_True;
         
-        ret = 203;
+        ret = 8004;
         return ret;
     }
 
     // 寻找到最老的事件
     eos_port_critical_enter();
-    eos_event_inner_t * _e = ((eos_event_inner_t **)actor->e_queue)[actor->tail];
-    actor->tail ++;
-    actor->tail %= actor->depth;
-    if (actor->tail == actor->head) {
-        actor->equeue_empty = EOS_True;
-        actor->tail = 0;
-        actor->head = 0;
-    }
+    eos_event_inner_t * _e = 0;
 
     _e->flag_sub &= ~(1 << (actor->priority));
     eos_port_critical_exit();
@@ -379,8 +379,10 @@ void eventos_stop(void)
 // 关于Reactor -----------------------------------------------------------------
 static void eos_actor_init( eos_actor_t * const me,
                             eos_u32_t priority,
-                            eos_event_quote_t *event_queue, eos_u32_t queue_size)
+                            void const * const parameter)
 {
+    (void)parameter;
+
     // 框架需要先启动起来
     EOS_ASSERT(eos.enabled == EOS_True);
     EOS_ASSERT(eos.running == EOS_False);
@@ -402,23 +404,13 @@ static void eos_actor_init( eos_actor_t * const me,
     eos.actor[priority] = me;
     // 状态机   
     me->priority = priority;
-
-    // 事件队列
-    eos_port_critical_enter();
-    me->e_queue = event_queue;
-    EOS_ASSERT_ID(105, me->e_queue != 0);
-    me->head = 0;
-    me->tail = 0;
-    me->depth = queue_size * 4;
-    me->equeue_empty = EOS_True;
-    eos_port_critical_exit();
 }
 
 void eos_reactor_init(  eos_reactor_t * const me,
                         eos_u32_t priority,
-                        eos_event_quote_t *event_queue, eos_u32_t queue_size)
+                        void const * const parameter)
 {
-    eos_actor_init(&me->super, priority, event_queue, queue_size);
+    eos_actor_init(&me->super, priority, parameter);
     me->super.mode = EOS_Mode_Reactor;
 }
 
@@ -433,9 +425,9 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 #if (EOS_USE_SM_MODE != 0)
 void eos_sm_init(   eos_sm_t * const me,
                     eos_u32_t priority,
-                    eos_event_quote_t *event_queue, eos_u32_t queue_size)
+                    void const * const parameter)
 {
-    eos_actor_init(&me->super, priority, event_queue, queue_size);
+    eos_actor_init(&me->super, priority, parameter);
     me->super.mode = EOS_Mode_StateMachine;
     me->state = eos_state_top;
 }
@@ -522,39 +514,10 @@ int eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
 #else
     e->flag_sub = eos.actor_exist;
 #endif
-    e->data = (void *)(e + sizeof(eos_event_inner_t));
-    for (eos_u32_t i = 0; i < size; i ++) {
-        ((eos_u8_t *)e->data)[i] = ((eos_u8_t *)data)[i];
-    }
-    // 根据flagSub的信息，将事件推入各对象
-    for (eos_u32_t i = 0; i < EOS_MAX_ACTORS; i ++) {
-        if ((eos.actor_exist & (1 << i)) == 0) {
-            continue;
-        }
-        if (eos.actor[i]->enabled == EOS_False) {
-            continue;
-        }
-#if (EOS_USE_PUB_SUB != 0)
-        if ((eos.sub_table[e->topic] & (1 << i)) == 0) {
-#else
-        if ((eos.actor_exist && (1 << i)) == 0) {
-#endif
-            continue;
-        }
-        // 如果事件队列满，进入断言
-        if (((eos.actor[i]->head + 1) % eos.actor[i]->depth) == eos.actor[i]->tail) {
-            eos_port_critical_exit();
-            return 9004;
-        }
-        // 事件队列未满，将事件池序号放入事件队列
-        ((eos_event_inner_t **)eos.actor[i]->e_queue)[eos.actor[i]->head] = e;
-        
-        eos.actor[i]->head ++;
-        eos.actor[i]->head %= eos.actor[i]->depth;
-        if (eos.actor[i]->equeue_empty == EOS_True)
-            eos.actor[i]->equeue_empty = EOS_False;
-        eos.idle = EOS_False;
-    }
+    // e->data = (void *)(e + sizeof(eos_event_inner_t));
+    // for (eos_u32_t i = 0; i < size; i ++) {
+    //     ((eos_u8_t *)e->data)[i] = ((eos_u8_t *)data)[i];
+    // }
     eos_port_critical_exit();
 }
 
@@ -905,39 +868,43 @@ void eos_heap_init(eos_heap_t * const me)
     eos_block_t * block_1st;
     
     // block start
-    me->list = (eos_block_t *)me->data;
-    
-    // the 1st free block
-    block_1st = (eos_block_t *)me->data;;
-    block_1st->next = (void *)0;
-    block_1st->size = EOS_SIZE_HEAP - (eos_u32_t)sizeof(eos_block_t);
-    block_1st->free = 1;
-
+    me->l_queue = EOS_HEAP_MAX;
     me->error_id = 0;
     me->size = EOS_SIZE_HEAP;
+    me->empty = 1;
+    me->sub_general = 0;
+
+    // the 1st free block
+    block_1st = (eos_block_t *)(me->data);
+   
+    block_1st->last = EOS_HEAP_MAX;
+    block_1st->size = EOS_SIZE_HEAP - (eos_u16_t)sizeof(eos_block_t);
+    block_1st->free = 1;
+    block_1st->next = EOS_HEAP_MAX;
 }
 
 void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
 {
     eos_block_t * block;
-    
+    eos_s16_t remaining;
+
     if (size == 0) {
         me->error_id = 1;
         return (void *)0;
     }
 
     /* Find the first free block in the block-list. */
-    block = (eos_block_t *)me->list;
+    eos_u16_t next = 0;
     do {
-        if (block->free == 1 && block->size > (size + sizeof(eos_block_t))) {
+        block = (eos_block_t *)(me->data + next);
+        remaining = (block->size - size - sizeof(eos_block_t));
+        if (block->free == 1 && remaining >= 0) {
             break;
         }
-        else {
-            block = block->next;
-        }
-    } while (block != (void *)0);
+        next = block->next;
+    } while (next != EOS_HEAP_MAX);
 
-    if (block == (void *)0) {
+    if (next == EOS_HEAP_MAX) {
         me->error_id = 2;
         return (void *)0;
     }
@@ -953,9 +920,13 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
     new_block->size = _size;
     new_block->free = 1;
     new_block->next = block->next;
-    block->next = new_block;
+    new_block->last = (eos_u16_t)((eos_pointer_t)block - (eos_pointer_t)me->data);
+    block->next = (eos_u16_t)((eos_pointer_t)new_block - (eos_pointer_t)me->data);
     block->size = size;
     block->free = 0;
+
+    eos_block_t * block_next2 = (eos_block_t *)((eos_pointer_t)me->data + new_block->next);
+    block_next2->last = (eos_u16_t)((eos_pointer_t)new_block - (eos_pointer_t)me->data);
 
     me->error_id = 0;
 
@@ -966,42 +937,38 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
 
 void eos_heap_free(eos_heap_t * const me, void * data)
 {
-    eos_block_t * block_crt = (eos_block_t *)((eos_pointer_t)data - sizeof(eos_block_t));
-
-    /* Search for this block in the block-list. */
-    eos_block_t * block = me->list;
-    eos_block_t * block_last = (void *)0;
-    do {
-        if (block->free == 0 && block == block_crt) {
-            break;
+    eos_block_t * block = (eos_block_t *)((eos_pointer_t)data - sizeof(eos_block_t));
+    eos_block_t * block_next;
+    me->error_id = 0;
+    if (block->last != EOS_HEAP_MAX) {
+        eos_block_t * block_last = (eos_block_t *)(me->data + block->last);
+        /* Check the block can be combined with the front one. */
+        if (block_last->free == 1) {
+            block_last->next = block->next;
+            if (block->next != EOS_HEAP_MAX) {
+                block_next = (eos_block_t *)(me->data + block_last->next);
+                block_next->last = (eos_u16_t)((eos_pointer_t)block_last - (eos_pointer_t)me->data);
+            }
+            block_last->size += (block->size + sizeof(eos_block_t));
+            block = block_last;
         }
-        else {
-            block_last = block;
-            block = block->next;
+    }
+    
+    /* Check the block can be combined with the later one. */
+    if (block->next != EOS_HEAP_MAX) {
+        eos_block_t * block_next = (eos_block_t *)(me->data + block->next);
+        eos_block_t * block_next2;
+        if (block_next->free == 1) {
+            block->size += (block_next->size + (eos_u32_t)sizeof(eos_block_t));
+            block->next = block_next->next;
+            if (block->next != EOS_HEAP_MAX) {
+                block_next2 = (eos_block_t *)(me->data + block_next->next);
+                block_next2->last = (eos_u16_t)((eos_pointer_t)block - (eos_pointer_t)me->data);
+            }
         }
-    } while (block != (void *)0);
-
-    /* Not found. */
-    if (block == (void *)0) {
-        me->error_id = 4;
-        return;
     }
 
     block->free = 1;
-    /* Check the block can be combined with the front one. */
-    if (block_last != (eos_block_t *)0 && block_last->free == 1) {
-        block_last->size += (block->size + sizeof(eos_block_t));
-        block_last->next = block->next;
-        block = block_last;
-    }
-    /* Check the block can be combined with the later one. */
-    if (block->next != (eos_block_t *)0 && block->next->free == 1) {
-        block->size += (block->next->size + (eos_u32_t)sizeof(eos_block_t));
-        block->next = block->next->next;
-        block->free = 1;
-    }
-
-    me->error_id = 0;
 }
 
 /* for unittest ------------------------------------------------------------- */

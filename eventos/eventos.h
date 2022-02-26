@@ -129,16 +129,19 @@ typedef eos_event_t *                       eos_event_quote_t;
 
 // Actor类
 typedef struct eos_actor {
-    eos_u32_t magic;
-    // evt queue
-    void* e_queue;
-    volatile eos_topic_t head;
-    volatile eos_topic_t tail;
-    volatile eos_topic_t depth;
-    eos_u8_t priority;
-    eos_u8_t mode;
-    eos_bool_t enabled;
-    volatile eos_bool_t equeue_empty;
+#if (EOS_MCU_TYPE == 32 || EOS_MCU_TYPE == 16)
+    eos_u32_t magic                 : 24;
+    eos_u32_t priority              : 5;
+    eos_u32_t mode                  : 1;
+    eos_u32_t enabled               : 1;
+    eos_u32_t reserve               : 1;
+#else
+    eos_u8_t magic;
+    eos_u8_t priority               : 5;
+    eos_u8_t mode                   : 1;
+    eos_u8_t enabled                : 1;
+    eos_u8_t reserve                : 1;
+#endif
 } eos_actor_t;
 
 // React类
@@ -171,7 +174,7 @@ void eventos_stop(void);
 // 关于Reactor -----------------------------------------------------------------
 void eos_reactor_init(  eos_reactor_t * const me,
                         eos_u32_t priority,
-                        eos_event_quote_t *event_queue, eos_u32_t queue_size);
+                        void const * const parameter);
 void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler);
 #define EOS_HANDLER_CAST(handler)       ((eos_event_handler)(handler))
 
@@ -180,7 +183,7 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 // 状态机初始化函数
 void eos_sm_init(   eos_sm_t * const me,
                     eos_u32_t priority,
-                    eos_event_quote_t *event_queue, eos_u32_t queue_size);
+                    void const * const parameter);
 void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init);
 
 eos_ret_t eos_tran(eos_sm_t * const me, eos_state_handler state);
@@ -207,8 +210,9 @@ void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size);
 #endif
 
 #if (EOS_USE_TIME_EVENT != 0)
-void eos_event_pub_delay(eos_topic_t topic, eos_u32_t time_ms);
-void eos_event_pub_period(eos_topic_t topic, eos_u32_t time_ms);
+void eos_event_pub_time(eos_topic_t topic, eos_u32_t delay_time_ms, eos_u32_t peroid_ms);
+void eos_event_pub_delay(eos_topic_t topic, eos_u32_t delay_time_ms);
+void eos_event_pub_period(eos_topic_t topic, eos_u32_t peroid_ms);
 #endif
 
 /* port --------------------------------------------------------------------- */

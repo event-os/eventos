@@ -13,7 +13,7 @@ typedef struct fsm_tag {
     int count;
 } fsm_t;
 
-void fsm_init(fsm_t * const me, eos_u8_t priority, void *queue, eos_u32_t queue_size);
+void fsm_init(fsm_t * const me, eos_u8_t priority, void const * const parameter);
 int fsm_get_evt_count(fsm_t * const me);
 void fsm_reset_evt_count(fsm_t * const me);
 
@@ -24,7 +24,7 @@ typedef struct hsm_tag {
     int count;
 } hsm_t;
 
-void hsm_init(hsm_t * const me, eos_u8_t priority, void *queue, eos_u32_t queue_size);
+void hsm_init(hsm_t * const me, eos_u8_t priority, void const * const parameter);
 int hsm_get_status(hsm_t * const me);
 
 // reactor -----------------------------------------------
@@ -33,6 +33,9 @@ typedef struct reactor_tag {
     bool status;
     int count;
 } reactor_t;
+
+/* tool --------------------------------------------------------------------- */
+void set_time_ms(eos_u32_t time_ms);
 
 /* test function ------------------------------------------------------------ */
 void eos_test_etimer(void);

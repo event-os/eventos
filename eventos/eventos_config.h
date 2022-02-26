@@ -44,13 +44,13 @@
 
 /* State Machine Function Configuration ------------------------------------- */
 #define EOS_USE_SM_MODE                         1
-#define EOS_USE_HSM_MODE                        0
+#define EOS_USE_HSM_MODE                        1
 #if (EOS_USE_SM_MODE != 0 && EOS_USE_HSM_MODE != 0)
 #define EOS_MAX_HSM_NEST_DEPTH                  4
 #endif
 
 /* Publish & Subscribe Configuration ---------------------------------------- */
-#define EOS_USE_PUB_SUB                         0
+#define EOS_USE_PUB_SUB                         1
 
 /* Time Event Configuration ------------------------------------------------- */
 #define EOS_USE_TIME_EVENT                      1
@@ -61,7 +61,8 @@
 /* Event's Data Configuration ----------------------------------------------- */
 #define EOS_USE_EVENT_DATA                      1
 #if (EOS_USE_EVENT_DATA != 0)
-    #define EOS_SIZE_HEAP                       32768       // 设定堆大小
+    #define EOS_SIZE_HEAP                       32767       // 设定堆大小
+    #define EOS_HEAP_DOUBLE_LIST                0           // 双向链表
 #endif
 
 /* Event Bridge Configuration ----------------------------------------------- */
@@ -89,7 +90,7 @@
 #endif
 
 #if (EOS_USE_EVENT_DATA != 0)
-    #if (EOS_USE_HEAP != 0 && (EOS_SIZE_HEAP < 128 || EOS_SIZE_HEAP > 32768))
+    #if (EOS_USE_HEAP != 0 && (EOS_SIZE_HEAP < 128 || EOS_SIZE_HEAP >= EOS_HEAP_MAX))
         #error The heap size must be 128 ~ 32768 (32KB) if the function is enabled !
     #endif
 #endif

@@ -21,8 +21,7 @@ static eos_ret_t state_off(eos_led_t * const me, eos_event_t const * const e);
 /* api ---------------------------------------------------- */
 void eos_led_init(void)
 {
-    static eos_event_quote_t queue[32];
-    eos_sm_init(&led.super, 1, queue, 32);
+    eos_sm_init(&led.super, 1, 0);
     eos_sm_start(&led.super, EOS_STATE_CAST(state_init));
 
     led.status = 0;
