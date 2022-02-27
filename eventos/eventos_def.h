@@ -49,6 +49,8 @@ typedef enum eos_bool {
     EOS_True = !EOS_False,
 } eos_bool_t;
 
+#define EOS_NULL                        ((void *)0)
+
 #define EOS_U32_MAX                     0xffffffff
 #define EOS_U32_MIN                     0
 
