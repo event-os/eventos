@@ -66,12 +66,12 @@ EventOS Nano，是一个面向小资源单片机（Cortex-M0/16/8位单片机）
 + **unity** 单元测试框架
 
 #### **例程代码**
-    + **freertos** 对FreeRTOS的适配例程（未完成）。
-    + **posix** 对符合POSIX标准的操作系统（如Linux、VxWork、MinGW等)的适配例程。
-    + **stm32f030** 对ARM Cortex-M0芯片的裸机运行（无RTOS）的例程。
-    + **stm32f103** 对ARM Cortex-M3芯片的裸机运行（无RTOS）的例程。
-    + **test** 对源码进行的单元测试例程。
-    + **digital_watch** 电子表例程，状态机的典型应用。
++ **freertos** 对FreeRTOS的适配例程（未完成）。
++ **posix** 对符合POSIX标准的操作系统（如Linux、VxWork、MinGW等)的适配例程。
++ **stm32f030** 对ARM Cortex-M0芯片的裸机运行（无RTOS）的例程。
++ **stm32f103** 对ARM Cortex-M3芯片的裸机运行（无RTOS）的例程。
++ **test** 对源码进行的单元测试例程。
++ **digital_watch** 电子表例程，状态机的典型应用。
 #### **tools**
 一些Python脚本和工具。
 
