@@ -50,7 +50,7 @@
 #endif
 
 /* Publish & Subscribe Configuration ---------------------------------------- */
-#define EOS_USE_PUB_SUB                         1
+#define EOS_USE_PUB_SUB                         0
 
 /* Time Event Configuration ------------------------------------------------- */
 #define EOS_USE_TIME_EVENT                      1

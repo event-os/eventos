@@ -34,3 +34,4 @@ typedef struct eos_event_timer {
     eos_u32_t timeout_ms;
 } eos_event_timer_t;
 // TODO V0.1版本释放后，博客《事件》、《事件总线》、《事件驱动》。
+// TODO 将Queue功能与Heap进行隔绝。

@@ -62,8 +62,9 @@ typedef struct eos_heap {
     // word[2]
     eos_u32_t current                       : 15;
     eos_u32_t empty                         : 1;
-    // word[1]
+    // word[2]
     eos_sub_t sub_general;
+    eos_sub_t count;
 } eos_heap_t;
 
 typedef struct eos_tag {
@@ -98,14 +99,16 @@ typedef struct eos_tag {
 /* unit test ---------------------------------------------------------------- */
 static eos_mcu_t sub_table[Event_Max];
 static fsm_t fsm;
-
+static eos_t *f;
 /* eventos API for test ----------------------------------------------------- */
 eos_s8_t eos_once(void);
 eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size);
+void * eos_get_framework(void);
 
 void eos_test_event(void)
 {
     eos_s8_t ret;
+    f = eos_get_framework();
 
     TEST_ASSERT_EQUAL_INT8(EosRunErr_NotInitEnd, eos_once());
 
@@ -125,16 +128,27 @@ void eos_test_event(void)
 
     // 测试尚未注册Actor的情况
     eventos_init();
+#if (EOS_USE_PUB_SUB != 0)
     eos_sub_init(sub_table, Event_Max);
+#endif
     TEST_ASSERT_EQUAL_INT8(EosRun_NoActor, eos_event_pub_ret(Event_Test, EOS_NULL, 0));
     TEST_ASSERT_EQUAL_INT8(EosRun_NoActor, eos_once());
 
     // 注册Actor
     fsm_init(&fsm, 0, EOS_NULL);
+    TEST_ASSERT_EQUAL_UINT32(1, f->actor_exist);
     TEST_ASSERT_EQUAL_INT8(EosRun_NoEvent, eos_once());
+#if (EOS_USE_PUB_SUB != 0)
     TEST_ASSERT_EQUAL_INT8(EosRun_NoActorSub, eos_event_pub_ret(Event_Test, EOS_NULL, 0));
+    TEST_ASSERT_EQUAL_INT8(0, f->heap.sub_general);
+#else
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_event_pub_ret(Event_Test, EOS_NULL, 0));
+    TEST_ASSERT_EQUAL_INT8(1, f->heap.sub_general);
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+    TEST_ASSERT_EQUAL_INT8(EosRun_NoEvent, eos_once());
+    TEST_ASSERT_EQUAL_UINT8(1, f->heap.empty);
+#endif
 
     // eos_event_pub_ret
-
 
 }

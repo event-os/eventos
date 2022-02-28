@@ -63,8 +63,9 @@ typedef struct eos_heap {
     // word[2]
     eos_u32_t current                       : 15;
     eos_u32_t empty                         : 1;
-    // word[1]
+    // word[2]
     eos_sub_t sub_general;
+    eos_sub_t count;
 } eos_heap_t;
 
 typedef struct eos_tag {
