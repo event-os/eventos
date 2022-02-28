@@ -7,6 +7,26 @@
 #include <stdbool.h>
 
 // **eos** ---------------------------------------------------------------------
+enum {
+    EosRun_OK                           = 0,
+    EosRun_NotEnabled,
+    EosRun_NoEvent,
+    EosRun_NoActor,
+    EosRun_NoActorSub,
+
+    // Timer
+    EosTimer_Empty,
+    EosTimer_NotTimeout,
+    EosTimer_ChangeToEmpty,
+
+    EosRunErr_NotInitEnd                = -1,
+    EosRunErr_ActorNotSub               = -2,
+    EosRunErr_MallocFail                = -3,
+    EosRunErr_SubTableNull              = -4,
+    EosRunErr_InvalidEventData          = -5,
+    EosRunErr_HeapMemoryNotEnough       = -6,
+};
+
 #if (EOS_USE_TIME_EVENT != 0)
 typedef struct eos_event_timer {
     eos_topic_t topic;
@@ -22,7 +42,7 @@ typedef struct eos_block {
     eos_u32_t q_next                        : 15;
     eos_u32_t offset                        : 2;
     // word[1]
-    eos_u32_t last                        : 15;
+    eos_u32_t last                          : 15;
     eos_u32_t q_last                        : 15;
     eos_u32_t free                          : 1;
     // word[2]
@@ -30,7 +50,7 @@ typedef struct eos_block {
 } eos_block_t;
 
 typedef struct eos_event_inner {
-    eos_sub_t flag_sub;
+    eos_sub_t sub;
     eos_topic_t topic;
 } eos_event_inner_t;
 
@@ -38,10 +58,12 @@ typedef struct eos_heap {
     eos_u8_t data[EOS_SIZE_HEAP];
     // word[0]
     eos_u32_t size                          : 15;       /* total size */
-    eos_u32_t l_queue                       : 15;
+    eos_u32_t queue                         : 15;
     eos_u32_t error_id                      : 2;
-    // word[1]
+    // word[2]
+    eos_u32_t current                       : 15;
     eos_u32_t empty                         : 1;
+    // word[1]
     eos_sub_t sub_general;
 } eos_heap_t;
 
@@ -69,6 +91,7 @@ typedef struct eos_tag {
 
     eos_bool_t enabled;
     eos_bool_t running;
+    eos_bool_t init_end;
 } eos_t;
 // **eos end** -----------------------------------------------------------------
 

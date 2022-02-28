@@ -3,11 +3,33 @@
 #include "eos_test.h"
 #include "eventos.h"
 #include "unity.h"
+#include "unity_pack.h"
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 // **eos** ---------------------------------------------------------------------
+enum {
+    EosRun_OK                           = 0,
+    EosRun_NotEnabled,
+    EosRun_NoEvent,
+    EosRun_NoActor,
+    EosRun_NoActorSub,
+
+    // Timer
+    EosTimer_Empty,
+    EosTimer_NotTimeout,
+    EosTimer_ChangeToEmpty,
+
+    EosRunErr_NotInitEnd                = -1,
+    EosRunErr_ActorNotSub               = -2,
+    EosRunErr_MallocFail                = -3,
+    EosRunErr_SubTableNull              = -4,
+    EosRunErr_InvalidEventData          = -5,
+    EosRunErr_HeapMemoryNotEnough       = -6,
+};
+
 #if (EOS_USE_TIME_EVENT != 0)
 typedef struct eos_event_timer {
     eos_topic_t topic;
@@ -23,7 +45,7 @@ typedef struct eos_block {
     eos_u32_t q_next                        : 15;
     eos_u32_t offset                        : 2;
     // word[1]
-    eos_u32_t last                        : 15;
+    eos_u32_t last                          : 15;
     eos_u32_t q_last                        : 15;
     eos_u32_t free                          : 1;
     // word[2]
@@ -31,7 +53,7 @@ typedef struct eos_block {
 } eos_block_t;
 
 typedef struct eos_event_inner {
-    eos_sub_t flag_sub;
+    eos_sub_t sub;
     eos_topic_t topic;
 } eos_event_inner_t;
 
@@ -39,10 +61,12 @@ typedef struct eos_heap {
     eos_u8_t data[EOS_SIZE_HEAP];
     // word[0]
     eos_u32_t size                          : 15;       /* total size */
-    eos_u32_t l_queue                       : 15;
+    eos_u32_t queue                         : 15;
     eos_u32_t error_id                      : 2;
-    // word[1]
+    // word[2]
+    eos_u32_t current                       : 15;
     eos_u32_t empty                         : 1;
+    // word[1]
     eos_sub_t sub_general;
 } eos_heap_t;
 
@@ -70,6 +94,7 @@ typedef struct eos_tag {
 
     eos_bool_t enabled;
     eos_bool_t running;
+    eos_bool_t init_end;
 } eos_t;
 // **eos end** -----------------------------------------------------------------
 
@@ -79,7 +104,8 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size);
 void eos_heap_free(eos_heap_t * const me, void * data);
 
 /* test data & function ----------------------------------------------------- */
-#define EOS_HEAP_TEST_TIMES                     1000000
+#define EOS_HEAP_TEST_PRINT_UNIT                1000
+#define EOS_HEAP_TEST_TIMES                     100
 #define EOS_HEAP_TEST_PRINT_EN                  0
 static eos_heap_t heap;
 uint8_t * p_data;
@@ -110,11 +136,7 @@ void eos_test_heap(void)
 
         eos_heap_free(&heap, p_data);
         TEST_ASSERT_EQUAL_UINT32(0, heap.error_id);
-#if (EOS_TEST_PLATFORM == 32)
-        TEST_ASSERT_EQUAL_UINT32(p_data, (eos_u32_t)block_1st + (eos_u32_t)sizeof(eos_block_t));
-#else
-        TEST_ASSERT_EQUAL_UINT64(p_data, (eos_pointer_t)heap.list + (eos_pointer_t)sizeof(eos_block_t));
-#endif
+        TEST_ASSERT_EQUAL_POINTER(p_data, (eos_pointer_t)block_1st + (eos_pointer_t)sizeof(eos_block_t));
         TEST_ASSERT(block_1st->next == EOS_HEAP_MAX);
         TEST_ASSERT_EQUAL_UINT32(block_1st->size, EOS_SIZE_HEAP - sizeof(eos_block_t));
     }
@@ -191,8 +213,8 @@ void eos_test_heap(void)
 #if (EOS_HEAP_TEST_PRINT_EN != 0)
                 printf("\033[1;31mmalloc: \033[0m");
 #else
-                if ((count_malloc % 1000) == 0)
-                    printf("malloc times: %u.\n", count_malloc);
+                if (((count_malloc + 1) % EOS_HEAP_TEST_PRINT_UNIT) == 0)
+                    printf("malloc times: %u.\n", (count_malloc + 1));
 #endif
                 print_heap_list(&heap, count_malloc);
             }
@@ -202,8 +224,8 @@ void eos_test_heap(void)
 #if (EOS_HEAP_TEST_PRINT_EN != 0)
                 printf("\033[1;33mfree:   \033[0m");
 #else
-                if ((count_free % 100000) == 0)
-                    printf("free times: %u.\n", count_free);
+                if (((count_free + 1) % EOS_HEAP_TEST_PRINT_UNIT) == 0)
+                    printf("free times: %u.\n", (count_free + 1));
 #endif
                 eos_heap_free(&heap, malloc_data[malloc_tail]);
                 TEST_ASSERT_EQUAL_UINT32(0, heap.error_id);

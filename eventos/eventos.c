@@ -22,12 +22,12 @@
  * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * https://www.event-os.cn
- * https://github.com/eventos-nano
- * https://gitee.com/eventos-nano
+ * https://github.com/event-os/eventos-nano
+ * https://gitee.com/event-os/eventos-nano
  * 
  * Change Logs:
  * Date           Author        Notes
- * 2021-11-23     Lao Wang      V0.0.2
+ * 2021-11-23     XiaoMing      V0.0.2
  */
 
 // include ---------------------------------------------------------------------
@@ -44,15 +44,8 @@ extern "C" {
         eos_port_critical_enter();                                             \
         eos_port_assert(__LINE__);                                             \
     } } while (0)
-
-#define EOS_ASSERT_ID(id_, test_) do { if (!(test_)) {                         \
-        eos_hook_stop();                                                       \
-        eos_port_critical_enter();                                             \
-        eos_port_assert(id_);                                                  \
-    } } while (0);
 #else
 #define EOS_ASSERT(test_)               ((void)0)
-#define EOS_ASSERT_ID(id_, test_)       ((void)0)
 #endif
 
 // eos define ------------------------------------------------------------------
@@ -62,6 +55,26 @@ enum eos_actor_mode {
 };
 
 // **eos** ---------------------------------------------------------------------
+enum {
+    EosRun_OK                           = 0,
+    EosRun_NotEnabled,
+    EosRun_NoEvent,
+    EosRun_NoActor,
+    EosRun_NoActorSub,
+
+    // Timer
+    EosTimer_Empty,
+    EosTimer_NotTimeout,
+    EosTimer_ChangeToEmpty,
+
+    EosRunErr_NotInitEnd                = -1,
+    EosRunErr_ActorNotSub               = -2,
+    EosRunErr_MallocFail                = -3,
+    EosRunErr_SubTableNull              = -4,
+    EosRunErr_InvalidEventData          = -5,
+    EosRunErr_HeapMemoryNotEnough       = -6,
+};
+
 #if (EOS_USE_TIME_EVENT != 0)
 typedef struct eos_event_timer {
     eos_topic_t topic;
@@ -77,7 +90,7 @@ typedef struct eos_block {
     eos_u32_t q_next                        : 15;
     eos_u32_t offset                        : 2;
     // word[1]
-    eos_u32_t last                        : 15;
+    eos_u32_t last                          : 15;
     eos_u32_t q_last                        : 15;
     eos_u32_t free                          : 1;
     // word[2]
@@ -126,6 +139,7 @@ typedef struct eos_tag {
 
     eos_bool_t enabled;
     eos_bool_t running;
+    eos_bool_t init_end;
 } eos_t;
 // **eos end** -----------------------------------------------------------------
 
@@ -169,6 +183,7 @@ static eos_s32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX
 void eos_heap_init(eos_heap_t * const me);
 void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size);
 void eos_heap_free(eos_heap_t * const me, void * data);
+void *eos_heap_get_block(eos_heap_t * const me, eos_u8_t priority);
 #endif
 
 // eventos ---------------------------------------------------------------------
@@ -192,12 +207,14 @@ void eventos_init(void)
     eos.running = EOS_False;
     eos.magic = EOS_MAGIC;
 #if (EOS_USE_PUB_SUB != 0)
-    eos.sub_table = 0;
+    eos.sub_table = EOS_NULL;
 #endif
 
 #if (EOS_USE_EVENT_DATA != 0)
     eos_heap_init(&eos.heap);
 #endif
+
+    eos.init_end = 1;
 }
 
 #if (EOS_USE_PUB_SUB != 0)
@@ -217,11 +234,11 @@ eos_s32_t eos_evttimer(void)
     eos.time_crt_ms = eos_port_get_time_ms();
     
     if (eos.etimerpool_empty == EOS_True)
-        return 210;
+        return EosTimer_Empty;
 
     // 时间未到达
     if (eos.time_crt_ms < eos.timeout_ms_min)
-        return 211;
+        return EosTimer_NotTimeout;
     
     // 若时间到达，将此事件推入事件队列，同时在e_timer_pool里删除。
     eos_bool_t etimerpool_empty = EOS_True;
@@ -243,7 +260,7 @@ eos_s32_t eos_evttimer(void)
     }
     eos.etimerpool_empty = etimerpool_empty;
     if (eos.etimerpool_empty == EOS_True)
-        return 212;
+        return EosTimer_ChangeToEmpty;
 
     // 寻找到最小的时间定时器
     eos_u32_t min_time_out_ms = EOS_U32_MAX;
@@ -256,23 +273,32 @@ eos_s32_t eos_evttimer(void)
     }
     eos.timeout_ms_min = min_time_out_ms;
 
-    return 0;
+    return EosRun_OK;
 }
 #endif
 
-eos_s32_t eos_once(void)
+eos_s8_t eos_once(void)
 {
-    eos_s32_t ret = 0;
+    eos_s32_t ret = EosRun_OK;
+
+    if (eos.init_end == 0) {
+        return EosRunErr_NotInitEnd;
+    }
+
+#if (EOS_USE_PUB_SUB != 0)
+    if (eos.sub_table == EOS_NULL) {
+        return EosRunErr_SubTableNull;
+    }
+#endif
 
     if (eos.enabled == EOS_False) {
         eos_clear();
-        return 8001;
+        return EosRun_NotEnabled;
     }
 
     // 检查是否有状态机的注册
     if (eos.actor_exist == 0 || eos.actor_enabled == 0) {
-        ret = 8002;
-        return ret;
+        return EosRun_NoActor;
     }
 
 #if (EOS_USE_TIME_EVENT != 0)
@@ -280,11 +306,12 @@ eos_s32_t eos_once(void)
 #endif
 
     if (eos.heap.empty == EOS_True) {
-        ret = 8003;
-        return ret;
+        return EosRun_NoEvent;
     }
+
     // 寻找到优先级最高，且有事件需要处理的Actor
     eos_actor_t *actor = (eos_actor_t *)0;
+    eos_u8_t priority = EOS_MAX_ACTORS;
     for (eos_u32_t i = 0; i < EOS_MAX_ACTORS; i ++) {
         if ((eos.actor_exist & (1 << i)) == 0)
             continue;
@@ -292,19 +319,20 @@ eos_s32_t eos_once(void)
         if ((eos.heap.sub_general & (1 << i)) == 0)
             continue;
         actor = eos.actor[i];
+        priority = i;
         break;
     }
     // 如果没有找到，返回
-    if (actor == (eos_actor_t *)0) {
+    if (priority == EOS_MAX_ACTORS) {
         eos.heap.empty = EOS_True;
         
-        ret = 8004;
-        return ret;
+        return EosRun_NoEvent;
     }
 
     // 寻找当前Actor的最老的事件
     eos_port_critical_enter();
-    eos_event_inner_t * e = 0;
+    eos_event_inner_t * e = eos_heap_get_block(&eos.heap, priority);
+    EOS_ASSERT(e != EOS_NULL);
 
     e->sub &= ~(1 << (actor->priority));
     eos_port_critical_exit();
@@ -327,8 +355,9 @@ eos_s32_t eos_once(void)
         }
     }
 #if (EOS_USE_PUB_SUB != 0)
-    else
-        ret = 204;
+    else {
+        ret = EosRunErr_ActorNotSub;
+    }
 #endif
 #if (EOS_USE_EVENT_DATA != 0)
     // 销毁过期事件与其携带的参数
@@ -357,14 +386,17 @@ void eventos_run(void)
     eos.running = EOS_True;
 
     while (eos.enabled) {
-        // 检查Magic
         EOS_ASSERT(eos.magic == EOS_MAGIC);
-        eos_s32_t ret = eos_once();
-        if ((int)(ret / 100) == 2) {
+        eos_s8_t ret = eos_once();
+        EOS_ASSERT(ret >= 0);
+
+        if (ret == EosRun_NotEnabled) {
+            break;
+        }
+
+        if (ret == EosRun_NoActor || ret == EosRun_NoEvent) {
             eos_hook_idle();
         }
-        else if (ret == 1)
-            break;
     }
 
     while (1) {
@@ -380,7 +412,7 @@ void eventos_stop(void)
 
 // 关于Reactor -----------------------------------------------------------------
 static void eos_actor_init( eos_actor_t * const me,
-                            eos_u32_t priority,
+                            eos_u8_t priority,
                             void const * const parameter)
 {
     (void)parameter;
@@ -388,6 +420,9 @@ static void eos_actor_init( eos_actor_t * const me,
     // 框架需要先启动起来
     EOS_ASSERT(eos.enabled == EOS_True);
     EOS_ASSERT(eos.running == EOS_False);
+#if (EOS_USE_PUB_SUB != 0)
+    EOS_ASSERT(eos.sub_table != EOS_NULL);
+#endif
     // 参数检查
     EOS_ASSERT(me != (eos_actor_t *)0);
     EOS_ASSERT(priority < EOS_MAX_ACTORS);
@@ -409,7 +444,7 @@ static void eos_actor_init( eos_actor_t * const me,
 }
 
 void eos_reactor_init(  eos_reactor_t * const me,
-                        eos_u32_t priority,
+                        eos_u8_t priority,
                         void const * const parameter)
 {
     eos_actor_init(&me->super, priority, parameter);
@@ -426,7 +461,7 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 // state machine ---------------------------------------------------------------
 #if (EOS_USE_SM_MODE != 0)
 void eos_sm_init(   eos_sm_t * const me,
-                    eos_u32_t priority,
+                    eos_u8_t priority,
                     void const * const parameter)
 {
     eos_actor_init(&me->super, priority, parameter);
@@ -487,28 +522,50 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 #endif
 
 // event -----------------------------------------------------------------------
-int eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
+eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
 {
+    if (eos.init_end == 0) {
+        return EosRunErr_NotInitEnd;
+    }
+
+#if (EOS_USE_PUB_SUB != 0)
+    if (eos.sub_table == EOS_NULL) {
+        return EosRunErr_SubTableNull;
+    }
+#endif
+
     // 保证框架已经运行
-    EOS_ASSERT(eos.enabled == EOS_True);
+    if (eos.enabled == 0) {
+        return EosRun_NotEnabled;
+    }
+
+    if (size != 0) {
+        return EosRunErr_InvalidEventData;
+    }
+
+    if (eos.actor_exist == 0) {
+        return EosRun_NoActor;
+    }
+
     // 没有状态机使能，返回
     if (eos.actor_enabled == 0) {
-        return 9001;
+        return EosRun_NotEnabled;
     }
     // 没有状态机订阅，返回
 #if (EOS_USE_PUB_SUB != 0)
     if (eos.sub_table[topic] == 0) {
-#else
-    if (eos.actor_exist == 0) {
-#endif
-        return 9002;
+        return EosRun_NoActorSub;
     }
+#else
+
+#endif
+
     eos_port_critical_enter();
     // 申请事件空间
     eos_event_inner_t *e = eos_heap_malloc(&eos.heap, (size + sizeof(eos_event_inner_t)));
     if (e == (eos_event_inner_t *)0) {
         eos_port_critical_exit();
-        return 9003;
+        return EosRunErr_MallocFail;
     }
     e->topic = topic;
 #if (EOS_USE_PUB_SUB != 0)
@@ -516,10 +573,10 @@ int eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
 #else
     e->sub = eos.actor_exist;
 #endif
-    // e->data = (void *)(e + sizeof(eos_event_inner_t));
-    // for (eos_u32_t i = 0; i < size; i ++) {
-    //     ((eos_u8_t *)e->data)[i] = ((eos_u8_t *)data)[i];
-    // }
+    eos_u8_t *e_data = (void *)(e + sizeof(eos_event_inner_t));
+    for (eos_u32_t i = 0; i < size; i ++) {
+        e_data[i] = ((eos_u8_t *)data)[i];
+    }
     eos_port_critical_exit();
 }
 
@@ -529,13 +586,12 @@ void eos_event_pub_topic(eos_topic_t topic)
     eos_event_pub(topic, &para, 1);
 }
 
-int count = 0;
 #if (EOS_USE_EVENT_DATA != 0)
 void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
 {
-    int ret = eos_event_pub_ret(topic, data, size);
-    EOS_ASSERT(ret != 9003);
-    EOS_ASSERT(ret != 9004);
+    eos_s8_t ret = eos_event_pub_ret(topic, data, size);
+    EOS_ASSERT(ret >= 0);
+    (void)ret;
 }
 #endif
 
@@ -575,7 +631,7 @@ static void evt_publish_time(eos_s32_t topic, eos_s32_t time_ms, eos_bool_t is_o
             is_topic_set = EOS_True;
             break;
         }
-        EOS_ASSERT_ID(106, is_topic_set == EOS_False);
+        EOS_ASSERT(is_topic_set == EOS_False);
     }
 
     // Find an empty soft timer.
@@ -592,7 +648,7 @@ static void evt_publish_time(eos_s32_t topic, eos_s32_t time_ms, eos_bool_t is_o
         }
         break;
     }
-    EOS_ASSERT_ID(102, index_empty != EOS_U32_MAX);
+    EOS_ASSERT(index_empty != EOS_U32_MAX);
 
     eos_u32_t time_crt_ms = eos_port_get_time_ms();
     eos.e_timer_pool[index_empty] = (eos_event_timer_t) {
@@ -893,7 +949,7 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
 
     if (size == 0) {
         me->error_id = 1;
-        return (void *)0;
+        return EOS_NULL;
     }
 
     /* Find the first free block in the block-list. */
@@ -909,7 +965,7 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
 
     if (next == EOS_HEAP_MAX) {
         me->error_id = 2;
-        return (void *)0;
+        return EOS_NULL;
     }
 
     /* Divide the block into two blocks. */
@@ -928,8 +984,10 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
     block->size = size;
     block->free = 0;
 
-    eos_block_t * block_next2 = (eos_block_t *)((eos_pointer_t)me->data + new_block->next);
-    block_next2->last = (eos_u16_t)((eos_pointer_t)new_block - (eos_pointer_t)me->data);
+    if (new_block->next != EOS_HEAP_MAX) {
+        eos_block_t * block_next2 = (eos_block_t *)((eos_pointer_t)me->data + new_block->next);
+        block_next2->last = (eos_u16_t)((eos_pointer_t)new_block - (eos_pointer_t)me->data);
+    }
 
     /* 挂在Queue的最后端 */
     next = me->queue;
@@ -946,7 +1004,8 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
             next = block_queue->q_next;
         } while (next != EOS_HEAP_MAX);
 
-        block_queue->next = (eos_u16_t)((eos_pointer_t)block - (eos_pointer_t)me->data);
+        block_queue->q_next = (eos_u16_t)((eos_pointer_t)block - (eos_pointer_t)me->data);
+        block->q_next = EOS_HEAP_MAX;
         block->q_last = (eos_u16_t)((eos_pointer_t)block_queue - (eos_pointer_t)me->data);
     }
 

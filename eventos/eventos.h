@@ -23,12 +23,12 @@
  * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * https://www.event-os.cn
- * https://github.com/eventos-nano
- * https://gitee.com/eventos-nano
+ * https://github.com/event-os/eventos-nano
+ * https://gitee.com/event-os/eventos-nano
  * 
  * Change Logs:
  * Date           Author        Notes
- * 2021-11-23     Lao Wang      V0.0.2
+ * 2021-11-23     XiaoMing      V0.0.2
  */
 
 #ifndef EVENTOS_H_
@@ -173,7 +173,7 @@ void eventos_stop(void);
 
 // 关于Reactor -----------------------------------------------------------------
 void eos_reactor_init(  eos_reactor_t * const me,
-                        eos_u32_t priority,
+                        eos_u8_t priority,
                         void const * const parameter);
 void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler);
 #define EOS_HANDLER_CAST(handler)       ((eos_event_handler)(handler))
@@ -182,7 +182,7 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 #if (EOS_USE_SM_MODE != 0)
 // 状态机初始化函数
 void eos_sm_init(   eos_sm_t * const me,
-                    eos_u32_t priority,
+                    eos_u8_t priority,
                     void const * const parameter);
 void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init);
 

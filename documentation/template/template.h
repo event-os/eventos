@@ -23,12 +23,12 @@
  * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * https://www.event-os.cn
- * https://github.com/eventos-nano
- * https://gitee.com/eventos-nano
+ * https://github.com/event-os/eventos-nano
+ * https://gitee.com/event-os/eventos-nano
  * 
  * Change Logs:
  * Date           Author        Notes
- * 2021-11-23     Lao Wang      the first version
+ * 2021-11-23     XiaoMing      the first version
  */
 
 #ifndef EOS_TEMPLATE_H_

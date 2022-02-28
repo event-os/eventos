@@ -23,12 +23,12 @@
  * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * https://www.event-os.cn
- * https://github.com/eventos-nano
- * https://gitee.com/eventos-nano
+ * https://github.com/event-os/eventos-nano
+ * https://gitee.com/event-os/eventos-nano
  * 
  * Change Logs:
  * Date           Author        Notes
- * 2022-02-20     Lao Wang      V0.0.2
+ * 2022-02-20     XiaoMing      V0.0.2
  */
 
 #ifndef EVENTOS_DEF_H__

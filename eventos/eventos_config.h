@@ -23,12 +23,12 @@
  * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * https://www.event-os.cn
- * https://github.com/eventos-nano
- * https://gitee.com/eventos-nano
+ * https://github.com/event-os/eventos-nano
+ * https://gitee.com/event-os/eventos-nano
  * 
  * Change Logs:
  * Date           Author        Notes
- * 2022-02-20     Lao Wang      V0.0.2
+ * 2022-02-20     XiaoMing      V0.0.2
  */
 
 #ifndef EVENTOS_CONFIG_H__
@@ -37,7 +37,7 @@
 /* EventOS Nano General Configuration --------------------------------------- */
 #define EOS_MCU_TYPE                            32
 #define EOS_MAX_ACTORS                          32
-#define EOS_TEST_PLATFORM                       32
+#define EOS_TEST_PLATFORM                       64
 
 /* Assert Configuration ----------------------------------------------------- */
 #define EOS_USE_ASSERT                          1

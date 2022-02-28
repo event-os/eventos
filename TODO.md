@@ -24,5 +24,13 @@
 // TODO 修改为只有一个全局事件队列，进一步压缩对RAM的占用。
 // TODO heap库，需要优化RAM占用和速度。
 // TODO 加入线程内延时功能。
-
+// TODO 增强时间事件的功能，使用如下的数据结构：
+typedef struct eos_event_timer {
+    eos_topic_t topic;
+    eos_u32_t enable                        : 1;
+    eos_u32_t ms_or_sec                     : 1;
+    eos_u32_t delay                         : 15;
+    eos_u32_t peroid                        : 15;
+    eos_u32_t timeout_ms;
+} eos_event_timer_t;
 // TODO V0.1版本释放后，博客《事件》、《事件总线》、《事件驱动》。
