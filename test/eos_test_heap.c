@@ -139,13 +139,18 @@ void eos_test_heap(void)
         print_heap_list(&heap, i);
     }
     
+    eos_u8_t count = EOS_MAX_ACTORS;
     for (int i = 0; i < EOS_MAX_ACTORS; i ++) {
+        TEST_ASSERT_EQUAL_UINT8(count, heap.count);
+        eos_event_inner_t *e = (eos_event_inner_t *)eblock[i];
+        TEST_ASSERT_BIT_HIGH(i, e->sub);
         eb = eos_heap_get_block(&heap, i);
-        eos_event_inner_t *e = (eos_event_inner_t *)eb;
         TEST_ASSERT_NOT_NULL(eb);
-        TEST_ASSERT_EQUAL_UINT8((1 << i), e->sub);
-        e->sub = 0;
+        TEST_ASSERT_EQUAL_POINTER(eblock[i], eb);
+        TEST_ASSERT_BIT_LOW(i, e->sub);
         eos_heap_gc(&heap, e);
+        count --;
+        TEST_ASSERT_EQUAL_UINT8(count, heap.count);
 
         print_heap_list(&heap, i);
     }

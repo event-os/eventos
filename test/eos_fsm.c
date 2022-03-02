@@ -11,19 +11,24 @@ static eos_ret_t state_off(fsm_t * const me, eos_event_t const * const e);
 // api -------------------------------------------------------------------------
 void fsm_init(fsm_t * const me, eos_u8_t priority, void const * const parameter)
 {
-    me->status = EOS_False;
+    me->state = 0;
     me->count = 0;
 
     eos_sm_init(&me->super, priority, parameter);
     eos_sm_start(&me->super, EOS_STATE_CAST(state_init));
 }
 
-int fsm_get_evt_count(fsm_t * const me)
+eos_u32_t fsm_state(fsm_t * const me)
+{
+    return me->state;
+}
+
+eos_u32_t fsm_event_count(fsm_t * const me)
 {
     return me->count;
 }
 
-void fsm_reset_evt_count(fsm_t * const me)
+void fsm_reset_event_count(fsm_t * const me)
 {
     me->count = 0;
 }
@@ -35,7 +40,11 @@ static eos_ret_t state_init(fsm_t * const me, eos_event_t const * const e)
 
 #if (EOS_USE_PUB_SUB != 0)
     EOS_EVENT_SUB(Event_Time_500ms);
+    EOS_EVENT_SUB(Event_TestFsm);
 #endif
+
+    me->state = 0;
+    me->count = 0;
 
     eos_event_pub_period(Event_Time_500ms, 500);
 
@@ -46,8 +55,12 @@ static eos_ret_t state_off(fsm_t * const me, eos_event_t const * const e)
 {
     switch (e->topic) {
         case Event_Enter:
-            me->status = EOS_False;
+            me->state = 0;
             return EOS_Ret_Handled;
+
+        case Event_TestFsm:
+            me->count ++;
+            return EOS_TRAN(state_on);
 
         case Event_Time_500ms:
             me->count ++;
@@ -62,13 +75,16 @@ static eos_ret_t state_on(fsm_t * const me, eos_event_t const * const e)
 {
     switch (e->topic) {
         case Event_Enter: {
-            int num = 1;
-            me->status = EOS_True;
+            me->state = 1;
             return EOS_Ret_Handled;
         }
 
         case Event_Exit:
             return EOS_Ret_Handled;
+
+        case Event_TestFsm:
+            me->count ++;
+            return EOS_TRAN(state_off);
 
         case Event_Time_500ms:
             me->count ++;

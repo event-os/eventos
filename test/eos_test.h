@@ -9,13 +9,14 @@
 // fsm led -----------------------------------------------
 typedef struct fsm_tag {
     eos_sm_t super;
-    bool status;
-    int count;
+    eos_u32_t count;
+    eos_u32_t state;
 } fsm_t;
 
 void fsm_init(fsm_t * const me, eos_u8_t priority, void const * const parameter);
-int fsm_get_evt_count(fsm_t * const me);
-void fsm_reset_evt_count(fsm_t * const me);
+eos_u32_t fsm_state(fsm_t * const me);
+eos_u32_t fsm_event_count(fsm_t * const me);
+void fsm_reset_event_count(fsm_t * const me);
 
 // hsm ---------------------------------------------------
 typedef struct hsm_tag {

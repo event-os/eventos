@@ -111,7 +111,7 @@ typedef enum eos_ret {
 typedef struct eos_event {
     eos_topic_t topic;
     void *data;
-    // eos_u16_t size;
+    eos_u16_t size;
 } eos_event_t;
 
 // 数据结构 - 行为树相关 --------------------------------------------------------
