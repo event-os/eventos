@@ -11,7 +11,7 @@
 
 // **eos** ---------------------------------------------------------------------
 enum {
-    EosRun_OK                           = 0,
+    EosRun_OK                               = 0,
     EosRun_NotEnabled,
     EosRun_NoEvent,
     EosRun_NoActor,
@@ -21,14 +21,14 @@ enum {
     EosTimer_Empty,
     EosTimer_NotTimeout,
     EosTimer_ChangeToEmpty,
-    EosTimer_Repeated,
 
-    EosRunErr_NotInitEnd                = -1,
-    EosRunErr_ActorNotSub               = -2,
-    EosRunErr_MallocFail                = -3,
-    EosRunErr_SubTableNull              = -4,
-    EosRunErr_InvalidEventData          = -5,
-    EosRunErr_HeapMemoryNotEnough       = -6,
+    EosRunErr_NotInitEnd                    = -1,
+    EosRunErr_ActorNotSub                   = -2,
+    EosRunErr_MallocFail                    = -3,
+    EosRunErr_SubTableNull                  = -4,
+    EosRunErr_InvalidEventData              = -5,
+    EosRunErr_HeapMemoryNotEnough           = -6,
+    EosRunErr_TimerRepeated                 = -7,
 };
 
 #if (EOS_USE_TIME_EVENT != 0)

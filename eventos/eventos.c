@@ -57,7 +57,7 @@ enum eos_actor_mode {
 
 // **eos** ---------------------------------------------------------------------
 enum {
-    EosRun_OK                           = 0,
+    EosRun_OK                               = 0,
     EosRun_NotEnabled,
     EosRun_NoEvent,
     EosRun_NoActor,
@@ -67,14 +67,14 @@ enum {
     EosTimer_Empty,
     EosTimer_NotTimeout,
     EosTimer_ChangeToEmpty,
-    EosTimer_Repeated,
 
-    EosRunErr_NotInitEnd                = -1,
-    EosRunErr_ActorNotSub               = -2,
-    EosRunErr_MallocFail                = -3,
-    EosRunErr_SubTableNull              = -4,
-    EosRunErr_InvalidEventData          = -5,
-    EosRunErr_HeapMemoryNotEnough       = -6,
+    EosRunErr_NotInitEnd                    = -1,
+    EosRunErr_ActorNotSub                   = -2,
+    EosRunErr_MallocFail                    = -3,
+    EosRunErr_SubTableNull                  = -4,
+    EosRunErr_InvalidEventData              = -5,
+    EosRunErr_HeapMemoryNotEnough           = -6,
+    EosRunErr_TimerRepeated                 = -7,
 };
 
 #if (EOS_USE_TIME_EVENT != 0)
@@ -162,9 +162,6 @@ static const eos_event_t eos_event_table[Event_User] = {
 #if (EOS_USE_SM_MODE != 0)
 #define HSM_TRIG_(state_, topic_)                                              \
     ((*(state_))(me, &eos_event_table[topic_]))
-
-#define HSM_EXIT_(state_) do { HSM_TRIG_(state_, Event_Exit); } while (0)
-#define HSM_ENTER_(state_) do { HSM_TRIG_(state_, Event_Enter); } while (0)
 #endif
 
 // static function -------------------------------------------------------------
@@ -236,7 +233,6 @@ eos_s32_t eos_evttimer(void)
     for (eos_u32_t i = 0; i < eos.timer_count; i ++) {
         if (eos.etimer[i].timeout_ms > system_time)
             continue;
-
         eos_event_pub_topic(eos.etimer[i].topic);
         // 清零标志位
         if (eos.etimer[i].oneshoot == EOS_True) {
@@ -496,7 +492,7 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 
         // 各层状态的进入
         do {
-            HSM_ENTER_(path[ip --]);
+            HSM_TRIG_(path[ip --], Event_Enter);
         } while (ip >= 0);
 
         t = path[0];
@@ -597,7 +593,7 @@ void eos_event_unsub(eos_actor_t * const me, eos_topic_t topic)
 #endif
 
 #if (EOS_USE_TIME_EVENT != 0)
-eos_s8_t eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoot)
+void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoot)
 {
     EOS_ASSERT(time_ms != 0);
     EOS_ASSERT(time_ms <= 6000000);
@@ -609,11 +605,14 @@ eos_s8_t eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t one
     }
 
     eos_u32_t system_ms = eos_port_time();
-    eos_u8_t unit_ms = (time_ms >= 60000) ? 1 : 0;
+    eos_u8_t unit_ms = (time_ms >= 60000) ? 0 : 1;
     eos_u32_t timeout;
     timeout = (system_ms + time_ms);
+    eos_u16_t period =  unit_ms == 1 ?
+                        time_ms :
+                        (((time_ms / 10) % 10) < 5 ? (time_ms / 100) : (time_ms / 100 + 1));
     eos.etimer[eos.timer_count ++] = (eos_event_timer_t) {
-        topic, oneshoot, unit_ms, (unit_ms == 1 ? time_ms : (time_ms / 100)), timeout
+        topic, oneshoot, unit_ms, period, timeout
     };
     
     if (eos.timeout_min > timeout) {
@@ -625,8 +624,7 @@ eos_s8_t eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t one
 
 void eos_event_pub_delay(eos_topic_t topic, eos_u32_t time_ms)
 {
-    eos_s8_t ret = eos_event_pub_time(topic, time_ms, EOS_True);
-    (void)ret;
+    eos_event_pub_time(topic, time_ms, EOS_True);
 }
 
 void eos_event_pub_period(eos_topic_t topic, eos_u32_t time_ms_period)
@@ -648,7 +646,6 @@ void eos_event_time_cancel(eos_topic_t topic)
             eos.timer_count -= 1;
             i --;
         }
-
     }
 }
 #endif
@@ -742,7 +739,7 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
 
     // retrace the entry path in reverse (desired) order...
     for (; ip >= 0; --ip) {
-        HSM_ENTER_(path[ip]); // enter path[ip]
+        HSM_TRIG_(path[ip], Event_Enter); // enter path[ip]
     }
     t = path[0];    // stick the target into register
     me->state = t; // update the next state
@@ -764,7 +761,7 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
 
         // retrace the entry path in reverse (correct) order...
         do {
-            HSM_ENTER_(path[ip --]);                   // 进入path[ip]
+            HSM_TRIG_(path[ip], Event_Enter);       // 进入path[ip]
         } while (ip >= 0);
 
         t = path[0];
@@ -786,7 +783,7 @@ static eos_s32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX
 
     // (a) 跳转到自身 s == t
     if (s == t) {
-        HSM_EXIT_(s);  // exit the source
+        HSM_TRIG_(s, Event_Exit);  // exit the source
         return 0; // cause entering the target
     }
 
@@ -801,13 +798,13 @@ static eos_s32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX
 
     // (c) check source->super == target->super
     if (me->state == t) {
-        HSM_EXIT_(s);  // exit the source
+        HSM_TRIG_(s, Event_Exit);  // exit the source
         return 0; // cause entering the target
     }
 
     // (d) check source->super == target
     if (me->state == path[0]) {
-        HSM_EXIT_(s); // exit the source
+        HSM_TRIG_(s, Event_Exit); // exit the source
         return -1;
     }
 
@@ -846,7 +843,7 @@ static eos_s32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX
         // entry path must not overflow
         EOS_ASSERT(ip < EOS_MAX_HSM_NEST_DEPTH);
 
-        HSM_EXIT_(s); // exit the source
+        HSM_TRIG_(s, Event_Exit); // exit the source
 
         // (f) check the rest of source->super
         //                  == target->super->super...

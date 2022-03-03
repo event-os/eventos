@@ -6,7 +6,7 @@
 
 // **eos** ---------------------------------------------------------------------
 enum {
-    EosRun_OK                           = 0,
+    EosRun_OK                               = 0,
     EosRun_NotEnabled,
     EosRun_NoEvent,
     EosRun_NoActor,
@@ -16,14 +16,14 @@ enum {
     EosTimer_Empty,
     EosTimer_NotTimeout,
     EosTimer_ChangeToEmpty,
-    EosTimer_Repeated,
 
-    EosRunErr_NotInitEnd                = -1,
-    EosRunErr_ActorNotSub               = -2,
-    EosRunErr_MallocFail                = -3,
-    EosRunErr_SubTableNull              = -4,
-    EosRunErr_InvalidEventData          = -5,
-    EosRunErr_HeapMemoryNotEnough       = -6,
+    EosRunErr_NotInitEnd                    = -1,
+    EosRunErr_ActorNotSub                   = -2,
+    EosRunErr_MallocFail                    = -3,
+    EosRunErr_SubTableNull                  = -4,
+    EosRunErr_InvalidEventData              = -5,
+    EosRunErr_HeapMemoryNotEnough           = -6,
+    EosRunErr_TimerRepeated                 = -7,
 };
 
 #if (EOS_USE_TIME_EVENT != 0)
@@ -104,12 +104,12 @@ eos_s8_t eos_once(void);
 eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size);
 void * eos_get_framework(void);
 eos_s8_t eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoot);
+eos_s32_t eos_evttimer(void);
 #endif
 
 void eos_test_etimer(void)
 {
 #if (EOS_USE_TIME_EVENT != 0)
-    eos_s8_t ret;
     f = eos_get_framework();
     set_time_ms(0);
     eos_u32_t system_time = eos_port_time();
@@ -125,10 +125,11 @@ void eos_test_etimer(void)
 #endif
 
     fsm_init(&fsm, 0, EOS_NULL);
+
+    // 发送500ms延时事件 --------------------------------------------------------
     TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
-    ret = eos_event_pub_time(Event_Time_500ms, 500, EOS_True);
+    eos_event_pub_delay(Event_Time_500ms, 500);
     TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
-    TEST_ASSERT_EQUAL_INT8(EosRun_OK, ret);
     for (int i = 0; i < 500; i ++) {
         set_time_ms(i);
         TEST_ASSERT_EQUAL_INT8(EosRun_NoEvent, eos_once());
@@ -139,9 +140,8 @@ void eos_test_etimer(void)
     TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
     TEST_ASSERT_EQUAL_UINT32(1, fsm_state(&fsm));
 
-    // 再次发送500ms延时事件
-    ret = eos_event_pub_time(Event_Time_500ms, 500, EOS_True);
-    TEST_ASSERT_EQUAL_INT8(EosRun_OK, ret);
+    // 再次发送500ms延时事件 ----------------------------------------------------
+    eos_event_pub_delay(Event_Time_500ms, 500);
     TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
     system_time = eos_port_time();
     for (int i = system_time; i < (system_time + 500); i ++) {
@@ -153,5 +153,68 @@ void eos_test_etimer(void)
     TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
     TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
     TEST_ASSERT_EQUAL_UINT32(0, fsm_state(&fsm));
+ 
+    // 发送两个时间事件，测试取消功能 ---------------------------------------------
+    system_time = eos_port_time();
+    TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
+    eos_event_pub_delay(Event_Time_500ms, 500);
+    TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
+    eos_event_pub_delay(Event_Test, 1000);
+    TEST_ASSERT_EQUAL_UINT8(2, f->timer_count);
+    TEST_ASSERT_EQUAL_UINT16(Event_Time_500ms, f->etimer[0].topic);
+    TEST_ASSERT_EQUAL_UINT8(1, f->etimer[0].oneshoot);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 500), f->etimer[0].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT8(1, f->etimer[0].unit_ms);
+    TEST_ASSERT_EQUAL_UINT16(Event_Test, f->etimer[1].topic);
+    TEST_ASSERT_EQUAL_UINT8(1, f->etimer[1].oneshoot);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 1000), f->etimer[1].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT8(1, f->etimer[1].unit_ms);
+
+    // 取消延时事件
+    eos_event_time_cancel(Event_Time_500ms);
+    TEST_ASSERT_EQUAL_UINT16(Event_Test, f->etimer[0].topic);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 1000), f->etimer[0].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT8(1, f->etimer[0].unit_ms);
+    TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
+    // 重复取消，并不管用
+    eos_event_time_cancel(Event_Time_500ms);
+    TEST_ASSERT_EQUAL_UINT16(Event_Test, f->etimer[0].topic);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 1000), f->etimer[0].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT8(1, f->etimer[0].unit_ms);
+    TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
+    // 取消另一个延时事件
+    eos_event_time_cancel(Event_Test);
+    TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
+
+    // 发送两个时间事件，测试一个到期后另一个的移位 --------------------------------
+    system_time = eos_port_time();
+    TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
+    eos_event_pub_delay(Event_Time_500ms, 500);
+    TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
+    eos_event_pub_delay(Event_Test, 1000);
+    TEST_ASSERT_EQUAL_UINT8(2, f->timer_count);
+
+    set_time_ms(system_time + 500);
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+    TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
+    TEST_ASSERT_EQUAL_UINT32(1, fsm_state(&fsm));
+    TEST_ASSERT_EQUAL_UINT16(Event_Test, f->etimer[0].topic);
+    TEST_ASSERT_EQUAL_UINT8(1, f->etimer[0].unit_ms);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 1000), f->etimer[0].timeout_ms);
+    eos_event_time_cancel(Event_Test);
+    TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
+
+    // 延时70000毫秒的时间
+    system_time = eos_port_time();
+    TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
+    eos_event_pub_delay(Event_Test, 70000);
+    TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
+    TEST_ASSERT_EQUAL_UINT16(Event_Test, f->etimer[0].topic);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 70000), f->etimer[0].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT32(0, f->etimer[0].unit_ms);
+    TEST_ASSERT_EQUAL_UINT32(700, f->etimer[0].period);
+    set_time_ms(system_time + 70000);
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+    TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
 #endif
 }
