@@ -18,7 +18,8 @@ def execute():
    path_test = [
       "test/eos_test_fsm.c",
       "test/eos_test_heap.c",
-      "test/eos_test_event.c"
+      "test/eos_test_event.c",
+      "test/eos_test_etimer.c"
    ]
 
    count = 0

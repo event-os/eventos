@@ -16,7 +16,7 @@ EventOS Nano在单片机裸机上的移植，目前有四个接口函数和三�
         // system_time += 10;                       // 如果是10ms中断，此处应递增10。
     }
 
-    eos_u32_t eos_port_get_time_ms(void)
+    eos_u32_t eos_port_time(void)
     {
         return system_time;
     }

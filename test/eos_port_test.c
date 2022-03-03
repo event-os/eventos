@@ -9,7 +9,7 @@ void set_time_ms(eos_u32_t time_ms)
     time_ms_count = time_ms;
 }
 
-eos_u32_t eos_port_get_time_ms(void)
+eos_u32_t eos_port_time(void)
 {
     return time_ms_count;
 }

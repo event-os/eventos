@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-eos_u32_t eos_port_get_time_ms(void)
+eos_u32_t eos_port_time(void)
 {
     struct timeval time_crt;
     gettimeofday(&time_crt, (void *)0);

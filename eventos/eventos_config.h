@@ -89,6 +89,10 @@
     #endif
 #endif
 
+#if (EOS_USE_TIME_EVENT != 0 && EOS_MAX_TIME_EVENT >= 256)
+    #error The number of time events must be less than 256 !
+#endif
+
 #if (EOS_USE_EVENT_DATA != 0)
     #if (EOS_USE_HEAP != 0 && (EOS_SIZE_HEAP < 128 || EOS_SIZE_HEAP >= EOS_HEAP_MAX))
         #error The heap size must be 128 ~ 32768 (32KB) if the function is enabled !

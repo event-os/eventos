@@ -67,6 +67,7 @@ enum {
     EosTimer_Empty,
     EosTimer_NotTimeout,
     EosTimer_ChangeToEmpty,
+    EosTimer_Repeated,
 
     EosRunErr_NotInitEnd                = -1,
     EosRunErr_ActorNotSub               = -2,
@@ -78,9 +79,10 @@ enum {
 
 #if (EOS_USE_TIME_EVENT != 0)
 typedef struct eos_event_timer {
-    eos_topic_t topic;
-    eos_bool_t is_one_shoot;
-    eos_s32_t time_ms_delay;
+    eos_u32_t topic                         : 14;
+    eos_u32_t oneshoot                      : 1;
+    eos_u32_t unit_ms                       : 1;
+    eos_u32_t period                        : 16;
     eos_u32_t timeout_ms;
 } eos_event_timer_t;
 #endif
@@ -132,16 +134,14 @@ typedef struct eos_tag {
 #endif
 
 #if (EOS_USE_TIME_EVENT != 0)
-    eos_event_timer_t e_timer_pool[EOS_MAX_TIME_EVENT];
-    eos_u32_t flag_etimerpool[EOS_MAX_TIME_EVENT / 32 + 1];    // timer pool flag
-    eos_u32_t timeout_ms_min;
-    eos_u32_t time_crt_ms;
-    eos_bool_t etimerpool_empty;
+    eos_event_timer_t etimer[EOS_MAX_TIME_EVENT];
+    eos_u32_t timeout_min;
+    eos_u8_t timer_count;
 #endif
 
-    eos_bool_t enabled;
-    eos_bool_t running;
-    eos_bool_t init_end;
+    eos_u8_t enabled                    : 1;
+    eos_u8_t running                    : 1;
+    eos_u8_t init_end                   : 1;
 } eos_t;
 // **eos end** -----------------------------------------------------------------
 
@@ -193,12 +193,7 @@ void eos_heap_gc(eos_heap_t * const me, void *data);
 static void eos_clear(void)
 {
 #if (EOS_USE_TIME_EVENT != 0)
-    // Clear all time-events' pool.
-    for (eos_u32_t i = 0; i < EOS_MAX_TIME_EVENT / 32 + 1; i ++)
-        eos.flag_etimerpool[i] = EOS_U32_MAX;
-    for (eos_u32_t i = 0; i < EOS_MAX_TIME_EVENT; i ++)
-        eos.flag_etimerpool[i / 32] &= ~(1 << (i % 32));
-    eos.etimerpool_empty = EOS_True;
+    eos.timer_count = 0;
 #endif
 }
 
@@ -209,6 +204,8 @@ void eventos_init(void)
     eos.enabled = EOS_True;
     eos.running = EOS_False;
     eos.magic = EOS_MAGIC;
+    eos.actor_exist = 0;
+    eos.actor_enabled = 0;
 #if (EOS_USE_PUB_SUB != 0)
     eos.sub_table = EOS_NULL;
 #endif
@@ -234,47 +231,51 @@ void eos_sub_init(eos_mcu_t *flag_sub, eos_topic_t topic_max)
 eos_s32_t eos_evttimer(void)
 {
     // 获取当前时间，检查延时事件队列
-    eos.time_crt_ms = eos_port_get_time_ms();
+    eos_u32_t system_time = eos_port_time();
     
-    if (eos.etimerpool_empty == EOS_True)
+    if (eos.etimer[0].topic == Event_Null)
         return EosTimer_Empty;
 
     // 时间未到达
-    if (eos.time_crt_ms < eos.timeout_ms_min)
+    if (system_time < eos.timeout_min)
         return EosTimer_NotTimeout;
     
-    // 若时间到达，将此事件推入事件队列，同时在e_timer_pool里删除。
-    eos_bool_t etimerpool_empty = EOS_True;
-    for (eos_u32_t i = 0; i < EOS_MAX_TIME_EVENT; i ++) {
-        if ((eos.flag_etimerpool[i / 32] & (1 << (i % 32))) == 0)
+    // 若时间到达，将此事件推入事件队列，同时在etimer里删除。
+    for (eos_u32_t i = 0; i < eos.timer_count; i ++) {
+        if (eos.etimer[i].timeout_ms > system_time)
             continue;
-        if (eos.e_timer_pool[i].timeout_ms > eos.time_crt_ms) {
-            etimerpool_empty = EOS_False;
-            continue;
-        }
-        eos_event_pub_topic(eos.e_timer_pool[i].topic);
+
+        eos_event_pub_topic(eos.etimer[i].topic);
         // 清零标志位
-        if (eos.e_timer_pool[i].is_one_shoot == EOS_True)
-            eos.flag_etimerpool[i / 32] &= ~(1 << (i % 32));
+        if (eos.etimer[i].oneshoot == EOS_True) {
+            if (i == (eos.timer_count - 1)) {
+                eos.timer_count -= 1;
+                break;
+            }
+            eos.etimer[i] = eos.etimer[eos.timer_count - 1];
+            eos.timer_count -= 1;
+            i --;
+        }
         else {
-            eos.e_timer_pool[i].timeout_ms += eos.e_timer_pool[i].time_ms_delay;
-            etimerpool_empty = EOS_False;
+            if (eos.etimer[i].unit_ms == 1) {
+                eos.etimer[i].timeout_ms += eos.etimer[i].period;
+            }
+            else {
+                eos.etimer[i].timeout_ms += (eos.etimer[i].period * 1000);
+            }
         }
     }
-    eos.etimerpool_empty = etimerpool_empty;
-    if (eos.etimerpool_empty == EOS_True)
+    if (eos.timer_count == 0)
         return EosTimer_ChangeToEmpty;
 
     // 寻找到最小的时间定时器
     eos_u32_t min_time_out_ms = EOS_U32_MAX;
-    for (eos_u32_t i = 0; i < EOS_MAX_TIME_EVENT; i ++) {
-        if ((eos.flag_etimerpool[i / 32] & (1 << (i % 32))) == 0)
+    for (eos_u32_t i = 0; i < eos.timer_count; i ++) {
+        if (min_time_out_ms <= eos.etimer[i].timeout_ms)
             continue;
-        if (min_time_out_ms <= eos.e_timer_pool[i].timeout_ms)
-            continue;
-        min_time_out_ms = eos.e_timer_pool[i].timeout_ms;
+        min_time_out_ms = eos.etimer[i].timeout_ms;
     }
-    eos.timeout_ms_min = min_time_out_ms;
+    eos.timeout_min = min_time_out_ms;
 
     return EosRun_OK;
 }
@@ -583,8 +584,7 @@ eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
 
 void eos_event_pub_topic(eos_topic_t topic)
 {
-    eos_u8_t para;
-    eos_event_pub(topic, &para, 1);
+    eos_event_pub(topic, EOS_NULL, 0);
 }
 
 #if (EOS_USE_EVENT_DATA != 0)
@@ -609,74 +609,59 @@ void eos_event_unsub(eos_actor_t * const me, eos_topic_t topic)
 #endif
 
 #if (EOS_USE_TIME_EVENT != 0)
-static void evt_publish_time(eos_s32_t topic, eos_s32_t time_ms, eos_bool_t is_oneshoot)
+eos_s8_t eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoot)
 {
-    EOS_ASSERT(time_ms >= 0);
-    EOS_ASSERT(!(time_ms == 0 && is_oneshoot == EOS_False));
+    EOS_ASSERT(time_ms != 0);
+    EOS_ASSERT(time_ms <= 6000000);
+    EOS_ASSERT(eos.timer_count < EOS_MAX_TIME_EVENT);
 
-    if (time_ms == 0) {
-        eos_event_pub_topic(topic);
-        return;
+    // 检查重复，不允许重复发送。
+    for (eos_u32_t i = 0; i < eos.timer_count; i ++) {
+        EOS_ASSERT(topic != eos.etimer[i].topic);
     }
 
-    // 如果是周期性的，检查是否已经对某个事件进行过周期设定。
-    if (is_oneshoot == EOS_False && eos.etimerpool_empty == EOS_False) {
-        eos_bool_t is_topic_set = EOS_False;
-        for (eos_u32_t i = 0; i < EOS_MAX_TIME_EVENT; i ++) {
-            if ((eos.flag_etimerpool[i / 32] & (1 << (i % 32))) == 0)
-                continue;
-            if (eos.e_timer_pool[i].topic != topic)
-                continue;
-            if (eos.e_timer_pool[i].time_ms_delay == time_ms)
-                return;
-            is_topic_set = EOS_True;
-            break;
-        }
-        EOS_ASSERT(is_topic_set == EOS_False);
-    }
-
-    // Find an empty soft timer.
-    eos_s32_t index_empty = EOS_U32_MAX;
-    for (eos_u32_t i = 0; i < (EOS_MAX_TIME_EVENT / 32 + 1); i ++) {
-        if (eos.flag_etimerpool[i] == EOS_U32_MAX)
-            continue;
-        for (eos_s32_t j = 0; j < 32; j ++) {
-            if ((eos.flag_etimerpool[i] & (1 << j)) == 0) {
-                eos.flag_etimerpool[i] |= (1 << j);
-                index_empty = i * 32 + j;
-                break;
-            }
-        }
-        break;
-    }
-    EOS_ASSERT(index_empty != EOS_U32_MAX);
-
-    eos_u32_t time_crt_ms = eos_port_get_time_ms();
-    eos.e_timer_pool[index_empty] = (eos_event_timer_t) {
-        topic, is_oneshoot, time_ms, (time_crt_ms + time_ms)
+    eos_u32_t system_ms = eos_port_time();
+    eos_u8_t unit_ms = (time_ms >= 60000) ? 1 : 0;
+    eos_u32_t timeout;
+    timeout = (system_ms + time_ms);
+    eos.etimer[eos.timer_count ++] = (eos_event_timer_t) {
+        topic, oneshoot, unit_ms, (unit_ms == 1 ? time_ms : (time_ms / 100)), timeout
     };
-    eos.etimerpool_empty = EOS_False;
     
-    // Find the nearest soft timer.
-    eos_u32_t min_time_out_ms = EOS_U32_MAX;
-    for (eos_u32_t i = 0; i < EOS_MAX_TIME_EVENT; i ++) {
-        if ((eos.flag_etimerpool[i / 32] & (1 << (i % 32))) == 0)
-            continue;
-        if (min_time_out_ms <= eos.e_timer_pool[i].timeout_ms)
-            continue;
-        min_time_out_ms = eos.e_timer_pool[i].timeout_ms;
+    if (eos.timeout_min > timeout) {
+        eos.timeout_min = timeout;
     }
-    eos.timeout_ms_min = min_time_out_ms;
+
+    return EosRun_OK;
 }
 
 void eos_event_pub_delay(eos_topic_t topic, eos_u32_t time_ms)
 {
-    evt_publish_time(topic, time_ms, EOS_True);
+    eos_s8_t ret = eos_event_pub_time(topic, time_ms, EOS_True);
+    (void)ret;
 }
 
 void eos_event_pub_period(eos_topic_t topic, eos_u32_t time_ms_period)
 {
-    evt_publish_time(topic, time_ms_period, EOS_False);
+    eos_event_pub_time(topic, time_ms_period, EOS_False);
+}
+
+void eos_event_time_cancel(eos_topic_t topic)
+{
+    for (eos_u32_t i = 0; i < eos.timer_count; i ++) {
+        if (topic != eos.etimer[i].topic)
+            continue;
+        if (i == (eos.timer_count - 1)) {
+            eos.timer_count --;
+            break;
+        }
+        else {
+            eos.etimer[i] = eos.etimer[eos.timer_count - 1];
+            eos.timer_count -= 1;
+            i --;
+        }
+
+    }
 }
 #endif
 
@@ -1062,12 +1047,11 @@ void eos_heap_gc(eos_heap_t * const me, void *data)
         eos_heap_free(me, data);
     }
 
-    eos_block_t *block;
-
     /* 根据所有的sub重新生成sub_general */
     me->sub_general = 0;
     eos_u16_t next = me->queue;
     eos_u16_t loop_count = 0;
+    eos_block_t *block;
     while (next != EOS_HEAP_MAX && loop_count < me->count) {
         eos_event_inner_t *evt;
         block = (eos_block_t *)((eos_pointer_t)me->data + next);

@@ -21,6 +21,7 @@ enum {
     EosTimer_Empty,
     EosTimer_NotTimeout,
     EosTimer_ChangeToEmpty,
+    EosTimer_Repeated,
 
     EosRunErr_NotInitEnd                = -1,
     EosRunErr_ActorNotSub               = -2,
@@ -32,9 +33,10 @@ enum {
 
 #if (EOS_USE_TIME_EVENT != 0)
 typedef struct eos_event_timer {
-    eos_topic_t topic;
-    eos_bool_t is_one_shoot;
-    eos_s32_t time_ms_delay;
+    eos_u32_t topic                         : 14;
+    eos_u32_t oneshoot                      : 1;
+    eos_u32_t unit_ms                       : 1;
+    eos_u32_t period                        : 16;
     eos_u32_t timeout_ms;
 } eos_event_timer_t;
 #endif
@@ -86,16 +88,14 @@ typedef struct eos_tag {
 #endif
 
 #if (EOS_USE_TIME_EVENT != 0)
-    eos_event_timer_t e_timer_pool[EOS_MAX_TIME_EVENT];
-    eos_u32_t flag_etimerpool[EOS_MAX_TIME_EVENT / 32 + 1];    // timer pool flag
-    eos_u32_t timeout_ms_min;
-    eos_u32_t time_crt_ms;
-    eos_bool_t etimerpool_empty;
+    eos_event_timer_t etimer[EOS_MAX_TIME_EVENT];
+    eos_u32_t timeout_min;
+    eos_u8_t timer_count;
 #endif
 
-    eos_bool_t enabled;
-    eos_bool_t running;
-    eos_bool_t init_end;
+    eos_u8_t enabled                    : 1;
+    eos_u8_t running                    : 1;
+    eos_u8_t init_end                   : 1;
 } eos_t;
 // **eos end** -----------------------------------------------------------------
 

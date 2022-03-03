@@ -46,8 +46,6 @@ static eos_ret_t state_init(fsm_t * const me, eos_event_t const * const e)
     me->state = 0;
     me->count = 0;
 
-    eos_event_pub_period(Event_Time_500ms, 500);
-
     return EOS_TRAN(state_off);
 }
 

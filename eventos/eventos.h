@@ -210,14 +210,14 @@ void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size);
 #endif
 
 #if (EOS_USE_TIME_EVENT != 0)
-void eos_event_pub_time(eos_topic_t topic, eos_u32_t delay_time_ms, eos_u32_t peroid_ms);
 void eos_event_pub_delay(eos_topic_t topic, eos_u32_t delay_time_ms);
 void eos_event_pub_period(eos_topic_t topic, eos_u32_t peroid_ms);
+void eos_event_time_cancel(eos_topic_t topic);
 #endif
 
 /* port --------------------------------------------------------------------- */
 #if (EOS_USE_TIME_EVENT != 0)
-eos_u32_t eos_port_get_time_ms(void);
+eos_u32_t eos_port_time(void);
 #endif
 void eos_port_critical_enter(void);
 void eos_port_critical_exit(void);
