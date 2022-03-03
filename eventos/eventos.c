@@ -120,7 +120,6 @@ typedef struct eos_heap {
 } eos_heap_t;
 
 typedef struct eos_tag {
-    eos_mcu_t magic;
 #if (EOS_USE_PUB_SUB != 0)
     eos_mcu_t *sub_table;                                     // event sub table
 #endif
@@ -139,19 +138,13 @@ typedef struct eos_tag {
     eos_u8_t timer_count;
 #endif
 
-    eos_u8_t enabled                    : 1;
-    eos_u8_t running                    : 1;
-    eos_u8_t init_end                   : 1;
+    eos_u8_t enabled                        : 1;
+    eos_u8_t running                        : 1;
+    eos_u8_t init_end                       : 1;
 } eos_t;
 // **eos end** -----------------------------------------------------------------
 
 static eos_t eos;
-
-#if (EOS_MCU_TYPE == 8)
-#define EOS_MAGIC                         0x4F
-#else
-#define EOS_MAGIC                         0x4F2EA0
-#endif
 
 // data ------------------------------------------------------------------------
 #if (EOS_USE_SM_MODE != 0)
@@ -203,7 +196,6 @@ void eventos_init(void)
 
     eos.enabled = EOS_True;
     eos.running = EOS_False;
-    eos.magic = EOS_MAGIC;
     eos.actor_exist = 0;
     eos.actor_enabled = 0;
 #if (EOS_USE_PUB_SUB != 0)
@@ -317,7 +309,6 @@ eos_s8_t eos_once(void)
     for (eos_s8_t i = (EOS_MAX_ACTORS - 1); i >= 0; i --) {
         if ((eos.actor_exist & (1 << i)) == 0)
             continue;
-        EOS_ASSERT(eos.actor[i]->magic == EOS_MAGIC);
         if ((eos.heap.sub_general & (1 << i)) == 0)
             continue;
         actor = eos.actor[i];
@@ -386,7 +377,6 @@ void eventos_run(void)
     eos.running = EOS_True;
 
     while (eos.enabled) {
-        EOS_ASSERT(eos.magic == EOS_MAGIC);
         eos_s8_t ret = eos_once();
         EOS_ASSERT(ret >= 0);
 
@@ -426,8 +416,6 @@ static void eos_actor_init( eos_actor_t * const me,
     // 参数检查
     EOS_ASSERT(me != (eos_actor_t *)0);
     EOS_ASSERT(priority < EOS_MAX_ACTORS);
-
-    me->magic = EOS_MAGIC;
 
     // 防止二次启动
     if (me->enabled == EOS_True)

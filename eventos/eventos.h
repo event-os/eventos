@@ -130,13 +130,11 @@ typedef eos_event_t *                       eos_event_quote_t;
 // Actor类
 typedef struct eos_actor {
 #if (EOS_MCU_TYPE == 32 || EOS_MCU_TYPE == 16)
-    eos_u32_t magic                 : 24;
     eos_u32_t priority              : 5;
     eos_u32_t mode                  : 1;
     eos_u32_t enabled               : 1;
     eos_u32_t reserve               : 1;
 #else
-    eos_u8_t magic;
     eos_u8_t priority               : 5;
     eos_u8_t mode                   : 1;
     eos_u8_t enabled                : 1;

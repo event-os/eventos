@@ -69,7 +69,6 @@ typedef struct eos_heap {
 } eos_heap_t;
 
 typedef struct eos_tag {
-    eos_mcu_t magic;
 #if (EOS_USE_PUB_SUB != 0)
     eos_mcu_t *sub_table;                                     // event sub table
 #endif
@@ -88,9 +87,9 @@ typedef struct eos_tag {
     eos_u8_t timer_count;
 #endif
 
-    eos_u8_t enabled                    : 1;
-    eos_u8_t running                    : 1;
-    eos_u8_t init_end                   : 1;
+    eos_u8_t enabled                        : 1;
+    eos_u8_t running                        : 1;
+    eos_u8_t init_end                       : 1;
 } eos_t;
 // **eos end** -----------------------------------------------------------------
 
