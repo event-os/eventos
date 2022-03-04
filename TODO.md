@@ -19,18 +19,9 @@
 + 【完成】处理掉eos_event_quote_t，这个不应该存在。
 + 【完成】修改为只有一个全局事件队列，进一步压缩对RAM的占用。
 + 【完成】heap库，需要优化RAM占用和速度。
-+ 【完成】增强时间事件的功能，使用如下的数据结构：
-typedef struct eos_event_timer {
-    eos_topic_t topic;
-    eos_u32_t enable                        : 1;
-    eos_u32_t ms_or_sec                     : 1;
-    eos_u32_t delay                         : 15;
-    eos_u32_t peroid                        : 15;
-    eos_u32_t timeout_ms;
-} eos_event_timer_t;
++ 时间最长可支持30天，延时时间最长支持15天，满30天自动清零，15天可以设置三个计时单位。
 + V0.1版本释放后，博客《事件》、《事件总线》、《事件驱动》。
 + 将Queue功能与Heap进行隔绝。
-+ 修改为Clean C。
 + 良好的注释与文档
     + 【完成】UM-001 快速入门文档
     + 【完成裸机】UM-002 移植文档（含裸机和RTOS上的移植）
@@ -41,6 +32,7 @@ typedef struct eos_event_timer {
     + hsm
     + fsm
     + reactor
+    + time event
 + 借鉴Nordic事件订阅的方式
 + Doxgen风格的注释
 + 对EventOS的eBridge（事件桥接）功能
@@ -58,4 +50,3 @@ typedef struct eos_event_timer {
 1. 对常见的IDE的支持
 1. 对常见的RTOS的支持
 1. 增加对RISC-V内核的支持
-1. 时间最长可支持24个小时。满24小时自动清零。
