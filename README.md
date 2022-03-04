@@ -90,5 +90,4 @@ EventOS Nano，是一个面向小资源单片机（Cortex-M0/16/8位单片机）
 邮箱：event-os@outlook.com
 
 除了邮箱之外，也可以加微信联系我，请注明**技术讨论**等相关字样。
-
 ![avatar](/documentation/figures/wechat.jpg)
