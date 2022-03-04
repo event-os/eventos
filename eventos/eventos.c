@@ -405,10 +405,21 @@ eos_u32_t eos_time(void)
 }
 
 #if (EOS_USE_TIME_EVENT != 0)
-void eos_tick(eos_u8_t tick_ms)
+void eos_tick(void)
 {
-    eos_u32_t system_time = eos.time;
-    system_time = ((system_time + tick_ms) % EOS_MS_NUM_DAY);
+    eos_u32_t system_time = eos.time, system_time_bkp = eos.time;
+    eos_u32_t offset = EOS_MS_NUM_DAY - 1 + EOS_TICK_MS;
+    system_time = ((system_time + EOS_TICK_MS) % EOS_MS_NUM_DAY);
+    if (system_time_bkp >= (EOS_MS_NUM_DAY - EOS_TICK_MS) && system_time < EOS_TICK_MS) {
+        eos_port_critical_enter();
+        EOS_ASSERT(eos.timeout_min >= offset);
+        eos.timeout_min -= offset;
+        for (eos_u32_t i = 0; i < eos.timer_count; i ++) {
+            EOS_ASSERT(eos.etimer[i].timeout_ms >= offset);
+            eos.etimer[i].timeout_ms -= offset;
+        }
+        eos_port_critical_exit();
+    }
     eos.time = system_time;
 }
 #endif
@@ -623,8 +634,7 @@ void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoo
 
     eos_u32_t system_ms = eos.time;
     eos_u8_t unit_ms = (time_ms >= 60000) ? 0 : 1;
-    eos_u32_t timeout;
-    timeout = (system_ms + time_ms);
+    eos_u32_t timeout = (system_ms + time_ms);
     eos_u16_t period =  unit_ms == 1 ?
                         time_ms :
                         (((time_ms / 10) % 10) < 5 ? (time_ms / 100) : (time_ms / 100 + 1));
@@ -635,8 +645,6 @@ void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoo
     if (eos.timeout_min > timeout) {
         eos.timeout_min = timeout;
     }
-
-    return EosRun_OK;
 }
 
 void eos_event_pub_delay(eos_topic_t topic, eos_u32_t time_ms)

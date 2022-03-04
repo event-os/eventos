@@ -113,7 +113,7 @@ void eos_test_etimer(void)
 #if (EOS_USE_TIME_EVENT != 0)
     f = eos_get_framework();
     set_time_ms(0);
-    eos_u32_t system_time = eos_port_time();
+    eos_u32_t system_time = eos_time();
 
     // 测试订阅表的初始化 --------------------------------------------------------
     eos_init();
@@ -144,7 +144,7 @@ void eos_test_etimer(void)
     // 再次发送500ms延时事件 ----------------------------------------------------
     eos_event_pub_delay(Event_Time_500ms, 500);
     TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
-    system_time = eos_port_time();
+    system_time = eos_time();
     for (int i = system_time; i < (system_time + 500); i ++) {
         set_time_ms(i);
         TEST_ASSERT_EQUAL_INT8(EosRun_NoEvent, eos_once());
@@ -156,7 +156,7 @@ void eos_test_etimer(void)
     TEST_ASSERT_EQUAL_UINT32(0, fsm_state(&fsm));
  
     // 发送两个时间事件，测试取消功能 ---------------------------------------------
-    system_time = eos_port_time();
+    system_time = eos_time();
     TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
     eos_event_pub_delay(Event_Time_500ms, 500);
     TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
@@ -188,7 +188,7 @@ void eos_test_etimer(void)
     TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
 
     // 发送两个时间事件，测试一个到期后另一个的移位 --------------------------------
-    system_time = eos_port_time();
+    system_time = eos_time();
     TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
     eos_event_pub_delay(Event_Time_500ms, 500);
     TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
@@ -206,7 +206,7 @@ void eos_test_etimer(void)
     TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
 
     // 延时70000毫秒的时间
-    system_time = eos_port_time();
+    system_time = eos_time();
     TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
     eos_event_pub_delay(Event_Test, 70000);
     TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);

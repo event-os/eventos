@@ -158,7 +158,7 @@ typedef struct eos_sm {
 
 // api -------------------------------------------------------------------------
 // 对框架进行初始化，在各状态机初始化之前调用。
-void eventos_init(void);
+void eos_init(void);
 #if (EOS_USE_PUB_SUB != 0)
 void eos_sub_init(eos_mcu_t *flag_sub, eos_topic_t topic_max);
 #endif
@@ -170,7 +170,7 @@ void eos_run(void);
 void eos_stop(void);
 #if (EOS_USE_TIME_EVENT != 0)
 eos_u32_t eos_time(void);
-void eos_tick(eos_u8_t tick_ms);
+void eos_tick(void);
 #endif
 
 // 关于Reactor -----------------------------------------------------------------
