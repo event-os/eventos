@@ -58,3 +58,4 @@ typedef struct eos_event_timer {
 1. 对常见的IDE的支持
 1. 对常见的RTOS的支持
 1. 增加对RISC-V内核的支持
+1. 时间最长可支持24个小时。满24小时自动清零。
