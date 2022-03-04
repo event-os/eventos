@@ -55,6 +55,8 @@ enum eos_actor_mode {
     EOS_Mode_StateMachine = !EOS_Mode_Reactor
 };
 
+#define EOS_MS_NUM_DAY                      (86400000)
+
 // **eos** ---------------------------------------------------------------------
 enum {
     EosRun_OK                               = 0,
@@ -134,6 +136,7 @@ typedef struct eos_tag {
 
 #if (EOS_USE_TIME_EVENT != 0)
     eos_event_timer_t etimer[EOS_MAX_TIME_EVENT];
+    eos_u32_t time;
     eos_u32_t timeout_min;
     eos_u8_t timer_count;
 #endif
@@ -187,7 +190,7 @@ static void eos_clear(void)
 #endif
 }
 
-void eventos_init(void)
+void eos_init(void)
 {
     eos_clear();
 
@@ -220,7 +223,7 @@ void eos_sub_init(eos_mcu_t *flag_sub, eos_topic_t topic_max)
 eos_s32_t eos_evttimer(void)
 {
     // 获取当前时间，检查延时事件队列
-    eos_u32_t system_time = eos_port_time();
+    eos_u32_t system_time = eos.time;
     
     if (eos.etimer[0].topic == Event_Null)
         return EosTimer_Empty;
@@ -358,7 +361,7 @@ eos_s8_t eos_once(void)
     return EosRun_OK;
 }
 
-void eventos_run(void)
+void eos_run(void)
 {
     eos_hook_start();
 
@@ -390,11 +393,25 @@ void eventos_run(void)
     }
 }
 
-void eventos_stop(void)
+void eos_stop(void)
 {
     eos.enabled = EOS_False;
     eos_hook_stop();
 }
+
+eos_u32_t eos_time(void)
+{
+    return eos.time;
+}
+
+#if (EOS_USE_TIME_EVENT != 0)
+void eos_tick(eos_u8_t tick_ms)
+{
+    eos_u32_t system_time = eos.time;
+    system_time = ((system_time + tick_ms) % EOS_MS_NUM_DAY);
+    eos.time = system_time;
+}
+#endif
 
 // 关于Reactor -----------------------------------------------------------------
 static void eos_actor_init( eos_actor_t * const me,
@@ -604,7 +621,7 @@ void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoo
         EOS_ASSERT(topic != eos.etimer[i].topic);
     }
 
-    eos_u32_t system_ms = eos_port_time();
+    eos_u32_t system_ms = eos.time;
     eos_u8_t unit_ms = (time_ms >= 60000) ? 0 : 1;
     eos_u32_t timeout;
     timeout = (system_ms + time_ms);

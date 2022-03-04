@@ -37,7 +37,7 @@
 /* EventOS Nano General Configuration --------------------------------------- */
 #define EOS_MCU_TYPE                            32
 #define EOS_MAX_ACTORS                          32
-#define EOS_TEST_PLATFORM                       64
+#define EOS_TEST_PLATFORM                       32
 
 /* Assert Configuration ----------------------------------------------------- */
 #define EOS_USE_ASSERT                          1

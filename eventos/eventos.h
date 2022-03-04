@@ -163,11 +163,15 @@ void eventos_init(void);
 void eos_sub_init(eos_mcu_t *flag_sub, eos_topic_t topic_max);
 #endif
 // 启动框架，放在main函数的末尾。
-void eventos_run(void);
+void eos_run(void);
 // 停止框架的运行（不常用）
 // 停止框架后，框架会在执行完当前状态机的当前事件后，清空各状态机事件队列，清空事件池，
 // 不再执行任何功能，直至框架被再次启动。
-void eventos_stop(void);
+void eos_stop(void);
+#if (EOS_USE_TIME_EVENT != 0)
+eos_u32_t eos_time(void);
+void eos_tick(eos_u8_t tick_ms);
+#endif
 
 // 关于Reactor -----------------------------------------------------------------
 void eos_reactor_init(  eos_reactor_t * const me,
@@ -214,9 +218,6 @@ void eos_event_time_cancel(eos_topic_t topic);
 #endif
 
 /* port --------------------------------------------------------------------- */
-#if (EOS_USE_TIME_EVENT != 0)
-eos_u32_t eos_port_time(void);
-#endif
 void eos_port_critical_enter(void);
 void eos_port_critical_exit(void);
 void eos_port_assert(eos_u32_t error_id);

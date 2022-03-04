@@ -84,6 +84,7 @@ typedef struct eos_tag {
 
 #if (EOS_USE_TIME_EVENT != 0)
     eos_event_timer_t etimer[EOS_MAX_TIME_EVENT];
+    eos_u32_t time;
     eos_u32_t timeout_min;
     eos_u8_t timer_count;
 #endif
@@ -113,7 +114,7 @@ void eos_test_event(void)
     TEST_ASSERT_EQUAL_INT8(EosRunErr_NotInitEnd, eos_once());
 
     // 测试订阅表的初始化 --------------------------------------------------------
-    eventos_init();
+    eos_init();
 
 #if (EOS_USE_PUB_SUB != 0)
     // 检查尚未设置订阅表
@@ -123,11 +124,11 @@ void eos_test_event(void)
 #endif
 
     // 测试框架的停止
-    eventos_stop();
+    eos_stop();
     TEST_ASSERT_EQUAL_INT8(EosRun_NotEnabled, eos_once());
 
     // 测试尚未注册Actor的情况
-    eventos_init();
+    eos_init();
 #if (EOS_USE_PUB_SUB != 0)
     eos_sub_init(sub_table, Event_Max);
 #endif

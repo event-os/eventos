@@ -85,6 +85,7 @@ typedef struct eos_tag {
 
 #if (EOS_USE_TIME_EVENT != 0)
     eos_event_timer_t etimer[EOS_MAX_TIME_EVENT];
+    eos_u32_t time;
     eos_u32_t timeout_min;
     eos_u8_t timer_count;
 #endif

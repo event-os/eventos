@@ -83,6 +83,7 @@ typedef struct eos_tag {
 
 #if (EOS_USE_TIME_EVENT != 0)
     eos_event_timer_t etimer[EOS_MAX_TIME_EVENT];
+    eos_u32_t time;
     eos_u32_t timeout_min;
     eos_u8_t timer_count;
 #endif
@@ -115,7 +116,7 @@ void eos_test_etimer(void)
     eos_u32_t system_time = eos_port_time();
 
     // 测试订阅表的初始化 --------------------------------------------------------
-    eventos_init();
+    eos_init();
 
 #if (EOS_USE_PUB_SUB != 0)
     // 检查尚未设置订阅表
