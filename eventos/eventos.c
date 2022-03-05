@@ -297,23 +297,23 @@ eos_s32_t eos_evttimer(void)
 eos_s8_t eos_once(void)
 {
     if (eos.init_end == 0) {
-        return EosRunErr_NotInitEnd;
+        return (eos_s8_t)EosRunErr_NotInitEnd;
     }
 
 #if (EOS_USE_PUB_SUB != 0)
     if (eos.sub_table == EOS_NULL) {
-        return EosRunErr_SubTableNull;
+        return (eos_s8_t)EosRunErr_SubTableNull;
     }
 #endif
 
     if (eos.enabled == EOS_False) {
         eos_clear();
-        return EosRun_NotEnabled;
+        return (eos_s8_t)EosRun_NotEnabled;
     }
 
     // 检查是否有状态机的注册
     if (eos.actor_exist == 0 || eos.actor_enabled == 0) {
-        return EosRun_NoActor;
+        return (eos_s8_t)EosRun_NoActor;
     }
 
 #if (EOS_USE_TIME_EVENT != 0)
@@ -321,13 +321,13 @@ eos_s8_t eos_once(void)
 #endif
 
     if (eos.heap.empty == EOS_True) {
-        return EosRun_NoEvent;
+        return (eos_s8_t)EosRun_NoEvent;
     }
 
     // 寻找到优先级最高，且有事件需要处理的Actor
     eos_actor_t *actor = (eos_actor_t *)0;
     eos_u8_t priority = EOS_MAX_ACTORS;
-    for (eos_s8_t i = (EOS_MAX_ACTORS - 1); i >= 0; i --) {
+    for (eos_s8_t i = (eos_s8_t)(EOS_MAX_ACTORS - 1); i >= 0; i --) {
         if ((eos.actor_exist & (1 << i)) == 0)
             continue;
         if ((eos.heap.sub_general & (1 << i)) == 0)
@@ -338,7 +338,7 @@ eos_s8_t eos_once(void)
     }
     // 如果没有找到，返回
     if (priority == EOS_MAX_ACTORS) {
-        return EosRun_NoActorSub;
+        return (eos_s8_t)EosRun_NoActorSub;
     }
 
     // 寻找当前Actor的最老的事件
@@ -370,7 +370,7 @@ eos_s8_t eos_once(void)
     }
 #if (EOS_USE_PUB_SUB != 0)
     else {
-        return EosRunErr_ActorNotSub;
+        return (eos_s8_t)EosRunErr_ActorNotSub;
     }
 #endif
 #if (EOS_USE_EVENT_DATA != 0)
@@ -380,7 +380,7 @@ eos_s8_t eos_once(void)
     eos_port_critical_exit();
 #endif
 
-    return EosRun_OK;
+    return (eos_s8_t)EosRun_OK;
 }
 
 void eos_run(void)
@@ -559,36 +559,36 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
 {
     if (eos.init_end == 0) {
-        return EosRunErr_NotInitEnd;
+        return (eos_s8_t)EosRunErr_NotInitEnd;
     }
 
 #if (EOS_USE_PUB_SUB != 0)
     if (eos.sub_table == EOS_NULL) {
-        return EosRunErr_SubTableNull;
+        return (eos_s8_t)EosRunErr_SubTableNull;
     }
 #endif
 
     // 保证框架已经运行
     if (eos.enabled == 0) {
-        return EosRun_NotEnabled;
+        return (eos_s8_t)EosRun_NotEnabled;
     }
 
     if (size != 0) {
-        return EosRunErr_InvalidEventData;
+        return (eos_s8_t)EosRunErr_InvalidEventData;
     }
 
     if (eos.actor_exist == 0) {
-        return EosRun_NoActor;
+        return (eos_s8_t)EosRun_NoActor;
     }
 
     // 没有状态机使能，返回
     if (eos.actor_enabled == 0) {
-        return EosRun_NotEnabled;
+        return (eos_s8_t)EosRun_NotEnabled;
     }
     // 没有状态机订阅，返回
 #if (EOS_USE_PUB_SUB != 0)
     if (eos.sub_table[topic] == 0) {
-        return EosRun_NoActorSub;
+        return (eos_s8_t)EosRun_NoActorSub;
     }
 #endif
 
@@ -597,7 +597,7 @@ eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
     eos_event_inner_t *e = eos_heap_malloc(&eos.heap, (size + sizeof(eos_event_inner_t)));
     if (e == (eos_event_inner_t *)0) {
         eos_port_critical_exit();
-        return EosRunErr_MallocFail;
+        return (eos_s8_t)EosRunErr_MallocFail;
     }
     e->topic = topic;
 #if (EOS_USE_PUB_SUB != 0)
@@ -612,7 +612,7 @@ eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
     }
     eos_port_critical_exit();
 
-    return EosRun_OK;
+    return (eos_s8_t)EosRun_OK;
 }
 
 void eos_event_pub_topic(eos_topic_t topic)

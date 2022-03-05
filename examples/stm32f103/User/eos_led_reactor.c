@@ -19,8 +19,7 @@ static void led_e_handler(eos_reactor_led_t * const me, eos_event_t const * cons
 /* api ---------------------------------------------------- */
 void eos_reactor_led_init(void)
 {
-    static eos_event_quote_t queue[8];
-    eos_reactor_init(&actor_led.super, 2, queue, 8);
+    eos_reactor_init(&actor_led.super, 2, EOS_NULL);
     eos_reactor_start(&actor_led.super, EOS_HANDLER_CAST(led_e_handler));
 
     actor_led.status = 0;

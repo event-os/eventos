@@ -54,7 +54,7 @@
 #define EOS_USE_PUB_SUB                         1
 
 /* Time Event Configuration ------------------------------------------------- */
-#define EOS_USE_TIME_EVENT                      0
+#define EOS_USE_TIME_EVENT                      1
 #if (EOS_USE_TIME_EVENT != 0)
     #define EOS_MAX_TIME_EVENT                  4           // 时间事件的数量
 #endif
@@ -62,7 +62,7 @@
 /* Event's Data Configuration ----------------------------------------------- */
 #define EOS_USE_EVENT_DATA                      1
 #if (EOS_USE_EVENT_DATA != 0)
-    #define EOS_SIZE_HEAP                       32767       // 设定堆大小
+    #define EOS_SIZE_HEAP                       512         // 设定堆大小
     #define EOS_HEAP_DOUBLE_LIST                0           // 双向链表
 #endif
 

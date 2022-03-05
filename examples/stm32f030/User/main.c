@@ -15,7 +15,7 @@ int main(void)
     if (SysTick_Config(SystemCoreClock / 1000) != 0)
         while (1);
     
-    eventos_init();                                 // EventOS初始化
+    eos_init();                                 // EventOS初始化
 #if (EOS_USE_PUB_SUB != 0)
     eos_sub_init(eos_sub_table, Event_Max);         // 订阅表初始化
 #endif
@@ -25,7 +25,7 @@ int main(void)
 #endif
     eos_reactor_led_init();
 
-    eventos_run();                                  // EventOS启动
+    eos_run();                                  // EventOS启动
 
     return 0;
 }

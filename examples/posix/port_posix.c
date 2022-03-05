@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-eos_u32_t eos_port_time(void)
+static eos_u32_t eos_get_time(void)
 {
     struct timeval time_crt;
     gettimeofday(&time_crt, (void *)0);
@@ -35,8 +35,25 @@ void eos_port_assert(eos_u32_t error_id)
     }
 }
 
+static eos_u32_t eos_time_bkp = 0;
 void eos_hook_idle(void)
 {
+    if (eos_time_bkp == 0) {
+        eos_time_bkp = eos_get_time();
+        usleep(1000);
+        return;
+    }
+
+    eos_u32_t system_time = eos_get_time();
+
+    if (system_time >= eos_time_bkp) {
+        for (eos_u32_t i = 0; i < (system_time - eos_time_bkp); i ++) {
+            eos_tick();
+        }
+        eos_time_bkp = system_time;
+    }
+    // TODO 此处需要处理时间溢出情况。
+
     usleep(1000);
 }
 

@@ -92,10 +92,9 @@ void PendSV_Handler(void)
   * @param  None
   * @retval None
   */
-extern eos_u32_t eos_time_ms;
 void SysTick_Handler(void)
 {
-    eos_time_ms ++;
+    eos_tick();
 }
 
 /******************************************************************************/

@@ -25,10 +25,9 @@
 #include "stm32f10x_it.h"
 #include "eventos.h"
 
-extern eos_u32_t eos_time_ms;
 void SysTick_Handler(void)
 {
-    eos_time_ms ++;
+    eos_tick();
 }
 
 void NMI_Handler(void)

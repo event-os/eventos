@@ -1,12 +1,6 @@
 #include "eventos.h"
 #include "rtt/SEGGER_RTT.h"
 
-eos_u32_t eos_time_ms = 0;
-eos_u32_t eos_port_time(void)
-{
-    return eos_time_ms;
-}
-
 void eos_port_critical_enter(void)
 {
     __disable_irq();
