@@ -171,6 +171,7 @@ eos_s8_t eos_once(void);
 eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size);
 void * eos_get_framework(void);
 void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoot);
+void eos_set_time(eos_u32_t time_ms);
 // **eos end** -----------------------------------------------------------------
 
 static eos_t eos;
@@ -233,6 +234,7 @@ void eos_init(void)
 #endif
 
     eos.init_end = 1;
+    eos.time = 0;
 }
 
 #if (EOS_USE_PUB_SUB != 0)
@@ -1186,6 +1188,11 @@ void eos_heap_free(eos_heap_t * const me, void * data)
 void * eos_get_framework(void)
 {
     return (void *)&eos;
+}
+
+void eos_set_time(eos_u32_t time_ms)
+{
+    eos.time = time_ms;
 }
 
 #ifdef __cplusplus

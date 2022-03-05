@@ -16,7 +16,7 @@ void eos_test_reactor(void)
 {
     f = eos_get_framework();
 #if (EOS_USE_TIME_EVENT != 0)
-    set_time_ms(0);
+    eos_set_time(0);
     eos_u32_t system_time = eos_time();
 #endif
 

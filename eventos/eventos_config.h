@@ -37,7 +37,7 @@
 /* EventOS Nano General Configuration --------------------------------------- */
 #define EOS_MCU_TYPE                            32
 #define EOS_MAX_ACTORS                          32
-#define EOS_TEST_PLATFORM                       32
+#define EOS_TEST_PLATFORM                       64
 #define EOS_TICK_MS                             1
 
 /* Assert Configuration ----------------------------------------------------- */
@@ -54,7 +54,7 @@
 #define EOS_USE_PUB_SUB                         1
 
 /* Time Event Configuration ------------------------------------------------- */
-#define EOS_USE_TIME_EVENT                      0
+#define EOS_USE_TIME_EVENT                      1
 #if (EOS_USE_TIME_EVENT != 0)
     #define EOS_MAX_TIME_EVENT                  4           // 时间事件的数量
 #endif
