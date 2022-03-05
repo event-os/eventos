@@ -3,8 +3,6 @@
 #include "stdio.h"
 #include <stdlib.h>
 
-
-
 void set_time_ms(eos_u32_t time_ms)
 {
 #if (EOS_USE_TIME_EVENT != 0)

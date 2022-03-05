@@ -45,7 +45,7 @@
 
 /* State Machine Function Configuration ------------------------------------- */
 #define EOS_USE_SM_MODE                         1
-#define EOS_USE_HSM_MODE                        1
+#define EOS_USE_HSM_MODE                        0
 #if (EOS_USE_SM_MODE != 0 && EOS_USE_HSM_MODE != 0)
 #define EOS_MAX_HSM_NEST_DEPTH                  4
 #endif

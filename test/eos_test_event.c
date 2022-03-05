@@ -7,15 +7,13 @@
 #include "eos_test_def.h"
 
 /* unit test ---------------------------------------------------------------- */
+#if (EOS_USE_PUB_SUB != 0)
 static eos_mcu_t sub_table[Event_Max];
+#endif
 static fsm_t fsm, fsm2;
 static eos_t *f;
 
 /* eventos API for test ----------------------------------------------------- */
-eos_s8_t eos_once(void);
-eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size);
-void * eos_get_framework(void);
-
 void eos_test_event(void)
 {
     eos_s8_t ret;
