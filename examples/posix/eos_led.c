@@ -33,7 +33,9 @@ static eos_ret_t state_init(eos_led_t * const me, eos_event_t const * const e)
 #if (EOS_USE_PUB_SUB != 0)
     EOS_EVENT_SUB(Event_Time_500ms);
 #endif
+#if (EOS_USE_TIME_EVENT != 0)
     eos_event_pub_period(Event_Time_500ms, 500);
+#endif
 
     return EOS_TRAN(state_off);
 }

@@ -55,8 +55,6 @@ enum eos_actor_mode {
     EOS_Mode_StateMachine = !EOS_Mode_Reactor
 };
 
-#define EOS_MS_NUM_DAY                      (86400000)
-
 // **eos** ---------------------------------------------------------------------
 enum {
     EosRun_OK                               = 0,
@@ -80,10 +78,32 @@ enum {
 };
 
 #if (EOS_USE_TIME_EVENT != 0)
+#define EOS_MS_NUM_30DAY                    (2592000000)
+
+enum {
+    EosTimerUnit_Ms                         = 0,    // 60S, ms
+    EosTimerUnit_100Ms,                             // 100Min, 50ms
+    EosTimerUnit_Sec,                               // 16h, 500ms
+    EosTimerUnit_Minute,                            // 15day, 30S
+
+    EosTimerUnit_Max
+};
+
+static const eos_u32_t timer_threshold[EosTimerUnit_Max] = {
+    60000,                                          // 60 S
+    6000000,                                        // 100 Minutes
+    57600000,                                       // 16 hours
+    1296000000,                                     // 15 days
+};
+
+static const eos_u32_t timer_unit[EosTimerUnit_Max] = {
+    1, 100, 1000, 60000
+};
+
 typedef struct eos_event_timer {
-    eos_u32_t topic                         : 14;
+    eos_u32_t topic                         : 13;
     eos_u32_t oneshoot                      : 1;
-    eos_u32_t unit_ms                       : 1;
+    eos_u32_t unit                       : 2;
     eos_u32_t period                        : 16;
     eos_u32_t timeout_ms;
 } eos_event_timer_t;
@@ -231,7 +251,6 @@ eos_s32_t eos_evttimer(void)
     // 时间未到达
     if (system_time < eos.timeout_min)
         return EosTimer_NotTimeout;
-    
     // 若时间到达，将此事件推入事件队列，同时在etimer里删除。
     for (eos_u32_t i = 0; i < eos.timer_count; i ++) {
         if (eos.etimer[i].timeout_ms > system_time)
@@ -248,16 +267,19 @@ eos_s32_t eos_evttimer(void)
             i --;
         }
         else {
-            if (eos.etimer[i].unit_ms == 1) {
+            if (eos.etimer[i].unit == 1) {
                 eos.etimer[i].timeout_ms += eos.etimer[i].period;
             }
             else {
-                eos.etimer[i].timeout_ms += (eos.etimer[i].period * 1000);
+                eos_u32_t period = eos.etimer[i].period * timer_unit[eos.etimer[i].unit];
+                eos.etimer[i].timeout_ms += period;
             }
         }
     }
-    if (eos.timer_count == 0)
+    if (eos.timer_count == 0) {
+        eos.timeout_min = EOS_U32_MAX;
         return EosTimer_ChangeToEmpty;
+    }
 
     // 寻找到最小的时间定时器
     eos_u32_t min_time_out_ms = EOS_U32_MAX;
@@ -399,18 +421,18 @@ void eos_stop(void)
     eos_hook_stop();
 }
 
+#if (EOS_USE_TIME_EVENT != 0)
 eos_u32_t eos_time(void)
 {
     return eos.time;
 }
 
-#if (EOS_USE_TIME_EVENT != 0)
 void eos_tick(void)
 {
     eos_u32_t system_time = eos.time, system_time_bkp = eos.time;
-    eos_u32_t offset = EOS_MS_NUM_DAY - 1 + EOS_TICK_MS;
-    system_time = ((system_time + EOS_TICK_MS) % EOS_MS_NUM_DAY);
-    if (system_time_bkp >= (EOS_MS_NUM_DAY - EOS_TICK_MS) && system_time < EOS_TICK_MS) {
+    eos_u32_t offset = EOS_MS_NUM_30DAY - 1 + EOS_TICK_MS;
+    system_time = ((system_time + EOS_TICK_MS) % EOS_MS_NUM_30DAY);
+    if (system_time_bkp >= (EOS_MS_NUM_30DAY - EOS_TICK_MS) && system_time < EOS_TICK_MS) {
         eos_port_critical_enter();
         EOS_ASSERT(eos.timeout_min >= offset);
         eos.timeout_min -= offset;
@@ -588,7 +610,6 @@ eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
     for (eos_u32_t i = 0; i < size; i ++) {
         e_data[i] = ((eos_u8_t *)data)[i];
     }
-    eos.heap.empty = 0;
     eos_port_critical_exit();
 
     return EosRun_OK;
@@ -596,7 +617,9 @@ eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
 
 void eos_event_pub_topic(eos_topic_t topic)
 {
-    eos_event_pub(topic, EOS_NULL, 0);
+    eos_s8_t ret = eos_event_pub_ret(topic, EOS_NULL, 0);
+    EOS_ASSERT(ret >= 0);
+    (void)ret;
 }
 
 #if (EOS_USE_EVENT_DATA != 0)
@@ -624,7 +647,7 @@ void eos_event_unsub(eos_actor_t * const me, eos_topic_t topic)
 void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoot)
 {
     EOS_ASSERT(time_ms != 0);
-    EOS_ASSERT(time_ms <= 6000000);
+    EOS_ASSERT(time_ms <= timer_threshold[EosTimerUnit_Minute]);
     EOS_ASSERT(eos.timer_count < EOS_MAX_TIME_EVENT);
 
     // 检查重复，不允许重复发送。
@@ -633,13 +656,25 @@ void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoo
     }
 
     eos_u32_t system_ms = eos.time;
-    eos_u8_t unit_ms = (time_ms >= 60000) ? 0 : 1;
+    eos_u8_t unit = EosTimerUnit_Ms;
+    eos_u16_t period;
+    for (eos_u8_t i = 0; i < EosTimerUnit_Max; i ++) {
+        if (time_ms > timer_threshold[i])
+            continue;
+        unit = i;
+        
+        if (i == EosTimerUnit_Ms) {
+            period = time_ms;
+            break;
+        }
+        period =    (((time_ms / (timer_unit[i] / 10)) % 10) < 5 ?
+                    (time_ms / timer_unit[i]) :
+                    (time_ms / timer_unit[i] + 1));
+        break;
+    }
     eos_u32_t timeout = (system_ms + time_ms);
-    eos_u16_t period =  unit_ms == 1 ?
-                        time_ms :
-                        (((time_ms / 10) % 10) < 5 ? (time_ms / 100) : (time_ms / 100 + 1));
     eos.etimer[eos.timer_count ++] = (eos_event_timer_t) {
-        topic, oneshoot, unit_ms, period, timeout
+        topic, oneshoot, unit, period, timeout
     };
     
     if (eos.timeout_min > timeout) {
@@ -659,9 +694,12 @@ void eos_event_pub_period(eos_topic_t topic, eos_u32_t time_ms_period)
 
 void eos_event_time_cancel(eos_topic_t topic)
 {
+    eos_u32_t timeout_min = EOS_U32_MAX;
     for (eos_u32_t i = 0; i < eos.timer_count; i ++) {
-        if (topic != eos.etimer[i].topic)
+        if (topic != eos.etimer[i].topic) {
+            timeout_min = eos.etimer[i].timeout_ms;
             continue;
+        }
         if (i == (eos.timer_count - 1)) {
             eos.timer_count --;
             break;
@@ -672,6 +710,8 @@ void eos_event_time_cancel(eos_topic_t topic)
             i --;
         }
     }
+
+    eos.timeout_min = timeout_min;
 }
 #endif
 

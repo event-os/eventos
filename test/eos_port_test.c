@@ -3,15 +3,25 @@
 #include "stdio.h"
 #include <stdlib.h>
 
-static eos_u32_t time_ms_count = 0;
+
+
 void set_time_ms(eos_u32_t time_ms)
 {
-    time_ms_count = time_ms;
-}
+#if (EOS_USE_TIME_EVENT != 0)
+    #define EOS_MS_NUM_30DAY                    (2592000000)
+    static eos_u32_t time_ms_count = 0;
 
-eos_u32_t eos_port_time(void)
-{
-    return time_ms_count;
+    if (time_ms >= time_ms_count) {
+        for (eos_u32_t i = 0; i < (time_ms - time_ms_count); i ++)
+            eos_tick();
+    }
+    else {
+        for (eos_u32_t i = 0; i < (EOS_MS_NUM_30DAY + time_ms - time_ms_count); i ++)
+            eos_tick();
+    }
+
+    time_ms_count = time_ms;
+#endif
 }
 
 void eos_port_critical_enter(void)

@@ -27,10 +27,32 @@ enum {
 };
 
 #if (EOS_USE_TIME_EVENT != 0)
+#define EOS_MS_NUM_30DAY                    (2592000000)
+
+enum {
+    EosTimerUnit_Ms                         = 0,    // 60S, ms
+    EosTimerUnit_100Ms,                             // 100Min, 50ms
+    EosTimerUnit_Sec,                               // 16h, 500ms
+    EosTimerUnit_Minute,                            // 15day, 30S
+
+    EosTimerUnit_Max
+};
+
+static const eos_u32_t timer_threshold[EosTimerUnit_Max] = {
+    60000,                                          // 60 S
+    6000000,                                        // 100 Minutes
+    57600000,                                       // 16 hours
+    1296000000,                                     // 15 days
+};
+
+static const eos_u32_t timer_unit[EosTimerUnit_Max] = {
+    1, 100, 1000, 60000
+};
+
 typedef struct eos_event_timer {
-    eos_u32_t topic                         : 14;
+    eos_u32_t topic                         : 13;
     eos_u32_t oneshoot                      : 1;
-    eos_u32_t unit_ms                       : 1;
+    eos_u32_t unit                       : 2;
     eos_u32_t period                        : 16;
     eos_u32_t timeout_ms;
 } eos_event_timer_t;
@@ -165,23 +187,23 @@ void eos_test_etimer(void)
     TEST_ASSERT_EQUAL_UINT16(Event_Time_500ms, f->etimer[0].topic);
     TEST_ASSERT_EQUAL_UINT8(1, f->etimer[0].oneshoot);
     TEST_ASSERT_EQUAL_UINT32((system_time + 500), f->etimer[0].timeout_ms);
-    TEST_ASSERT_EQUAL_UINT8(1, f->etimer[0].unit_ms);
+    TEST_ASSERT_EQUAL_UINT8(EosTimerUnit_Ms, f->etimer[0].unit);
     TEST_ASSERT_EQUAL_UINT16(Event_Test, f->etimer[1].topic);
     TEST_ASSERT_EQUAL_UINT8(1, f->etimer[1].oneshoot);
     TEST_ASSERT_EQUAL_UINT32((system_time + 1000), f->etimer[1].timeout_ms);
-    TEST_ASSERT_EQUAL_UINT8(1, f->etimer[1].unit_ms);
+    TEST_ASSERT_EQUAL_UINT8(EosTimerUnit_Ms, f->etimer[1].unit);
 
     // 取消延时事件
     eos_event_time_cancel(Event_Time_500ms);
     TEST_ASSERT_EQUAL_UINT16(Event_Test, f->etimer[0].topic);
     TEST_ASSERT_EQUAL_UINT32((system_time + 1000), f->etimer[0].timeout_ms);
-    TEST_ASSERT_EQUAL_UINT8(1, f->etimer[0].unit_ms);
+    TEST_ASSERT_EQUAL_UINT8(EosTimerUnit_Ms, f->etimer[0].unit);
     TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
     // 重复取消，并不管用
     eos_event_time_cancel(Event_Time_500ms);
     TEST_ASSERT_EQUAL_UINT16(Event_Test, f->etimer[0].topic);
     TEST_ASSERT_EQUAL_UINT32((system_time + 1000), f->etimer[0].timeout_ms);
-    TEST_ASSERT_EQUAL_UINT8(1, f->etimer[0].unit_ms);
+    TEST_ASSERT_EQUAL_UINT8(EosTimerUnit_Ms, f->etimer[0].unit);
     TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
     // 取消另一个延时事件
     eos_event_time_cancel(Event_Test);
@@ -200,7 +222,7 @@ void eos_test_etimer(void)
     TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
     TEST_ASSERT_EQUAL_UINT32(1, fsm_state(&fsm));
     TEST_ASSERT_EQUAL_UINT16(Event_Test, f->etimer[0].topic);
-    TEST_ASSERT_EQUAL_UINT8(1, f->etimer[0].unit_ms);
+    TEST_ASSERT_EQUAL_UINT8(EosTimerUnit_Ms, f->etimer[0].unit);
     TEST_ASSERT_EQUAL_UINT32((system_time + 1000), f->etimer[0].timeout_ms);
     eos_event_time_cancel(Event_Test);
     TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
@@ -208,14 +230,70 @@ void eos_test_etimer(void)
     // 延时70000毫秒的时间
     system_time = eos_time();
     TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
-    eos_event_pub_delay(Event_Test, 70000);
+    eos_event_pub_delay(Event_TestFsm, 70000);
     TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
-    TEST_ASSERT_EQUAL_UINT16(Event_Test, f->etimer[0].topic);
+    TEST_ASSERT_EQUAL_UINT16(Event_TestFsm, f->etimer[0].topic);
     TEST_ASSERT_EQUAL_UINT32((system_time + 70000), f->etimer[0].timeout_ms);
-    TEST_ASSERT_EQUAL_UINT32(0, f->etimer[0].unit_ms);
+    TEST_ASSERT_EQUAL_UINT32(EosTimerUnit_100Ms, f->etimer[0].unit);
     TEST_ASSERT_EQUAL_UINT32(700, f->etimer[0].period);
+    TEST_ASSERT_EQUAL_UINT32(system_time + 70000, f->timeout_min);
     set_time_ms(system_time + 70000);
     TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
     TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
+
+    // 延时2小时的时间
+    eos_u32_t time_2hour = (2 * 3600 * 1000);
+    system_time = eos_time();
+    TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
+    eos_event_pub_delay(Event_TestFsm, time_2hour);
+    TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
+    TEST_ASSERT_EQUAL_UINT16(Event_TestFsm, f->etimer[0].topic);
+    TEST_ASSERT_EQUAL_UINT32((system_time + time_2hour), f->etimer[0].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT32(EosTimerUnit_Sec, f->etimer[0].unit);
+    TEST_ASSERT_EQUAL_UINT32(7200, f->etimer[0].period);
+    TEST_ASSERT_EQUAL_UINT32(system_time + time_2hour, f->timeout_min);
+    set_time_ms(system_time + time_2hour);
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+    TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
+
+    // 延时17小时的时间
+    eos_u32_t time_17hour = (17 * 3600 * 1000);
+    system_time = eos_time();
+    TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
+    eos_event_pub_delay(Event_TestFsm, time_17hour);
+    TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
+    TEST_ASSERT_EQUAL_UINT16(Event_TestFsm, f->etimer[0].topic);
+    TEST_ASSERT_EQUAL_UINT32((system_time + time_17hour), f->etimer[0].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT32(EosTimerUnit_Minute, f->etimer[0].unit);
+    TEST_ASSERT_EQUAL_UINT32((17 * 60), f->etimer[0].period);
+    TEST_ASSERT_EQUAL_UINT32(system_time + time_17hour, f->timeout_min);
+    set_time_ms(system_time + time_17hour);
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+    TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
+
+    // 测试时间溢出
+    set_time_ms(EOS_MS_NUM_30DAY - 100);
+    system_time = eos_time();
+    eos_event_pub_delay(Event_Time_500ms, 500);
+    eos_event_pub_delay(Event_TestFsm, time_17hour);
+    TEST_ASSERT_EQUAL_UINT32(500, f->etimer[0].period);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 500), f->etimer[0].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT32((17 * 60), f->etimer[1].period);
+    TEST_ASSERT_EQUAL_UINT32((system_time + time_17hour), f->etimer[1].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT8(2, f->timer_count);
+    set_time_ms(0);
+    TEST_ASSERT_EQUAL_UINT32(500, f->etimer[0].period);
+    TEST_ASSERT_EQUAL_UINT32(400, f->etimer[0].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT32((17 * 60), f->etimer[1].period);
+    TEST_ASSERT_EQUAL_UINT32((time_17hour - 100), f->etimer[1].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT8(2, f->timer_count);
+    set_time_ms(400);
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+    TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
+    TEST_ASSERT_EQUAL_UINT32((17 * 60), f->etimer[0].period);
+    set_time_ms(time_17hour - 100);
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+    TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
+
 #endif
 }

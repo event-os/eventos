@@ -29,10 +29,32 @@ enum {
 };
 
 #if (EOS_USE_TIME_EVENT != 0)
+#define EOS_MS_NUM_30DAY                    (2592000000)
+
+enum {
+    EosTimerUnit_Ms                         = 0,    // 60S, ms
+    EosTimerUnit_100Ms,                             // 100Min, 50ms
+    EosTimerUnit_Sec,                               // 16h, 500ms
+    EosTimerUnit_Minute,                            // 15day, 30S
+
+    EosTimerUnit_Max
+};
+
+static const eos_u32_t timer_threshold[EosTimerUnit_Max] = {
+    60000,                                          // 60 S
+    6000000,                                        // 100 Minutes
+    57600000,                                       // 16 hours
+    1296000000,                                     // 15 days
+};
+
+static const eos_u32_t timer_unit[EosTimerUnit_Max] = {
+    1, 100, 1000, 60000
+};
+
 typedef struct eos_event_timer {
-    eos_u32_t topic                         : 14;
+    eos_u32_t topic                         : 13;
     eos_u32_t oneshoot                      : 1;
-    eos_u32_t unit_ms                       : 1;
+    eos_u32_t unit                       : 2;
     eos_u32_t period                        : 16;
     eos_u32_t timeout_ms;
 } eos_event_timer_t;
