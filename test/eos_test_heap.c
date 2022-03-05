@@ -57,7 +57,7 @@ static const eos_u32_t timer_unit[EosTimerUnit_Max] = {
 typedef struct eos_event_timer {
     eos_u32_t topic                         : 13;
     eos_u32_t oneshoot                      : 1;
-    eos_u32_t unit                       : 2;
+    eos_u32_t unit                          : 2;
     eos_u32_t period                        : 16;
     eos_u32_t timeout_ms;
 } eos_event_timer_t;
@@ -131,7 +131,7 @@ void eos_heap_gc(eos_heap_t * const me, void *data);
 /* test data & function ----------------------------------------------------- */
 #define EOS_HEAP_TEST_PRINT_UNIT                1000
 #define EOS_HEAP_TEST_TIMES                     10000
-#define EOS_HEAP_TEST_PRINT_EN                  0
+#define EOS_HEAP_TEST_PRINT_EN                  1
 static eos_heap_t heap;
 uint8_t * p_data;
 
@@ -146,6 +146,8 @@ void eos_test_heap(void)
     
     /* Make sure the heap initilization is successful. */
     TEST_ASSERT_EQUAL_UINT16(0, heap.error_id);
+
+
 
     // eos_heap_get_block ------------------------------------------------------
     void *eblock[EOS_MAX_ACTORS];
@@ -198,7 +200,7 @@ void eos_test_heap(void)
         TEST_ASSERT(block_next != NULL);
         TEST_ASSERT_EQUAL_UINT16(EOS_HEAP_MAX, block_next->next);
 
-        eos_heap_free(&heap, p_data);
+        eos_heap_gc(&heap, p_data);
         TEST_ASSERT_EQUAL_UINT32(0, heap.error_id);
         TEST_ASSERT_EQUAL_POINTER(p_data, (eos_pointer_t)block_1st + (eos_pointer_t)sizeof(eos_block_t));
         TEST_ASSERT(block_1st->next == EOS_HEAP_MAX);
@@ -209,7 +211,7 @@ void eos_test_heap(void)
     uint32_t size_malloc[] = {
         128, 256, 32, 1024, 64, 16, 32, 16, 512, 32
     };
-    void * data_ptr[10] = {0};
+    eos_event_inner_t * data_ptr[10] = {0};
 
     uint32_t squen_free[10] = {
         8, 1, 0, 4, 5, 2, 6, 9, 3, 7
@@ -230,16 +232,17 @@ void eos_test_heap(void)
     };
 
     block_1st = (eos_block_t *)heap.data;
-    for (int m = 0; m < 1000; m ++) {
+    for (int m = 0; m < ((EOS_HEAP_TEST_TIMES >= 100) ? 100 : EOS_HEAP_TEST_TIMES); m ++) {
         uint16_t next_1st = 0;
         for (int i = 0; i < 10; i ++) {
             data_ptr[i] = eos_heap_malloc(&heap, size_malloc[i]);
+            data_ptr[i]->sub = 0;
             TEST_ASSERT(data_ptr[i] != NULL);
             TEST_ASSERT_EQUAL_UINT16(0, heap.error_id);
             print_heap_list(&heap, i);
         }
         for (int i = 0; i < 10; i ++) {
-            eos_heap_free(&heap, data_ptr[squen_free[i]]);
+            eos_heap_gc(&heap, data_ptr[squen_free[i]]);
             TEST_ASSERT_EQUAL_UINT16(0, heap.error_id);
             print_heap_list(&heap, i);
 
@@ -251,11 +254,17 @@ void eos_test_heap(void)
         TEST_ASSERT_EQUAL_UINT16((EOS_SIZE_HEAP - sizeof(eos_block_t)), block_1st->size);
     }
 
+    block_1st = (eos_block_t *)heap.data;
+    TEST_ASSERT_EQUAL_UINT16(EOS_HEAP_MAX, heap.queue);
+    TEST_ASSERT_EQUAL_UINT8(1, heap.empty);
+    TEST_ASSERT_EQUAL_UINT16(EOS_HEAP_MAX, block_1st->next);
+    TEST_ASSERT_EQUAL_UINT16((EOS_SIZE_HEAP - sizeof(eos_block_t)), block_1st->size);
+    TEST_ASSERT_EQUAL_UINT16(0, heap.count);
     printf("\n");
 
     /* random test */
     #define HEAP_TETS_MALLOC_QUEUE_SIZE         1024
-    void * malloc_data[HEAP_TETS_MALLOC_QUEUE_SIZE];
+    eos_event_inner_t * malloc_data[HEAP_TETS_MALLOC_QUEUE_SIZE];
     int malloc_head = 0;
     int malloc_tail = 0;
     int malloc_size = 0;
@@ -269,6 +278,7 @@ void eos_test_heap(void)
         if (size % 2 == 1 && size != 0 && size >= 16) {
             if (count_malloc < EOS_HEAP_TEST_TIMES) {
                 malloc_data[malloc_head] = eos_heap_malloc(&heap, size);
+                malloc_data[malloc_head]->sub = 0;
                 TEST_ASSERT_EQUAL_UINT32(0, heap.error_id);
                 count_malloc ++;
                 malloc_head = ((malloc_head + 1) % HEAP_TETS_MALLOC_QUEUE_SIZE);
@@ -291,7 +301,7 @@ void eos_test_heap(void)
                 if (((count_free + 1) % EOS_HEAP_TEST_PRINT_UNIT) == 0)
                     printf("free times: %u.\n", (count_free + 1));
 #endif
-                eos_heap_free(&heap, malloc_data[malloc_tail]);
+                eos_heap_gc(&heap, malloc_data[malloc_tail]);
                 TEST_ASSERT_EQUAL_UINT32(0, heap.error_id);
                 count_free ++;
                 malloc_tail = ((malloc_tail + 1) % HEAP_TETS_MALLOC_QUEUE_SIZE);

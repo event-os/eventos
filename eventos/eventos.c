@@ -103,7 +103,7 @@ static const eos_u32_t timer_unit[EosTimerUnit_Max] = {
 typedef struct eos_event_timer {
     eos_u32_t topic                         : 13;
     eos_u32_t oneshoot                      : 1;
-    eos_u32_t unit                       : 2;
+    eos_u32_t unit                          : 2;
     eos_u32_t period                        : 16;
     eos_u32_t timeout_ms;
 } eos_event_timer_t;
