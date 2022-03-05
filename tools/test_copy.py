@@ -15,33 +15,27 @@ def execute():
    str_def = f_eos.read(index_eos_end - index_eos_start)
    f_eos.close()
 
-   path_test = [
-      "test/eos_test_def.h"
-   ]
+   path_test = "test/eos_test_def.h"
 
-   count = 0
-   while count < len(path_test):
-      # 将Test的头尾拷贝出来，清空文件
-      f_test = open(path_test[count], mode = 'r+', encoding = 'utf-8', newline = '\r\n')
-      str_test = f_test.read()
-      index_test_start = str_test.find(str_start)
-      index_test_end = str_test.find(str_end)
-      f_test.seek(0)
-      str_head = f_test.read(index_test_start)
-      f_test.seek(index_test_end)
-      str_tail = f_test.read()
-      f_test.seek(0)
-      f_test.truncate()
-      f_test.close()
+   # 将Test的头尾拷贝出来，清空文件
+   f_test = open(path_test, mode = 'r+', encoding = 'utf-8', newline = '\r\n')
+   str_test = f_test.read()
+   index_test_start = str_test.find(str_start)
+   index_test_end = str_test.find(str_end)
+   f_test.seek(0)
+   str_head = f_test.read(index_test_start)
+   f_test.seek(index_test_end)
+   str_tail = f_test.read()
+   f_test.seek(0)
+   f_test.truncate()
+   f_test.close()
 
-      # 拼接为一个完整文件，并写入进去
-      str_new_test = str_head
-      str_new_test = str_new_test + str_def
-      str_new_test = str_new_test + str_tail
-      f_test = open(path_test[count], mode = 'w', encoding = 'utf-8', newline = '')
-      f_test.write(str_new_test)
-      f_test.close()
-
-      count += 1
+   # 拼接为一个完整文件，并写入进去
+   str_new_test = str_head
+   str_new_test = str_new_test + str_def
+   str_new_test = str_new_test + str_tail
+   f_test = open(path_test, mode = 'w', encoding = 'utf-8', newline = '')
+   f_test.write(str_new_test)
+   f_test.close()
 
    return
