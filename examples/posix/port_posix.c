@@ -38,6 +38,7 @@ void eos_port_assert(eos_u32_t error_id)
 static eos_u32_t eos_time_bkp = 0;
 void eos_hook_idle(void)
 {
+#if (EOS_USE_TIME_EVENT != 0)
     if (eos_time_bkp == 0) {
         eos_time_bkp = eos_get_time();
         usleep(1000);
@@ -53,6 +54,7 @@ void eos_hook_idle(void)
         eos_time_bkp = system_time;
     }
     // TODO 此处需要处理时间溢出情况。
+#endif
 
     usleep(1000);
 }

@@ -16,10 +16,7 @@ def execute():
    f_eos.close()
 
    path_test = [
-      "test/eos_test_fsm.c",
-      "test/eos_test_heap.c",
-      "test/eos_test_event.c",
-      "test/eos_test_etimer.c"
+      "test/eos_test_def.h"
    ]
 
    count = 0

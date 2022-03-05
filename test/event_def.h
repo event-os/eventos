@@ -7,6 +7,8 @@
 enum {
     Event_Test = Event_User,
     Event_TestFsm,
+    Event_TestHsm,
+    Event_TestReactor,
     Event_Time_500ms,
 
     Event_ActEnd,

@@ -30,10 +30,15 @@ int hsm_get_status(hsm_t * const me);
 
 // reactor -----------------------------------------------
 typedef struct reactor_tag {
-    eos_sm_t super;
+    eos_reactor_t super;
     bool status;
-    int count;
+    int count_test;
+    int count_tr;
 } reactor_t;
+
+void reactor_init(reactor_t * const me, eos_u8_t priority, void const * const parameter);
+int reactor_e_test_count(reactor_t * const me);
+int reactor_e_tr_count(reactor_t * const me);
 
 /* tool --------------------------------------------------------------------- */
 void set_time_ms(eos_u32_t time_ms);

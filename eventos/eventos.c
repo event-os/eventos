@@ -27,7 +27,7 @@
  * 
  * Change Logs:
  * Date           Author        Notes
- * 2021-11-23     XiaoMing      V0.0.2
+ * 2021-11-23     DogMing       V0.0.2
  */
 
 // include ---------------------------------------------------------------------
@@ -165,6 +165,12 @@ typedef struct eos_tag {
     eos_u8_t running                        : 1;
     eos_u8_t init_end                       : 1;
 } eos_t;
+
+/* eventos API for test ----------------------------- */
+eos_s8_t eos_once(void);
+eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size);
+void * eos_get_framework(void);
+void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoot);
 // **eos end** -----------------------------------------------------------------
 
 static eos_t eos;

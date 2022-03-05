@@ -28,7 +28,7 @@
  * 
  * Change Logs:
  * Date           Author        Notes
- * 2022-02-20     XiaoMing      V0.0.2
+ * 2022-02-20     DogMing       V0.0.2
  */
 
 #ifndef EVENTOS_DEF_H__

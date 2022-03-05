@@ -28,7 +28,7 @@
  * 
  * Change Logs:
  * Date           Author        Notes
- * 2022-02-20     XiaoMing      V0.0.2
+ * 2022-02-20     DogMing       V0.0.2
  */
 
 #ifndef EVENTOS_CONFIG_H__
@@ -54,7 +54,7 @@
 #define EOS_USE_PUB_SUB                         1
 
 /* Time Event Configuration ------------------------------------------------- */
-#define EOS_USE_TIME_EVENT                      1
+#define EOS_USE_TIME_EVENT                      0
 #if (EOS_USE_TIME_EVENT != 0)
     #define EOS_MAX_TIME_EVENT                  4           // 时间事件的数量
 #endif
@@ -62,7 +62,7 @@
 /* Event's Data Configuration ----------------------------------------------- */
 #define EOS_USE_EVENT_DATA                      1
 #if (EOS_USE_EVENT_DATA != 0)
-    #define EOS_SIZE_HEAP                       512         // 设定堆大小
+    #define EOS_SIZE_HEAP                       32767       // 设定堆大小
     #define EOS_HEAP_DOUBLE_LIST                0           // 双向链表
 #endif
 
@@ -95,8 +95,8 @@
 #endif
 
 #if (EOS_USE_EVENT_DATA != 0)
-    #if (EOS_USE_HEAP != 0 && (EOS_SIZE_HEAP < 128 || EOS_SIZE_HEAP >= EOS_HEAP_MAX))
-        #error The heap size must be 128 ~ 32768 (32KB) if the function is enabled !
+    #if (EOS_USE_HEAP != 0 && (EOS_SIZE_HEAP < 128 || EOS_SIZE_HEAP > EOS_HEAP_MAX))
+        #error The heap size must be 128 ~ 32767 (32KB) if the function is enabled !
     #endif
 #endif
 

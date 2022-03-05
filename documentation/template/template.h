@@ -28,7 +28,7 @@
  * 
  * Change Logs:
  * Date           Author        Notes
- * 2021-11-23     XiaoMing      the first version
+ * 2021-11-23     DogMing       the first version
  */
 
 #ifndef EOS_TEMPLATE_H_
