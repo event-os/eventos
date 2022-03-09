@@ -36,15 +36,15 @@
 
 /* EventOS Nano General Configuration --------------------------------------- */
 #define EOS_MCU_TYPE                            32
-#define EOS_MAX_ACTORS                          32
-#define EOS_TEST_PLATFORM                       64
+#define EOS_MAX_ACTORS                          4
+#define EOS_TEST_PLATFORM                       32
 #define EOS_TICK_MS                             1
 
 /* Assert Configuration ----------------------------------------------------- */
 #define EOS_USE_ASSERT                          1
 
 /* State Machine Function Configuration ------------------------------------- */
-#define EOS_USE_SM_MODE                         1
+#define EOS_USE_SM_MODE                         0
 #define EOS_USE_HSM_MODE                        1
 #if (EOS_USE_SM_MODE != 0 && EOS_USE_HSM_MODE != 0)
 #define EOS_MAX_HSM_NEST_DEPTH                  4
@@ -56,12 +56,12 @@
 /* Time Event Configuration ------------------------------------------------- */
 #define EOS_USE_TIME_EVENT                      0
 #if (EOS_USE_TIME_EVENT != 0)
-    #define EOS_MAX_TIME_EVENT                  4           // 时间事件的数量
+    #define EOS_MAX_TIME_EVENT                  2           // 时间事件的数量
 #endif
 
 /* Event's Data Configuration ----------------------------------------------- */
 #define EOS_USE_EVENT_DATA                      1
-#define EOS_SIZE_HEAP                           32767       // 设定堆大小
+#define EOS_SIZE_HEAP                           128         // 设定堆大小
 
 /* Event Bridge Configuration ----------------------------------------------- */
 #define EOS_USE_EVENT_BRIDGE                    0

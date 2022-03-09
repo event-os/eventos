@@ -27,7 +27,9 @@
 
 void SysTick_Handler(void)
 {
+#if (EOS_USE_TIME_EVENT != 0)
     eos_tick();
+#endif
 }
 
 void NMI_Handler(void)

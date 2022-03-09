@@ -27,7 +27,9 @@ void eos_reactor_led_init(void)
 #if (EOS_USE_PUB_SUB != 0)
     eos_event_sub((eos_actor_t *)(&actor_led), Event_Time_1000ms);
 #endif
+#if (EOS_USE_TIME_EVENT != 0)
     eos_event_pub_period(Event_Time_1000ms, 1000);
+#endif
 }
 
 /* static state function ---------------------------------------------------- */

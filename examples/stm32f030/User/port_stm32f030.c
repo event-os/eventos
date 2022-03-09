@@ -31,7 +31,7 @@ void eos_hook_idle(void)
 
 void eos_hook_start(void)
 {
-
+    SEGGER_RTT_Init();
 }
 
 void eos_hook_stop(void)
