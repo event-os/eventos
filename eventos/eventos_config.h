@@ -44,17 +44,17 @@
 #define EOS_USE_ASSERT                          1
 
 /* State Machine Function Configuration ------------------------------------- */
-#define EOS_USE_SM_MODE                         0
+#define EOS_USE_SM_MODE                         1
 #define EOS_USE_HSM_MODE                        1
 #if (EOS_USE_SM_MODE != 0 && EOS_USE_HSM_MODE != 0)
 #define EOS_MAX_HSM_NEST_DEPTH                  4
 #endif
 
 /* Publish & Subscribe Configuration ---------------------------------------- */
-#define EOS_USE_PUB_SUB                         0
+#define EOS_USE_PUB_SUB                         1
 
 /* Time Event Configuration ------------------------------------------------- */
-#define EOS_USE_TIME_EVENT                      0
+#define EOS_USE_TIME_EVENT                      1
 #if (EOS_USE_TIME_EVENT != 0)
     #define EOS_MAX_TIME_EVENT                  2           // 时间事件的数量
 #endif
