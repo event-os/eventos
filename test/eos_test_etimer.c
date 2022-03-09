@@ -177,5 +177,57 @@ void eos_test_etimer(void)
     TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
     TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
 
+    // 对周期事件进行单元测试
+    eos_set_time(0);
+    system_time = eos_time();
+    eos_event_pub_period(Event_Time_500ms, 500);
+    eos_event_pub_period(Event_TestFsm, 1000);
+    TEST_ASSERT_EQUAL_UINT32(500, f->etimer[0].period);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 500), f->etimer[0].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT32(0, f->etimer[0].oneshoot);
+    TEST_ASSERT_EQUAL_UINT32(1000, f->etimer[1].period);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 1000), f->etimer[1].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT32(0, f->etimer[1].oneshoot);
+    TEST_ASSERT_EQUAL_UINT8(2, f->timer_count);
+    eos_set_time(500);
+    system_time = eos_time();
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+    TEST_ASSERT_EQUAL_INT8(EosRun_NoEvent, eos_once());
+    TEST_ASSERT_EQUAL_UINT8(2, f->timer_count);
+    TEST_ASSERT_EQUAL_UINT32(500, f->etimer[0].period);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 500), f->etimer[0].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT32(1000, f->etimer[1].period);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 500), f->etimer[1].timeout_ms);
+    eos_set_time(1000);
+    system_time = eos_time();
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+    TEST_ASSERT_EQUAL_INT8(EosRun_NoEvent, eos_once());
+    TEST_ASSERT_EQUAL_UINT8(2, f->timer_count);
+    eos_set_time(1500);
+    system_time = eos_time();
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+    TEST_ASSERT_EQUAL_INT8(EosRun_NoEvent, eos_once());
+    TEST_ASSERT_EQUAL_UINT8(2, f->timer_count);
+    TEST_ASSERT_EQUAL_UINT32(500, f->etimer[0].period);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 500), f->etimer[0].timeout_ms);
+    TEST_ASSERT_EQUAL_UINT32(1000, f->etimer[1].period);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 500), f->etimer[1].timeout_ms);
+    eos_set_time(2000);
+    system_time = eos_time();
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+    TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+    TEST_ASSERT_EQUAL_INT8(EosRun_NoEvent, eos_once());
+    TEST_ASSERT_EQUAL_UINT8(2, f->timer_count);
+
+    // 对取消周期事件进行单元测试
+    eos_set_time(2300);
+    system_time = eos_time();
+    eos_event_time_cancel(Event_Time_500ms);
+    TEST_ASSERT_EQUAL_UINT8(1, f->timer_count);
+    TEST_ASSERT_EQUAL_UINT32(1000, f->etimer[0].period);
+    TEST_ASSERT_EQUAL_UINT32((system_time + 700), f->etimer[0].timeout_ms);
+    eos_event_time_cancel(Event_TestFsm);
+    TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
 #endif
 }
