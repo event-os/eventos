@@ -17,7 +17,6 @@ int main(void)
     RUN_TEST(eos_test_sub);
     RUN_TEST(eos_test_etimer);
     RUN_TEST(eos_test_fsm);
-    RUN_TEST(eos_test_hsm);
     RUN_TEST(eos_test_reactor);
 
     UNITY_END();

@@ -6,16 +6,19 @@
 #include "unity_pack.h"
 #include "eos_test_def.h"
 
+#if (EOS_USE_SM_MODE != 0)
 /* unit test ---------------------------------------------------------------- */
 #if (EOS_USE_PUB_SUB != 0)
 static eos_mcu_t sub_table[Event_Max];
 #endif
 static fsm_t fsm, fsm2;
 static eos_t *f;
+#endif
 
 /* eventos API for test ----------------------------------------------------- */
 void eos_test_event(void)
 {
+#if (EOS_USE_SM_MODE != 0)
     eos_s8_t ret;
     f = eos_get_framework();
 
@@ -136,4 +139,5 @@ void eos_test_event(void)
 
     TEST_ASSERT_EQUAL_INT8(EosRun_NoEvent, eos_once());
     TEST_ASSERT_EQUAL_UINT8(1, f->heap.empty);
+#endif
 }

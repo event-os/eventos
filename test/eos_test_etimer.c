@@ -5,15 +5,18 @@
 #include "unity_pack.h"
 #include "eos_test_def.h"
 
+#if (EOS_USE_SM_MODE != 0)
 #if (EOS_USE_TIME_EVENT != 0)
 /* unit test ---------------------------------------------------------------- */
 static eos_mcu_t sub_table[Event_Max];
 static fsm_t fsm;
 static eos_t *f;
 #endif
+#endif
 
 void eos_test_etimer(void)
 {
+#if (EOS_USE_SM_MODE != 0)
 #if (EOS_USE_TIME_EVENT != 0)
     f = eos_get_framework();
     eos_set_time(0);
@@ -229,5 +232,6 @@ void eos_test_etimer(void)
     TEST_ASSERT_EQUAL_UINT32((system_time + 700), f->etimer[0].timeout_ms);
     eos_event_time_cancel(Event_TestFsm);
     TEST_ASSERT_EQUAL_UINT8(0, f->timer_count);
+#endif
 #endif
 }

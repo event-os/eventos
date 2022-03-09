@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "eventos.h"
 
+#if (EOS_USE_SM_MODE != 0)
 /* actors for test ---------------------------------------------------------- */
 // fsm led -----------------------------------------------
 typedef struct fsm_tag {
@@ -18,15 +19,7 @@ eos_u32_t fsm_state(fsm_t * const me);
 eos_u32_t fsm_event_count(fsm_t * const me);
 void fsm_reset_event_count(fsm_t * const me);
 
-// hsm ---------------------------------------------------
-typedef struct hsm_tag {
-    eos_sm_t super;
-    bool status;
-    int count;
-} hsm_t;
-
-void hsm_init(hsm_t * const me, eos_u8_t priority, void const * const parameter);
-int hsm_get_status(hsm_t * const me);
+#endif
 
 // reactor -----------------------------------------------
 typedef struct reactor_tag {

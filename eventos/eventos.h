@@ -87,7 +87,8 @@ enum eos_event_topic {
 #endif
     Event_User,
 #else
-    Event_User = 0,
+    Event_Null = 0,
+    Event_User,
 #endif
 };
 

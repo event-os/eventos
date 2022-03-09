@@ -16,7 +16,9 @@ int main(void)
     eos_sub_init(eos_sub_table, Event_Max);         // 订阅表初始化
 #endif
 
+#if (EOS_USE_SM_MODE)
     eos_led_init();                                 // LED状态机初始化
+#endif
 
     eos_run();                                      // EventOS启动
 

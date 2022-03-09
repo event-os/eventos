@@ -4,6 +4,7 @@
 #include "event_def.h"
 #include <stdio.h>
 
+#if (EOS_USE_SM_MODE != 0)
 /* data structure ----------------------------------------------------------- */
 typedef struct eos_led_tag {
     eos_sm_t super;
@@ -71,4 +72,4 @@ static eos_ret_t state_off(eos_led_t * const me, eos_event_t const * const e)
             return EOS_SUPER(eos_state_top);
     }
 }
-
+#endif

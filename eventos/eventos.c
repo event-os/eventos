@@ -234,7 +234,9 @@ void eos_init(void)
 #endif
 
     eos.init_end = 1;
+#if (EOS_USE_TIME_EVENT != 0)
     eos.time = 0;
+#endif
 }
 
 #if (EOS_USE_PUB_SUB != 0)
@@ -1190,10 +1192,12 @@ void * eos_get_framework(void)
     return (void *)&eos;
 }
 
+#if (EOS_USE_TIME_EVENT != 0)
 void eos_set_time(eos_u32_t time_ms)
 {
     eos.time = time_ms;
 }
+#endif
 
 #ifdef __cplusplus
 }

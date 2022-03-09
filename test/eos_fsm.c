@@ -3,6 +3,7 @@
 #include "eos_test.h"
 #include "event_def.h"
 
+#if (EOS_USE_SM_MODE != 0)
 // state -----------------------------------------------------------------------
 static eos_ret_t state_init(fsm_t * const me, eos_event_t const * const e);
 static eos_ret_t state_on(fsm_t * const me, eos_event_t const * const e);
@@ -92,3 +93,5 @@ static eos_ret_t state_on(fsm_t * const me, eos_event_t const * const e)
             return EOS_SUPER(eos_state_top);
     }
 }
+
+#endif
