@@ -36,8 +36,6 @@ void eos_test_heap(void)
     /* Make sure the heap initilization is successful. */
     TEST_ASSERT_EQUAL_UINT16(0, heap.error_id);
 
-
-
     // eos_heap_get_block ------------------------------------------------------
     void *eblock[EOS_MAX_ACTORS];
     void *eb;
