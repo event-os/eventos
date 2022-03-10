@@ -25,7 +25,7 @@
 + [开发环境搭建](/documentation/UM-02-003-DevEnv.md)
 
 **EventOS Nano**有关的博客：
-+ [快速入门文档](/blog/如何理解事件.md)
++ [如何理解事件](/blog/如何理解事件.md)
 
 ### 三、为什么叫做EventOS Nano？
 之所以叫**Nano**，是因为它真的非常轻量。全功能的**EventOS Nano**目前经MDK编译后，框架本身占用RAM 200Byte，ROM约3.5KB（优化等级为-O3）或4.5KB（优化等级为-O0）。裁剪后，最小功能的**EventOS Nano**，目前经MDK编译后，框架本身占用RAM 172Byte，ROM约1.2KB（优化等级为-O3）或1.5KB（优化等级为-O0）。
