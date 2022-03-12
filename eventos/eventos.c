@@ -335,7 +335,7 @@ eos_s8_t eos_once(void)
     }
 
     // 寻找到优先级最高，且有事件需要处理的Actor
-    eos_actor_t *actor = (eos_actor_t *)0;
+    eos_actor_t *actor = eos.actor[0];
     eos_u8_t priority = EOS_MAX_ACTORS;
     for (eos_s8_t i = (eos_s8_t)(EOS_MAX_ACTORS - 1); i >= 0; i --) {
         if ((eos.actor_exist & (1 << i)) == 0)
