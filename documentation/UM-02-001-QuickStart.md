@@ -3,7 +3,9 @@
 返回[README文档](../README.md)。
 
 #### 一、简介
-**EventOS Nano**，是一个面向小资源单片机（Cortex-M0/16/8位单片机）、事件驱动的嵌入式开发平台。它主要有两大技术特色：一是事件驱动，二是超轻量。具体详述见[README文档](../README.md)。
+**EventOS Nano**，是一个面向单片机、事件驱动的嵌入式开发平台。它主要有两大技术特色：一是事件驱动，二是超轻量。**EventOS Nano**以及其母项目**EventOS**，目标是开发一个企业级的嵌入式开发平台，以**事件总线**为核心，打造一个统一的嵌入式技术生态，为广大企业用户和嵌入式开发者们，提供搞可靠性的、高性能的、现代且高开发效率的嵌入式开发环境。具体详述见[README文档](../README.md)。
+
+**EventOS Nano**，是一个事件驱动的嵌入式编程平台。关于什么是事件，请参考博客文档[如何理解事件](../blog/%E5%A6%82%E4%BD%95%E7%90%86%E8%A7%A3%E4%BA%8B%E4%BB%B6.md)。
 
 #### 二、快速入门
 **EventOS Nano**的入门非常简单。除源码外，只需要实现三个代码，就可以使用EventOS Nano来编写程序。
@@ -29,7 +31,7 @@ static eos_u8_t eos_heap_memory[1024];              // 事件池空间
 int main(void)
 {
     // EventOS Nano的初始化
-    eventos_init();                                 // EventOS初始化
+    eos_init();                                     // EventOS初始化
     eos_sub_init(eos_sub_table);                    // 订阅表初始化
     eos_event_pool_init(eos_heap_memory, 1024);     // 事件池初始化
 
@@ -37,7 +39,7 @@ int main(void)
     eos_led_init();                                 // LED状态机初始化
 
     // 启动EventOS Nano。
-    eventos_run();                                  // EventOS启动
+    eos_run();                                      // EventOS启动并运行
 
     return 0;
 }

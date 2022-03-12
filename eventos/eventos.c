@@ -707,7 +707,9 @@ void eos_event_time_cancel(eos_topic_t topic)
     eos_u32_t timeout_min = EOS_U32_MAX;
     for (eos_u32_t i = 0; i < eos.timer_count; i ++) {
         if (topic != eos.etimer[i].topic) {
-            timeout_min = eos.etimer[i].timeout_ms;
+            timeout_min =   timeout_min > eos.etimer[i].timeout_ms ?
+                            eos.etimer[i].timeout_ms :
+                            timeout_min;
             continue;
         }
         if (i == (eos.timer_count - 1)) {
