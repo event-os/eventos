@@ -56,7 +56,7 @@
 /* Time Event Configuration ------------------------------------------------- */
 #define EOS_USE_TIME_EVENT                      1
 #if (EOS_USE_TIME_EVENT != 0)
-    #define EOS_MAX_TIME_EVENT                  2           // 时间事件的数量
+    #define EOS_MAX_TIME_EVENT                  4           // 时间事件的数量
 #endif
 
 /* Event's Data Configuration ----------------------------------------------- */

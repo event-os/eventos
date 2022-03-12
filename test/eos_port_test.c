@@ -14,7 +14,7 @@ void set_time_ms(eos_u32_t time_ms)
             eos_tick();
     }
     else {
-        uint32_t count = (EOS_MS_NUM_30DAY + time_ms - time_ms_count);
+        eos_u32_t count = (EOS_MS_NUM_30DAY + time_ms - time_ms_count);
         for (eos_u32_t i = 0; i < count; i ++)
             eos_tick();
     }
