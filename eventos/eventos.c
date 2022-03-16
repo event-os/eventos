@@ -616,7 +616,7 @@ eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
     e->sub = eos.actor_exist;
 #endif
     eos.heap.sub_general |= e->sub;
-    eos_u8_t *e_data = (void *)(e + sizeof(eos_event_inner_t));
+    eos_u8_t *e_data = (eos_u8_t *)e + sizeof(eos_event_inner_t);
     for (eos_u32_t i = 0; i < size; i ++) {
         e_data[i] = ((eos_u8_t *)data)[i];
     }
