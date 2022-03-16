@@ -12,6 +12,7 @@
 static eos_mcu_t sub_table[Event_Max];
 #endif
 static fsm_t fsm, fsm2;
+static reactor_t reactor;
 static eos_t *f;
 #endif
 
@@ -139,5 +140,18 @@ void eos_test_event(void)
 
     TEST_ASSERT_EQUAL_INT8(EosRun_NoEvent, eos_once());
     TEST_ASSERT_EQUAL_UINT8(1, f->heap.empty);
+
+    // 测试事件携带数据的功能
+    eos_u32_t event_value = 0;
+    reactor_init(&reactor, 3, EOS_NULL);
+    // 发布事件，携带数据
+    for (int i = 0; i < 32; i ++) {
+        event_value = 100 * i;
+        TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_event_pub_ret(Event_Data, &event_value, sizeof(eos_u32_t)));
+        TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+        TEST_ASSERT_EQUAL_UINT32(event_value, reactor_get_value(&reactor));
+        TEST_ASSERT_EQUAL_INT8(EosRun_NoEvent, eos_once());
+        TEST_ASSERT_EQUAL_UINT8(1, f->heap.empty);
+    }
 #endif
 }

@@ -583,7 +583,7 @@ eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
         return (eos_s8_t)EosRun_NotEnabled;
     }
 
-    if (size != 0) {
+    if (size == 0 && data != EOS_NULL) {
         return (eos_s8_t)EosRunErr_InvalidEventData;
     }
 
