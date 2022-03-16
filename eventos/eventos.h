@@ -47,7 +47,7 @@ extern "C" {
 #endif
 
 #ifndef EOS_MAX_ACTORS
-#define EOS_MAX_ACTORS                          8      // 默认最多8个Actor
+#define EOS_MAX_ACTORS                          8       // 默认最多8个Actor
 #endif
 
 #ifndef EOS_USE_ASSERT
@@ -110,9 +110,9 @@ typedef enum eos_ret {
 
 // 事件类
 typedef struct eos_event {
-    eos_topic_t topic;
-    void *data;
-    eos_u16_t size;
+    eos_topic_t topic;                      // 事件主题
+    void *data;                             // 事件数据
+    eos_u16_t size;                         // 数据长度
 } eos_event_t;
 
 // 数据结构 - 行为树相关 --------------------------------------------------------
@@ -169,8 +169,14 @@ void eos_run(void);
 // 停止框架后，框架会在执行完当前状态机的当前事件后，清空各状态机事件队列，清空事件池，
 // 不再执行任何功能，直至框架被再次启动。
 void eos_stop(void);
+// 延时，不屏蔽事件接收（毫秒级延时，释放CPU控制权）
+void eos_delay(eos_u32_t time_ms);
+// 延时，屏蔽事件的接收（毫秒级延时，释放CPU控制权），直到延时完毕。
+void eos_delay_unsub_event(eos_u32_t time_ms);
 #if (EOS_USE_TIME_EVENT != 0)
+// 系统当前时间
 eos_u32_t eos_time(void);
+// 系统滴答
 void eos_tick(void);
 #endif
 
@@ -199,22 +205,33 @@ eos_ret_t eos_state_top(eos_sm_t * const me, eos_event_t const * const e);
 #endif
 
 // 关于事件 -------------------------------------------------
+// 设置不可阻塞事件（在延时时，此类事件进入，延时结束，对此类事件进行立即响应）
+void eos_event_set_unblocked(eos_topic_t topic);
 #if (EOS_USE_PUB_SUB != 0)
+// 事件订阅
 void eos_event_sub(eos_actor_t * const me, eos_topic_t topic);
+// 事件取消订阅
 void eos_event_unsub(eos_actor_t * const me, eos_topic_t topic);
+// 事件订阅宏定义
 #define EOS_EVENT_SUB(_evt)               eos_event_sub(&(me->super.super), _evt)
+// 事件取消订阅宏定义
 #define EOS_EVENT_UNSUB(_evt)             eos_event_unsub(&(me->super.super), _evt)
 #endif
 
 // 注：只有下面两个函数能在中断服务函数中使用，其他都没有必要。如果使用，可能会导致崩溃问题。
+// 发布事件（仅主题）
 void eos_event_pub_topic(eos_topic_t topic);
 #if (EOS_USE_EVENT_DATA != 0)
+// 发布事件（携带数据）
 void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size);
 #endif
 
 #if (EOS_USE_TIME_EVENT != 0)
+// 发布延时事件
 void eos_event_pub_delay(eos_topic_t topic, eos_u32_t delay_time_ms);
+// 发布周期事件
 void eos_event_pub_period(eos_topic_t topic, eos_u32_t peroid_ms);
+// 取消延时事件或者周期事件的发布
 void eos_event_time_cancel(eos_topic_t topic);
 #endif
 
@@ -224,8 +241,13 @@ void eos_port_critical_exit(void);
 void eos_port_assert(eos_u32_t error_id);
 
 /* hook --------------------------------------------------------------------- */
+// 空闲回调函数
 void eos_hook_idle(void);
+
+// 结束EventOS Nano的运行的时候，所调用的回调函数。
 void eos_hook_stop(void);
+
+// 启动EventOS Nano的时候，所调用的回调函数
 void eos_hook_start(void);
 
 #ifdef __cplusplus
