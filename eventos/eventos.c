@@ -55,6 +55,40 @@ enum eos_actor_mode {
     EOS_Mode_StateMachine = !EOS_Mode_Reactor
 };
 
+/* eos task ----------------------------------------------------------------- */
+enum {
+    TaskState_Ready = 0,
+    TaskState_Running,
+    TaskState_Suspend,
+    TaskState_WaitEvent,
+    TaskState_ISR,
+};
+
+typedef void (* eos_func_t)(void * para);
+
+typedef struct eos_task {
+    eos_u32_t *sp;                                      /* stack pointer */
+    eos_u32_t stack_size             : 16;              /* stack size */
+    eos_u32_t priority               : 8;
+    eos_u32_t state                  : 4;
+    eos_u32_t type                   : 2;
+    eos_u32_t rsv                    : 2;
+    eos_u32_t timeout;
+    void *parameter;
+} eos_task_t;
+
+eos_task_t *volatile eos_current;
+eos_task_t *volatile eos_next;
+
+typedef struct eos_kernel {
+    eos_u32_t ready;
+    eos_u32_t delay;
+    eos_task_t *task[EOS_MAX_ACTORS + 1];
+    eos_u32_t running                       : 1;
+} eos_kernel_t;
+
+static eos_kernel_t kernel;
+
 // **eos** ---------------------------------------------------------------------
 enum {
     EosRun_OK                               = 0,
@@ -174,7 +208,7 @@ void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoo
 void eos_set_time(eos_u32_t time_ms);
 // **eos end** -----------------------------------------------------------------
 
-static eos_t eos;
+eos_t eos;
 
 // data ------------------------------------------------------------------------
 #if (EOS_USE_SM_MODE != 0)
@@ -194,7 +228,15 @@ static const eos_event_t eos_event_table[Event_User] = {
     ((*(state_))(me, &eos_event_table[topic_]))
 #endif
 
+#define LOG2(x) (32U - __builtin_clz(x))
+
 // static function -------------------------------------------------------------
+static void eos_sheduler(void);
+static void eos_thread_start(   eos_task_t * const me,
+                                eos_func_t func,
+                                void *stack_addr,
+                                eos_u32_t stack_size,
+                                eos_u8_t priority);
 #if (EOS_USE_SM_MODE != 0)
 static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e);
 #if (EOS_USE_HSM_MODE != 0)
@@ -217,6 +259,18 @@ static void eos_clear(void)
 #endif
 }
 
+eos_u8_t stack_idle[1024];
+eos_task_t task_idle;
+
+void thread_idle(void *parameter)
+{
+    (void)parameter;
+    
+    while (1) {
+        eos_hook_idle();
+    }
+}
+
 void eos_init(void)
 {
     eos_clear();
@@ -237,6 +291,10 @@ void eos_init(void)
 #if (EOS_USE_TIME_EVENT != 0)
     eos.time = 0;
 #endif
+    
+    *(eos_u32_t volatile *)0xE000ED20 |= (0xFFU << 16U);
+    
+    eos_thread_start(&task_idle, thread_idle, stack_idle, 1024U, 0);
 }
 
 #if (EOS_USE_PUB_SUB != 0)
@@ -303,6 +361,25 @@ eos_s32_t eos_evttimer(void)
     return EosRun_OK;
 }
 #endif
+
+void eos_delay_ms(eos_u32_t time_ms)
+{
+    eos_u32_t bit;
+    eos_port_critical_enter();
+
+    /* never call eos_delay_ms and eos_delay_ticks in the idle task */
+    EOS_ASSERT(eos_current != kernel.task[0]);
+
+    eos_current->timeout = eos.time + time_ms;
+    eos_current->state = TaskState_Suspend;
+    bit = (1U << (eos_current->priority - 1));
+    kernel.ready &= ~bit;
+    kernel.delay |= bit;
+    
+    eos_sheduler();
+    eos_port_critical_exit();
+}
+
 
 eos_s8_t eos_once(void)
 {
@@ -393,9 +470,99 @@ eos_s8_t eos_once(void)
     return (eos_s8_t)EosRun_OK;
 }
 
+eos_u32_t flag = 0;
+static void eos_thread_function(void * para)
+{
+    while (1) {
+        flag = flag == 0 ? 1 : 0;
+        
+        eos_delay_ms(500);
+    }
+}
+
+static void eos_thread_end(void * para)
+{
+    while (1) {
+
+    }
+}
+
+static void eos_thread_start(   eos_task_t * const me,
+                                eos_func_t func,
+                                void *stack_addr,
+                                eos_u32_t stack_size,
+                                eos_u8_t priority)
+{
+    /* round down the stack top to the 8-byte boundary
+    * NOTE: ARM Cortex-M stack grows down from hi -> low memory
+    */
+    eos_u32_t *sp = (eos_u32_t *)((((eos_u32_t)stack_addr + stack_size) / 8) * 8);
+    eos_u32_t *stk_limit;
+
+    *(-- sp) = (eos_u32_t)(1 << 24);            /* xPSR, Set Bit24(Thumb Mode) to 1. */
+    *(-- sp) = (eos_u32_t)func;                 /* the entry function (PC) */
+    *(-- sp) = (eos_u32_t)&eos_thread_end;      /* R14(LR) */
+    *(-- sp) = (eos_u32_t)0x12121212u;          /* R12 */
+    *(-- sp) = (eos_u32_t)0x03030303u;          /* R3 */
+    *(-- sp) = (eos_u32_t)0x02020202u;          /* R2 */
+    *(-- sp) = (eos_u32_t)0x01010101u;          /* R1 */
+    *(-- sp) = (eos_u32_t)0x00000000u;          /* R0 */
+    /* additionally, fake registers R4-R11 */
+    *(-- sp) = (eos_u32_t)0x11111111u;          /* R11 */
+    *(-- sp) = (eos_u32_t)0x10101010u;          /* R10 */
+    *(-- sp) = (eos_u32_t)0x09090909u;          /* R9 */
+    *(-- sp) = (eos_u32_t)0x08080808u;          /* R8 */
+    *(-- sp) = (eos_u32_t)0x07070707u;          /* R7 */
+    *(-- sp) = (eos_u32_t)0x06060606u;          /* R6 */
+    *(-- sp) = (eos_u32_t)0x05050505u;          /* R5 */
+    *(-- sp) = (eos_u32_t)0x04040404u;          /* R4 */
+
+    /* save the top of the stack in the task's attibute */
+    me->sp = sp;
+
+    /* round up the bottom of the stack to the 8-byte boundary */
+    stk_limit = (eos_u32_t *)(((((eos_u32_t)stack_addr - 1U) / 8) + 1U) * 8);
+
+    /* pre-fill the unused part of the stack with 0xDEADBEEF */
+    for (sp = sp - 1U; sp >= stk_limit; --sp) {
+        *sp = 0xDEADBEEFU;
+    }
+    
+    /* register the task with the OS */
+    kernel.task[priority] = me;
+    me->priority = priority;
+
+    /* make the task ready to run */
+    if (priority > 0U) {
+        kernel.ready |= (1U << (priority - 1U));
+    }
+}
+
+static void eos_sheduler(void)
+{
+    eos_port_critical_enter();
+    /* eos_next = ... */
+    if (kernel.ready == 0U) {                        /* idle condition? */
+        eos_next = kernel.task[0];                         /* the idle task */
+    } else {
+        eos_next = kernel.task[LOG2(kernel.ready)];
+        EOS_ASSERT(eos_next != (eos_task_t *)0);
+    }
+
+    /* trigger PendSV, if needed */
+    if (eos_next != eos_current) {
+        *(eos_u32_t volatile *)0xE000ED04 = (1U << 28);
+    }
+    eos_port_critical_exit();
+}
+
 void eos_run(void)
 {
     eos_hook_start();
+    
+    eos_sheduler();
+    
+    return;
 
     EOS_ASSERT(eos.enabled == EOS_True);
 #if (EOS_USE_PUB_SUB != 0)
@@ -437,7 +604,7 @@ eos_u32_t eos_time(void)
     return eos.time;
 }
 
-void eos_tick(void)
+void SysTick_Handler(void)
 {
     eos_u32_t system_time = eos.time, system_time_bkp = eos.time;
     eos_u32_t offset = EOS_MS_NUM_30DAY - 1 + EOS_TICK_MS;
@@ -453,6 +620,23 @@ void eos_tick(void)
         eos_port_critical_exit();
     }
     eos.time = system_time;
+
+    /* check all the time-events are timeout or not */
+    eos_u32_t working_set, bit;
+    working_set = kernel.delay;
+    while (working_set != 0U) {
+        eos_task_t *t = kernel.task[LOG2(working_set)];
+        EOS_ASSERT((t != (eos_task_t *)0) && (t->timeout != 0U));
+
+        bit = (1U << (t->priority - 1));
+        if (eos.time >= t->timeout) {
+            kernel.ready |= bit;   /* insert to set */
+            kernel.delay &= ~bit;  /* remove from set */
+            
+            eos_sheduler();
+        }
+        working_set &=~ bit;            /* remove from working set */
+    }
 }
 #endif
 
