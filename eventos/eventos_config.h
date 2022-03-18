@@ -61,7 +61,7 @@
 
 /* Event's Data Configuration ----------------------------------------------- */
 #define EOS_USE_EVENT_DATA                      1
-#define EOS_SIZE_HEAP                           128         // 设定堆大小
+#define EOS_SIZE_HEAP                           12800       // 设定堆大小
 
 /* Event Bridge Configuration ----------------------------------------------- */
 #define EOS_USE_EVENT_BRIDGE                    0

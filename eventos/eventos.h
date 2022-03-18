@@ -131,7 +131,7 @@ typedef eos_event_t *                       eos_event_quote_t;
 typedef struct eos_task {
     eos_u32_t *sp;                                      /* stack pointer */
     eos_u32_t stack_size             : 16;              /* stack size */
-    eos_u32_t priority               : 8;
+    eos_u32_t priority               : 5;
     eos_u32_t state                  : 4;
     eos_u32_t type                   : 2;
     eos_u32_t rsv                    : 2;
@@ -145,7 +145,6 @@ typedef struct eos_actor {
     void *stack;
     eos_u32_t size;
 #if (EOS_MCU_TYPE == 32 || EOS_MCU_TYPE == 16)
-    eos_u32_t priority              : 5;
     eos_u32_t mode                  : 1;
     eos_u32_t enabled               : 1;
     eos_u32_t reserve               : 1;

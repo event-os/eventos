@@ -27,10 +27,10 @@ int main(void)
     return 0;
 }
 
-//void SysTick_Handler(void)
-//{
-//    eos_tick();
-//}
+void SysTick_Handler(void)
+{
+    eos_tick();
+}
 
 void HardFault_Handler(void)
 {
