@@ -128,8 +128,22 @@ typedef eos_ret_t (* eos_state_handler)(struct eos_sm *const me, eos_event_t con
 
 typedef eos_event_t *                       eos_event_quote_t;
 
+typedef struct eos_task {
+    eos_u32_t *sp;                                      /* stack pointer */
+    eos_u32_t stack_size             : 16;              /* stack size */
+    eos_u32_t priority               : 8;
+    eos_u32_t state                  : 4;
+    eos_u32_t type                   : 2;
+    eos_u32_t rsv                    : 2;
+    eos_u32_t timeout;
+    void *parameter;
+} eos_task_t;
+
 // Actor类
 typedef struct eos_actor {
+    eos_task_t super;
+    void *stack;
+    eos_u32_t size;
 #if (EOS_MCU_TYPE == 32 || EOS_MCU_TYPE == 16)
     eos_u32_t priority              : 5;
     eos_u32_t mode                  : 1;
@@ -173,11 +187,12 @@ void eos_stop(void);
 eos_u32_t eos_time(void);
 void eos_tick(void);
 #endif
+void eos_delay_ms(eos_u32_t time_ms);
 
 // 关于Reactor -----------------------------------------------------------------
 void eos_reactor_init(  eos_reactor_t * const me,
                         eos_u8_t priority,
-                        void const * const parameter);
+                        void *stack, eos_u32_t size);
 void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler);
 #define EOS_HANDLER_CAST(handler)       ((eos_event_handler)(handler))
 
@@ -186,7 +201,7 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 // 状态机初始化函数
 void eos_sm_init(   eos_sm_t * const me,
                     eos_u8_t priority,
-                    void const * const parameter);
+                    void *stack, eos_u32_t size);
 void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init);
 
 eos_ret_t eos_tran(eos_sm_t * const me, eos_state_handler state);

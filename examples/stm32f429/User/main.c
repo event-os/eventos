@@ -16,6 +16,11 @@ int main(void)
         while (1);
     
     eos_init();                                     // EventOS初始化
+#if (EOS_USE_PUB_SUB != 0)
+    eos_sub_init(eos_sub_table, Event_Max);         // 订阅表初始化
+#endif
+    
+    eos_reactor_led_init();
 
     eos_run();                                      // EventOS启动
 

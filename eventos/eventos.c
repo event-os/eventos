@@ -66,16 +66,7 @@ enum {
 
 typedef void (* eos_func_t)(void * para);
 
-typedef struct eos_task {
-    eos_u32_t *sp;                                      /* stack pointer */
-    eos_u32_t stack_size             : 16;              /* stack size */
-    eos_u32_t priority               : 8;
-    eos_u32_t state                  : 4;
-    eos_u32_t type                   : 2;
-    eos_u32_t rsv                    : 2;
-    eos_u32_t timeout;
-    void *parameter;
-} eos_task_t;
+
 
 eos_task_t *volatile eos_current;
 eos_task_t *volatile eos_next;
@@ -262,11 +253,13 @@ static void eos_clear(void)
 eos_u8_t stack_idle[1024];
 eos_task_t task_idle;
 
+eos_u32_t count_eos = 0;
 void thread_idle(void *parameter)
 {
     (void)parameter;
     
     while (1) {
+        count_eos ++;
         eos_hook_idle();
     }
 }
@@ -604,6 +597,7 @@ eos_u32_t eos_time(void)
     return eos.time;
 }
 
+eos_u32_t working_set, bit;
 void SysTick_Handler(void)
 {
     eos_u32_t system_time = eos.time, system_time_bkp = eos.time;
@@ -622,7 +616,7 @@ void SysTick_Handler(void)
     eos.time = system_time;
 
     /* check all the time-events are timeout or not */
-    eos_u32_t working_set, bit;
+//    eos_u32_t working_set, bit;
     working_set = kernel.delay;
     while (working_set != 0U) {
         eos_task_t *t = kernel.task[LOG2(working_set)];
@@ -643,10 +637,8 @@ void SysTick_Handler(void)
 // 关于Reactor -----------------------------------------------------------------
 static void eos_actor_init( eos_actor_t * const me,
                             eos_u8_t priority,
-                            void const * const parameter)
+                            void *stack, eos_u32_t size)
 {
-    (void)parameter;
-
     // 框架需要先启动起来
     EOS_ASSERT(eos.enabled == EOS_True);
     EOS_ASSERT(eos.running == EOS_False);
@@ -669,13 +661,15 @@ static void eos_actor_init( eos_actor_t * const me,
     eos.actor[priority] = me;
     // 状态机   
     me->priority = priority;
+    me->stack = stack;
+    me->size = size;
 }
 
 void eos_reactor_init(  eos_reactor_t * const me,
                         eos_u8_t priority,
-                        void const * const parameter)
+                        void *stack, eos_u32_t size)
 {
-    eos_actor_init(&me->super, priority, parameter);
+    eos_actor_init(&me->super, priority, stack, size);
     me->super.mode = EOS_Mode_Reactor;
 }
 
@@ -684,15 +678,18 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
     me->event_handler = event_handler;
     me->super.enabled = EOS_True;
     eos.actor_enabled |= (1 << me->super.priority);
+    
+    eos_thread_start(   &me->super.super, eos_thread_function,
+                        me->super.stack, me->super.size, me->super.priority);
 }
 
 // state machine ---------------------------------------------------------------
 #if (EOS_USE_SM_MODE != 0)
 void eos_sm_init(   eos_sm_t * const me,
                     eos_u8_t priority,
-                    void const * const parameter)
+                    void *stack, eos_u32_t size)
 {
-    eos_actor_init(&me->super, priority, parameter);
+    eos_actor_init(&me->super, priority, stack, size);
     me->super.mode = EOS_Mode_StateMachine;
     me->state = eos_state_top;
 }
