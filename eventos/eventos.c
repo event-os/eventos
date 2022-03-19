@@ -546,8 +546,6 @@ static void eos_actor_init( eos_actor_t * const me,
                             eos_u8_t priority,
                             void *stack, eos_u32_t size)
 {
-    priority --;
-    
     // 框架需要先启动起来
     EOS_ASSERT(eos.enabled != EOS_False);
     EOS_ASSERT(eos.running == EOS_False);

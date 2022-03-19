@@ -3,7 +3,6 @@
 #include "eventos.h"                                // EventOS Nano头文件
 #include "event_def.h"                              // 事件主题的枚举
 #include "eos_led.h"                                // LED灯闪烁状态机
-#include "rtt/SEGGER_RTT.h"
 
 /* define ------------------------------------------------------------------- */
 #if (EOS_USE_PUB_SUB != 0)
