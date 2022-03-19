@@ -173,7 +173,7 @@ typedef struct eos_tag {
 } eos_t;
 
 /* eventos API for test ----------------------------- */
-eos_s8_t eos_once(eos_u8_t priority);
+eos_s8_t eos_execute(eos_u8_t priority);
 eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size);
 void * eos_get_framework(void);
 void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoot);
@@ -390,7 +390,7 @@ static eos_s8_t eos_get_current(void)
     return priority + 50;
 }
 
-eos_s8_t eos_once(eos_u8_t priority)
+eos_s8_t eos_execute(eos_u8_t priority)
 {
     // 寻找当前Actor的最老的事件
     eos_port_critical_enter();
@@ -406,6 +406,8 @@ eos_s8_t eos_once(eos_u8_t priority)
     eos_event_t event;
     event.topic = e->topic;
     event.data = (void *)((eos_pointer_t)e + sizeof(eos_event_inner_t));
+    eos_block_t *block = (eos_block_t *)((eos_pointer_t)e - sizeof(eos_block_t));
+    event.size = block->size - block->offset;
     // 对事件进行执行
 #if (EOS_USE_PUB_SUB != 0)
     if ((eos.sub_table[e->topic] & (1 << priority)) != 0)
@@ -446,7 +448,7 @@ static void eos_thread_function(void)
         EOS_ASSERT(ret >= 0);
         
         if (ret >= 50) {
-            eos_once(ret - 50);
+            eos_execute(ret - 50);
         }
         eos_sheduler();
     }
@@ -1121,7 +1123,8 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
 
     /* Divide the block into two blocks. */
     /* ARM Cortex-M0不支持非对齐访问 */
-    size = (size % 4 == 0) ? size : (size + 4 - (size % 4));
+    eos_u8_t offset = (size % 4);
+    size = (offset == 0) ? size : (size + 4 - offset);
     eos_pointer_t address = (eos_pointer_t)block + size + sizeof(eos_block_t);
     eos_block_t * new_block = (eos_block_t *)address;
     eos_u32_t _size = block->size - size - sizeof(eos_block_t);
@@ -1131,8 +1134,10 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
     new_block->free = EOS_True;
     new_block->next = block->next;
     new_block->last = (eos_u16_t)((eos_pointer_t)block - (eos_pointer_t)me->data);
+    
     block->next = (eos_u16_t)((eos_pointer_t)new_block - (eos_pointer_t)me->data);
     block->size = size;
+    block->offset = offset;
     block->free = EOS_False;
 
     if (new_block->next != EOS_HEAP_MAX) {
