@@ -116,6 +116,8 @@ typedef struct eos_event {
 } eos_event_t;
 
 // 数据结构 - 行为树相关 --------------------------------------------------------
+typedef void (* eos_func_t)(void);
+
 // 事件处理句柄的定义
 struct eos_reactor;
 typedef void (* eos_event_handler)(struct eos_reactor *const me, eos_event_t const * const e);
@@ -128,23 +130,15 @@ typedef eos_ret_t (* eos_state_handler)(struct eos_sm *const me, eos_event_t con
 
 typedef eos_event_t *                       eos_event_quote_t;
 
-typedef struct eos_task {
-    eos_u32_t *sp;                                      /* stack pointer */
-    eos_u32_t stack_size             : 16;              /* stack size */
-    eos_u32_t priority               : 5;
-    eos_u32_t state                  : 4;
-    eos_u32_t type                   : 2;
-    eos_u32_t rsv                    : 2;
-    eos_u32_t timeout;
-    void *parameter;
-} eos_task_t;
-
 // Actor类
 typedef struct eos_actor {
-    eos_task_t super;
+    eos_u32_t *sp;
     void *stack;
     eos_u32_t size;
+    eos_u32_t timeout;
 #if (EOS_MCU_TYPE == 32 || EOS_MCU_TYPE == 16)
+    eos_u32_t stack_size            : 16;              /* stack size */
+    eos_u32_t priority              : 5;
     eos_u32_t mode                  : 1;
     eos_u32_t enabled               : 1;
     eos_u32_t reserve               : 1;
@@ -235,6 +229,7 @@ void eos_event_time_cancel(eos_topic_t topic);
 /* port --------------------------------------------------------------------- */
 void eos_port_critical_enter(void);
 void eos_port_critical_exit(void);
+void eos_port_task_switch(void);
 void eos_port_assert(eos_u32_t error_id);
 
 /* hook --------------------------------------------------------------------- */

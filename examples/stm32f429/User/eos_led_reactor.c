@@ -3,6 +3,7 @@
 #include "eventos.h"
 #include "event_def.h"
 #include <stdio.h>
+#include "rtt/SEGGER_RTT.h"
 
 /* data structure ----------------------------------------------------------- */
 typedef struct eos_reactor_led_tag {
@@ -34,11 +35,18 @@ void eos_reactor_led_init(void)
 }
 
 /* static state function ---------------------------------------------------- */
+eos_u32_t time1 = 0, time2 = 0;
+eos_u8_t evt_count = 0;
 static void led_e_handler(eos_reactor_led_t * const me, eos_event_t const * const e)
 {
     if (e->topic == Event_Time_1000ms) {
+        evt_count ++;
+        
+        time1 = eos_time();
         me->status = (me->status == 0) ? 1 : 0;
         eos_delay_ms(500);
+        
+        time2 = eos_time();
         me->status = (me->status == 0) ? 1 : 0;
     }
 }

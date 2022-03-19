@@ -20,9 +20,10 @@ static eos_ret_t state_on(eos_sm_led_t * const me, eos_event_t const * const e);
 static eos_ret_t state_off(eos_sm_led_t * const me, eos_event_t const * const e);
 
 /* api ---------------------------------------------------- */
+static eos_u32_t stack_sm[1024];
 void eos_sm_led_init(void)
 {
-    eos_sm_init(&sm_led.super, 1, EOS_NULL);
+    eos_sm_init(&sm_led.super, 1, stack_sm, 1024);
     eos_sm_start(&sm_led.super, EOS_STATE_CAST(state_init));
 
     sm_led.status = 0;

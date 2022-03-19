@@ -57,16 +57,8 @@ enum eos_actor_mode {
 };
 
 /* eos task ----------------------------------------------------------------- */
-enum {
-    TaskState_Ready = 0,
-    TaskState_Running,
-    TaskState_Suspend,
-};
-
-typedef void (* eos_func_t)(void * para);
-
-eos_task_t *volatile eos_current;
-eos_task_t *volatile eos_next;
+eos_actor_t *volatile eos_current;
+eos_actor_t *volatile eos_next;
 
 // **eos** ---------------------------------------------------------------------
 enum {
@@ -173,7 +165,6 @@ typedef struct eos_tag {
     eos_u32_t timeout_min;
     eos_u8_t timer_count;
 #endif
-    eos_u32_t ready;
     eos_u32_t delay;
 
     eos_u8_t enabled                        : 1;
@@ -214,11 +205,8 @@ static const eos_event_t eos_event_table[Event_User] = {
 // static function -------------------------------------------------------------
 static void eos_sheduler(void);
 static eos_s8_t eos_get_current(void);
-static void eos_thread_start(   eos_task_t * const me,
-                                eos_func_t func,
-                                void *stack_addr,
-                                eos_u32_t stack_size,
-                                eos_u8_t priority);
+void eos_thread_start(eos_actor_t * const me, eos_func_t func, void *stack_addr,
+                      eos_u32_t stack_size);
 #if (EOS_USE_SM_MODE != 0)
 static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e);
 #if (EOS_USE_HSM_MODE != 0)
@@ -242,25 +230,14 @@ static void eos_clear(void)
 }
 
 eos_u8_t stack_idle[1024];
-eos_task_t task_idle;
+eos_actor_t task_idle;
 
 eos_u32_t count_eos = 0;
-void thread_idle(void *parameter)
+void thread_idle(void)
 {
-    (void)parameter;
-    
     while (1) {
         count_eos ++;
         eos_hook_idle();
-        eos_s8_t ret = eos_get_current();
-        EOS_ASSERT(ret >= 0);
-        
-        if (ret > 50) {
-            eos_u8_t priority = ret - 50;
-            eos_next = &eos.actor[priority]->super;
-            eos.ready |= (1U << (priority - 1));
-            eos_sheduler();
-        }
     }
 }
 
@@ -285,10 +262,9 @@ void eos_init(void)
     eos.time = 0;
 #endif
     
-    *(eos_u32_t volatile *)0xE000ED20 |= (0xFFU << 16U);
     eos_current = 0;
     
-    eos_thread_start(&task_idle, thread_idle, stack_idle, 1024U, 0);
+    eos_thread_start(&task_idle, thread_idle, stack_idle, 1024U);
 }
 
 #if (EOS_USE_PUB_SUB != 0)
@@ -307,8 +283,9 @@ eos_s32_t eos_evttimer(void)
     // 获取当前时间，检查延时事件队列
     eos_u32_t system_time = eos.time;
     
-    if (eos.etimer[0].topic == Event_Null)
+    if (eos.etimer[0].topic == Event_Null) {
         return EosTimer_Empty;
+    }
 
     // 时间未到达
     if (system_time < eos.timeout_min)
@@ -364,10 +341,8 @@ void eos_delay_ms(eos_u32_t time_ms)
     /* never call eos_delay_ms and eos_delay_ticks in the idle task */
     EOS_ASSERT(eos_current != &task_idle);
 
-    eos_current->timeout = eos.time + time_ms;
-    eos_current->state = TaskState_Suspend;
-    bit = (1U << (eos_current->priority - 1));
-    eos.ready &= ~bit;
+    ((eos_actor_t *)eos_current)->timeout = eos.time + time_ms;
+    bit = (1U << (((eos_actor_t *)eos_current)->priority));
     eos.delay |= bit;
     
     eos_sheduler();
@@ -396,10 +371,6 @@ static eos_s8_t eos_get_current(void)
         return (eos_s8_t)EosRun_NoActor;
     }
 
-#if (EOS_USE_TIME_EVENT != 0)
-    eos_evttimer();
-#endif
-
     if (eos.heap.empty != EOS_False) {
         return (eos_s8_t)EosRun_NoEvent;
     }
@@ -410,6 +381,8 @@ static eos_s8_t eos_get_current(void)
         if ((eos.actor_exist & (1 << i)) == 0)
             continue;
         if ((eos.heap.sub_general & (1 << i)) == 0)
+            continue;
+        if ((eos.delay & (1 << i)) != 0)
             continue;
         priority = i;
         break;
@@ -427,7 +400,9 @@ eos_s8_t eos_once(eos_u8_t priority)
     // 寻找当前Actor的最老的事件
     eos_port_critical_enter();
     eos_event_inner_t * e = eos_heap_get_block(&eos.heap, priority);
-    EOS_ASSERT(e != EOS_NULL);
+    if (e == EOS_NULL) {
+        EOS_ASSERT(0);
+    }
     eos_port_critical_exit();
     
     eos_actor_t *actor = eos.actor[priority];
@@ -469,113 +444,43 @@ eos_s8_t eos_once(eos_u8_t priority)
     return (eos_s8_t)EosRun_OK;
 }
 
-eos_u32_t flag = 0;
-eos_s8_t ret = 0;
-eos_u8_t priority = 0;
-static void eos_thread_function(void * para)
+static void eos_thread_function(void)
 {
     while (1) {
-        flag = flag == 0 ? 1 : 0;
-        ret = eos_get_current();
+        eos_s8_t ret = eos_get_current();
         EOS_ASSERT(ret >= 0);
         
-        if (ret < 50) {
-            eos_next = &task_idle;
-            eos_sheduler();
+        if (ret >= 50) {
+            eos_once(ret - 50);
         }
-        else {
-            priority = ret - 50;
-            eos_next = &eos.actor[priority]->super;
-            eos.ready |= (1U << (priority - 1));
-            eos_sheduler();
-            eos_once(priority);
-        }
+        eos_sheduler();
     }
 }
 
-static void eos_thread_end(void * para)
-{
-    while (1) {
-        
-    }
-}
-
-static void eos_thread_start(   eos_task_t * const me,
-                                eos_func_t func,
-                                void *stack_addr,
-                                eos_u32_t stack_size,
-                                eos_u8_t priority)
-{
-    /* round down the stack top to the 8-byte boundary
-    * NOTE: ARM Cortex-M stack grows down from hi -> low memory
-    */
-    eos_u32_t *sp = (eos_u32_t *)((((eos_u32_t)stack_addr + stack_size) / 8) * 8);
-    eos_u32_t *stk_limit;
-
-    *(-- sp) = (eos_u32_t)(1 << 24);            /* xPSR, Set Bit24(Thumb Mode) to 1. */
-    *(-- sp) = (eos_u32_t)func;                 /* the entry function (PC) */
-    *(-- sp) = (eos_u32_t)&eos_thread_end;      /* R14(LR) */
-    *(-- sp) = (eos_u32_t)0x12121212u;          /* R12 */
-    *(-- sp) = (eos_u32_t)0x03030303u;          /* R3 */
-    *(-- sp) = (eos_u32_t)0x02020202u;          /* R2 */
-    *(-- sp) = (eos_u32_t)0x01010101u;          /* R1 */
-    *(-- sp) = (eos_u32_t)0x00000000u;          /* R0 */
-    /* additionally, fake registers R4-R11 */
-    *(-- sp) = (eos_u32_t)0x11111111u;          /* R11 */
-    *(-- sp) = (eos_u32_t)0x10101010u;          /* R10 */
-    *(-- sp) = (eos_u32_t)0x09090909u;          /* R9 */
-    *(-- sp) = (eos_u32_t)0x08080808u;          /* R8 */
-    *(-- sp) = (eos_u32_t)0x07070707u;          /* R7 */
-    *(-- sp) = (eos_u32_t)0x06060606u;          /* R6 */
-    *(-- sp) = (eos_u32_t)0x05050505u;          /* R5 */
-    *(-- sp) = (eos_u32_t)0x04040404u;          /* R4 */
-
-    /* save the top of the stack in the task's attibute */
-    me->sp = sp;
-
-    /* round up the bottom of the stack to the 8-byte boundary */
-    stk_limit = (eos_u32_t *)(((((eos_u32_t)stack_addr - 1U) / 8) + 1U) * 8);
-
-    /* pre-fill the unused part of the stack with 0xDEADBEEF */
-    for (sp = sp - 1U; sp >= stk_limit; --sp) {
-        *sp = 0xDEADBEEFU;
-    }
-    
-    /* register the task with the OS */
-    eos.actor[priority]->super.priority = priority;
-
-    /* make the task ready to run */
-    if (priority > 0U) {
-        eos.ready |= (1U << (priority - 1U));
-    }
-    
-    if (eos_next == &task_idle) {
-        eos_next = &eos.actor[priority]->super;
-    }
-    else {
-        if (eos_next->priority < priority) {
-            eos_next = &eos.actor[priority]->super;
-        }
-    }
-}
-
-eos_u8_t priority;
 static void eos_sheduler(void)
 {
     eos_port_critical_enter();
     /* eos_next = ... */
-    if (eos.ready == 0U) {                        /* idle condition? */
+    if (eos.heap.sub_general == 0U) {                        /* idle condition? */
         eos_next = &task_idle;                       /* the idle task */
     }
     else {
-        priority = LOG2(eos.ready);
-        eos_next = &eos.actor[priority]->super;
-        EOS_ASSERT(eos_next != (eos_task_t *)0);
+        eos_next = &task_idle;
+        for (eos_s8_t i = (EOS_MAX_ACTORS - 1); i >= 0; i --) {
+            if ((eos.heap.sub_general & (1 << i)) == 0) {
+                continue;
+            }
+            if ((eos.delay & (1 << i)) != 0) {
+                continue;
+            }
+            eos_next = eos.actor[i];
+            break;
+        }
     }
 
     /* trigger PendSV, if needed */
     if (eos_next != eos_current) {
-        *(eos_u32_t volatile *)0xE000ED04 = (1U << 28);
+        eos_port_task_switch();
     }
     eos_port_critical_exit();
 }
@@ -615,22 +520,28 @@ void eos_tick(void)
         eos_port_critical_exit();
     }
     eos.time = system_time;
+    
+#if (EOS_USE_TIME_EVENT != 0)
+    eos_evttimer();
+#endif
 
     /* check all the time-events are timeout or not */
     eos_u32_t working_set, bit;
     working_set = eos.delay;
     while (working_set != 0U) {
-        eos_task_t *t = &eos.actor[LOG2(working_set)]->super;
-        EOS_ASSERT((t != (eos_task_t *)0) && (t->timeout != 0U));
+        eos_actor_t *t = eos.actor[LOG2(working_set) - 1];
+        EOS_ASSERT(t != (eos_actor_t *)0);
+        EOS_ASSERT(((eos_actor_t *)t)->timeout != 0U);
 
-        bit = (1U << (t->priority - 1));
-        if (eos.time >= t->timeout && eos.heap.empty != EOS_False) {
-            eos.ready |= bit;   /* insert to set */
+        bit = (1U << (((eos_actor_t *)t)->priority));
+        if (eos.time >= ((eos_actor_t *)t)->timeout) {
             eos.delay &= ~bit;  /* remove from set */
-            
-            eos_sheduler();
         }
         working_set &=~ bit;            /* remove from working set */
+    }
+
+    if (eos_current == &task_idle) {
+        eos_sheduler();
     }
 }
 #endif
@@ -663,7 +574,7 @@ static void eos_actor_init( eos_actor_t * const me,
     eos.actor_exist |= (1 << priority);
     eos.actor[priority] = me;
     // 状态机   
-    me->super.priority = priority;
+    me->priority = priority;
     me->stack = stack;
     me->size = size;
 }
@@ -680,10 +591,10 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 {
     me->event_handler = event_handler;
     me->super.enabled = EOS_True;
-    eos.actor_enabled |= (1 << me->super.super.priority);
+    eos.actor_enabled |= (1 << me->super.priority);
     
-    eos_thread_start(   &me->super.super, eos_thread_function,
-                        me->super.stack, me->super.size, me->super.super.priority);
+    eos_thread_start(   &me->super, eos_thread_function,
+                        me->super.stack, me->super.size);
 }
 
 // state machine ---------------------------------------------------------------
@@ -706,7 +617,7 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 
     me->state = state_init;
     me->super.enabled = EOS_True;
-    eos.actor_enabled |= (1 << me->super.super.priority);
+    eos.actor_enabled |= (1 << me->super.priority);
 
     // 进入初始状态，执行TRAN动作。这也意味着，进入初始状态，必须无条件执行Tran动作。
     t = me->state;
@@ -746,6 +657,9 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 
     me->state = t;
 #endif
+    
+    eos_thread_start(   &me->super, eos_thread_function,
+                        me->super.stack, me->super.size);
 }
 #endif
 
@@ -805,7 +719,7 @@ eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
         e_data[i] = ((eos_u8_t *)data)[i];
     }
     eos_port_critical_exit();
-
+    
     return (eos_s8_t)EosRun_OK;
 }
 
@@ -814,6 +728,10 @@ void eos_event_pub_topic(eos_topic_t topic)
     eos_s8_t ret = eos_event_pub_ret(topic, EOS_NULL, 0);
     EOS_ASSERT(ret >= 0);
     (void)ret;
+    
+    if (eos_current == &task_idle) {
+        eos_sheduler();
+    }
 }
 
 #if (EOS_USE_EVENT_DATA != 0)
@@ -822,18 +740,22 @@ void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size)
     eos_s8_t ret = eos_event_pub_ret(topic, data, size);
     EOS_ASSERT(ret >= 0);
     (void)ret;
+    
+    if (eos_current == &task_idle) {
+        eos_sheduler();
+    }
 }
 #endif
 
 #if (EOS_USE_PUB_SUB != 0)
 void eos_event_sub(eos_actor_t * const me, eos_topic_t topic)
 {
-    eos.sub_table[topic] |= (1 << me->super.priority);
+    eos.sub_table[topic] |= (1 << me->priority);
 }
 
 void eos_event_unsub(eos_actor_t * const me, eos_topic_t topic)
 {
-    eos.sub_table[topic] &= ~(1 << me->super.priority);
+    eos.sub_table[topic] &= ~(1 << me->priority);
 }
 #endif
 
