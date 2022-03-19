@@ -1085,7 +1085,7 @@ void eos_heap_init(eos_heap_t * const me)
     me->queue = EOS_HEAP_MAX;
     me->error_id = 0;
     me->size = EOS_SIZE_HEAP;
-    me->empty = 1;
+    me->empty = EOS_True;
     me->sub_general = 0;
     me->current = EOS_HEAP_MAX;
 
@@ -1096,7 +1096,7 @@ void eos_heap_init(eos_heap_t * const me)
    
     block_1st->last = EOS_HEAP_MAX;
     block_1st->size = EOS_SIZE_HEAP - (eos_u16_t)sizeof(eos_block_t);
-    block_1st->free = 1;
+    block_1st->free = EOS_True;
     block_1st->next = EOS_HEAP_MAX;
 }
 
@@ -1140,7 +1140,7 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
     new_block->last = (eos_u16_t)((eos_pointer_t)block - (eos_pointer_t)me->data);
     block->next = (eos_u16_t)((eos_pointer_t)new_block - (eos_pointer_t)me->data);
     block->size = size;
-    block->free = 0;
+    block->free = EOS_False;
 
     if (new_block->next != EOS_HEAP_MAX) {
         eos_block_t * block_next2 = (eos_block_t *)((eos_pointer_t)me->data + new_block->next);
@@ -1168,7 +1168,7 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
     }
 
     me->error_id = 0;
-    me->empty = 0;
+    me->empty = EOS_False;
     void *p = (void *)((eos_pointer_t)block + (eos_u32_t)sizeof(eos_block_t));
     me->count ++;
 
@@ -1188,7 +1188,7 @@ void eos_heap_gc(eos_heap_t * const me, void *data)
         /* 从Queue中删除 */
         // 如果当前只有这一个block
         if (block->q_next == EOS_HEAP_MAX && block->q_last == EOS_HEAP_MAX) {
-            me->empty = 1;
+            me->empty = EOS_True;
             me->current = EOS_HEAP_MAX;
             me->queue = EOS_HEAP_MAX;
         }
