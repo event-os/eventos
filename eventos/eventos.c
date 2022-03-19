@@ -73,6 +73,8 @@ enum {
     EosTimer_NotTimeout,
     EosTimer_ChangeToEmpty,
 
+    EosRet_Max,
+
     EosRunErr_NotInitEnd                    = -1,
     EosRunErr_ActorNotSub                   = -2,
     EosRunErr_MallocFail                    = -3,
@@ -387,7 +389,7 @@ static eos_s8_t eos_get_current(void)
         return (eos_s8_t)EosRun_NoActorSub;
     }
     
-    return priority + 50;
+    return priority + EosRet_Max;
 }
 
 eos_s8_t eos_execute(eos_u8_t priority)
@@ -447,8 +449,8 @@ static void eos_thread_function(void)
         eos_s8_t ret = eos_get_current();
         EOS_ASSERT(ret >= 0);
         
-        if (ret >= 50) {
-            eos_execute(ret - 50);
+        if (ret >= EosRet_Max) {
+            eos_execute(ret - EosRet_Max);
         }
         eos_sheduler();
     }
@@ -532,9 +534,9 @@ void eos_tick(void)
 
         bit = (1U << (((eos_actor_t *)t)->priority));
         if (eos.time >= ((eos_actor_t *)t)->timeout) {
-            eos.delay &= ~bit;  /* remove from set */
+            eos.delay &= ~bit;              /* remove from set */
         }
-        working_set &=~ bit;            /* remove from working set */
+        working_set &=~ bit;                /* remove from working set */
     }
 
     if (eos_current == &task_idle) {
