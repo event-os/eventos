@@ -672,9 +672,7 @@ void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoo
             period = time_ms;
             break;
         }
-        period =    (((time_ms / (timer_unit[i] / 10)) % 10) < 5 ?
-                    (time_ms / timer_unit[i]) :
-                    (time_ms / timer_unit[i] + 1));
+        period = (time_ms + (timer_unit[i] >> 1)) / timer_unit[i];
         break;
     }
     eos_u32_t timeout = (system_ms + time_ms);
