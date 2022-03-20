@@ -277,13 +277,8 @@ eos_s32_t eos_evttimer(void)
             i --;
         }
         else {
-            if (eos.etimer[i].unit == 1) {
-                eos.etimer[i].timeout_ms += eos.etimer[i].period;
-            }
-            else {
-                eos_u32_t period = eos.etimer[i].period * timer_unit[eos.etimer[i].unit];
-                eos.etimer[i].timeout_ms += period;
-            }
+            eos_u32_t period = eos.etimer[i].period * timer_unit[eos.etimer[i].unit];
+            eos.etimer[i].timeout_ms += period;
         }
     }
     if (eos.timer_count == 0) {
