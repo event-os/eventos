@@ -12,7 +12,7 @@ typedef struct eos_reactor_led_tag {
     eos_u8_t status;
 } eos_reactor_led_t;
 
-eos_u32_t stack_led[1024];
+eos_u64_t stack_led[32];
 eos_reactor_led_t actor_led;
 
 /* static event handler ----------------------------------------------------- */
@@ -21,7 +21,7 @@ static void led_e_handler(eos_reactor_led_t * const me, eos_event_t const * cons
 /* api ---------------------------------------------------- */
 void eos_reactor_led_init(void)
 {
-    eos_reactor_init(&actor_led.super, 31, stack_led, 1024);
+    eos_reactor_init(&actor_led.super, 31, stack_led, sizeof(stack_led));
     eos_reactor_start(&actor_led.super, EOS_HANDLER_CAST(led_e_handler));
 
     actor_led.status = 0;

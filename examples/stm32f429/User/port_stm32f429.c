@@ -12,7 +12,7 @@ void eos_thread_start(  eos_actor_t * const me,
     /* round down the stack top to the 8-byte boundary
      * NOTE: ARM Cortex-M stack grows down from hi -> low memory
      */
-    eos_u32_t *sp = (eos_u32_t *)((((eos_u32_t)stack_addr + stack_size) / 8) * 8);
+    eos_u32_t *sp = (eos_u32_t *)((((eos_u32_t)stack_addr + stack_size) >> 3U) << 3U);
     eos_u32_t *stk_limit;
 
     *(-- sp) = (eos_u32_t)(1 << 24);            /* xPSR, Set Bit24(Thumb Mode) to 1. */
@@ -37,7 +37,7 @@ void eos_thread_start(  eos_actor_t * const me,
     me->sp = sp;
 
     /* round up the bottom of the stack to the 8-byte boundary */
-    stk_limit = (eos_u32_t *)(((((eos_u32_t)stack_addr - 1U) / 8) + 1U) * 8);
+    stk_limit = (eos_u32_t *)(((((eos_u32_t)stack_addr - 1U) >> 3U) + 1U) << 3U);
 
     /* pre-fill the unused part of the stack with 0xDEADBEEF */
     for (sp = sp - 1U; sp >= stk_limit; --sp) {
@@ -77,7 +77,6 @@ PendSV_restore
     LDR           r1,[r1,#0x00]
     LDR           r2,=eos_current
     STR           r1,[r2,#0x00]
-
     POP           {r4-r11}              /* pop registers r4-r11 */
 #if (__TARGET_ARCH_THUMB == 3)          /* Cortex-M0/M0+/M1 (v6-M, v6S-M)? */
     CPSIE   i                           /* enable interrupts (clear PRIMASK) */

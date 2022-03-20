@@ -231,7 +231,7 @@ static void eos_clear(void)
 #endif
 }
 
-eos_u8_t stack_idle[1024];
+eos_u64_t stack_idle[32];
 eos_actor_t task_idle;
 
 eos_u32_t count_eos = 0;
@@ -265,8 +265,9 @@ void eos_init(void)
 #endif
     
     eos_current = 0;
+    eos_next = &task_idle;
     
-    eos_thread_start(&task_idle, thread_idle, stack_idle, 1024U);
+    eos_thread_start(&task_idle, thread_idle, stack_idle, sizeof(stack_idle));
 }
 
 #if (EOS_USE_PUB_SUB != 0)

@@ -36,7 +36,17 @@
 
 #include "eventos_config.h"
 
+#ifdef __INT64_TYPE__
+    /* armclang predefines '__INT64_TYPE__' and '__INT64_C_SUFFIX__' */
+    #define __INT64 __INT64_TYPE__
+#else
+    /* armcc has builtin '__int64' which can be used in --strict mode */
+    #define __INT64 __int64
+#endif
+
 /* basic data type ---------------------------------------------------------- */
+typedef unsigned __INT64                eos_u64_t;
+typedef signed __INT64                  eos_s64_t;
 typedef unsigned int                    eos_u32_t;
 typedef signed int                      eos_s32_t;
 typedef unsigned short                  eos_u16_t;
