@@ -12,6 +12,7 @@ typedef struct fsm_tag {
     eos_sm_t super;
     eos_u32_t count;
     eos_u32_t state;
+    eos_u32_t data_size;
 } fsm_t;
 
 void fsm_init(fsm_t * const me, eos_u8_t priority, void const * const parameter);
@@ -27,6 +28,7 @@ typedef struct reactor_tag {
     bool status;
     int count_test;
     int count_tr;
+    int data_size;
 } reactor_t;
 
 void reactor_init(reactor_t * const me, eos_u8_t priority, void const * const parameter);

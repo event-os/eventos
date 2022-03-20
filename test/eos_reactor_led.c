@@ -12,6 +12,10 @@ void reactor_init(reactor_t * const me, eos_u8_t priority, void const * const pa
     eos_reactor_init(&me->super, priority, parameter);
     eos_reactor_start(&me->super, EOS_HANDLER_CAST(reactor_func));
 
+    me->data_size = 0;
+    me->count_test = 0;
+    me->count_tr = 0;
+
 #if (EOS_USE_PUB_SUB != 0)
     EOS_EVENT_SUB(Event_TestReactor);
     EOS_EVENT_SUB(Event_Test);
@@ -37,5 +41,8 @@ static void reactor_func(reactor_t * const me, eos_event_t const * const e)
 
     if (e->topic == Event_Test) {
         me->count_test ++;
+        me->data_size = e->size;
+
+        printf("me->data_size : %d.\n", me->data_size);
     }
 }

@@ -61,13 +61,13 @@ typedef struct eos_block {
     // word[0]
     eos_u32_t next                          : 15;
     eos_u32_t q_next                        : 15;
-    eos_u32_t offset                        : 2;
     // word[1]
     eos_u32_t last                          : 15;
     eos_u32_t q_last                        : 15;
     eos_u32_t free                          : 1;
     // word[2]
     eos_u16_t size                          : 15;
+    eos_u32_t offset                        : 8;
 } eos_block_t;
 
 typedef struct eos_event_inner {

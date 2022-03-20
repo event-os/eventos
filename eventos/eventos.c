@@ -113,13 +113,13 @@ typedef struct eos_block {
     // word[0]
     eos_u32_t next                          : 15;
     eos_u32_t q_next                        : 15;
-    eos_u32_t offset                        : 2;
     // word[1]
     eos_u32_t last                          : 15;
     eos_u32_t q_last                        : 15;
     eos_u32_t free                          : 1;
     // word[2]
     eos_u16_t size                          : 15;
+    eos_u32_t offset                        : 8;
 } eos_block_t;
 
 typedef struct eos_event_inner {
@@ -355,6 +355,9 @@ eos_s8_t eos_once(void)
     eos_event_t event;
     event.topic = e->topic;
     event.data = (void *)((eos_pointer_t)e + sizeof(eos_event_inner_t));
+    eos_block_t *block = (eos_block_t *)((eos_pointer_t)e - sizeof(eos_block_t));
+    event.size = block->size - block->offset - sizeof(eos_event_inner_t);
+    printf("block->size: %d, block->offset: %d.\n", block->size, block->offset);
     // 对事件进行执行
 #if (EOS_USE_PUB_SUB != 0)
     if ((eos.sub_table[e->topic] & (1 << actor->priority)) != 0)
@@ -576,10 +579,6 @@ eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size)
     // 保证框架已经运行
     if (eos.enabled == 0) {
         return (eos_s8_t)EosRun_NotEnabled;
-    }
-
-    if (size != 0) {
-        return (eos_s8_t)EosRunErr_InvalidEventData;
     }
 
     if (eos.actor_exist == 0) {
@@ -1017,19 +1016,22 @@ void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size)
 
     /* Divide the block into two blocks. */
     /* ARM Cortex-M0不支持非对齐访问 */
-    size = (size % 4 == 0) ? size : (size + 4 - (size % 4));
+    eos_u8_t offset = (size % 4);
+    size = (offset == 0) ? size : (size + 4 - offset);
     eos_pointer_t address = (eos_pointer_t)block + size + sizeof(eos_block_t);
     eos_block_t * new_block = (eos_block_t *)address;
     eos_u32_t _size = block->size - size - sizeof(eos_block_t);
 
     /* Update the list. */
     new_block->size = _size;
-    new_block->free = 1;
+    new_block->free = EOS_True;
     new_block->next = block->next;
     new_block->last = (eos_u16_t)((eos_pointer_t)block - (eos_pointer_t)me->data);
+
     block->next = (eos_u16_t)((eos_pointer_t)new_block - (eos_pointer_t)me->data);
     block->size = size;
-    block->free = 0;
+    block->free = EOS_False;
+    block->offset = (offset == 0) ? 0 : (4 - offset);
 
     if (new_block->next != EOS_HEAP_MAX) {
         eos_block_t * block_next2 = (eos_block_t *)((eos_pointer_t)me->data + new_block->next);

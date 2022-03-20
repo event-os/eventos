@@ -48,4 +48,22 @@ void eos_test_reactor(void)
     TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
     TEST_ASSERT_EQUAL_INT32(1, reactor_e_tr_count(&reactor2));
     TEST_ASSERT_EQUAL_INT32(1, reactor_e_tr_count(&reactor1));
+
+    TEST_ASSERT_EQUAL_INT8(EosRun_NoEvent, eos_once());
+
+    eos_u8_t data[256];
+    for (int i = 0; i < 256; i ++) {
+        data[i] = i;
+    }
+    for (int i = 1; i < 256; i ++) {
+        TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_event_pub_ret(Event_Test, data, i));
+        TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+        TEST_ASSERT_EQUAL_INT32(i, reactor2.data_size);
+        TEST_ASSERT_EQUAL_INT32(i - 1, reactor1.data_size);
+        TEST_ASSERT_EQUAL_INT8(EosRun_OK, eos_once());
+        TEST_ASSERT_EQUAL_INT32(i, reactor2.data_size);
+        TEST_ASSERT_EQUAL_INT32(i, reactor1.data_size);
+
+        TEST_ASSERT_EQUAL_INT8(EosRun_NoEvent, eos_once());
+    }
 }

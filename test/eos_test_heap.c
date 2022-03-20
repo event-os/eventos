@@ -18,8 +18,8 @@ void *eos_heap_get_block(eos_heap_t * const me, eos_u8_t priority);
 void eos_heap_gc(eos_heap_t * const me, void *data);
 
 /* test data & function ----------------------------------------------------- */
-#define EOS_HEAP_TEST_PRINT_UNIT                1000
-#define EOS_HEAP_TEST_TIMES                     10000
+#define EOS_HEAP_TEST_PRINT_UNIT                10
+#define EOS_HEAP_TEST_TIMES                     10
 #define EOS_HEAP_TEST_PRINT_EN                  0
 static eos_heap_t heap;
 uint8_t * p_data;
