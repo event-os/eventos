@@ -1115,6 +1115,8 @@ void eos_heap_gc(eos_heap_t * const me, void *data)
         evt = (eos_event_inner_t *)((eos_pointer_t)block + sizeof(eos_block_t));
         me->sub_general |= evt->sub;
         next = block->q_next;
+
+        loop_count ++;
     }
 }
 
