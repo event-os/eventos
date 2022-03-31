@@ -3,6 +3,7 @@
 <a href='https://gitee.com/event-os/eventos-nano/stargazers'><img src='https://gitee.com/event-os/eventos-nano/badge/star.svg?theme=dark' alt='star'></img></a><a href='https://gitee.com/event-os/eventos-nano/members'><img src='https://gitee.com/event-os/eventos-nano/badge/fork.svg?theme=dark' alt='fork'></img></a>
 
 邮箱：**event-os@outlook.com**，微信号：**Event-OS**，QQ群：**667432915**。
+
 兄弟项目：[EventOS Basic](https://gitee.com/event-os/eventos-basic.git)
 -------
 ### 一、EventOS Nano是什么？
