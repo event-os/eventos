@@ -1,4 +1,4 @@
-### 如何理解事件？
+### 如何理解EventOS Nano中的事件？
 
 **EventOS Nano**项目地址，在[Gitee EventOS Nano](https://gitee.com/event-os/eventos-nano.git)处。
 
@@ -18,7 +18,9 @@
 
 运用事件机制，可以有效地对RTOS中存在的多种IPC（线程间通信）方式，进行整合。
 
-### 二、EventOS Nano中对事件的实现
+### 二、EventOS Nano中的事件机制
+
+**EventOS Nano**中的事件机制，与RTOS中的事件标志组的概念不甚相同。因此，不能拿RTOS中的事件，硬套在**EventOS Nano**中。**EventOS Nano**中的事件，可以理解为消息。
 
 在**EventOS**中，一个事件由几个元素构成：事件主题、数据长度和事件携带的数据。我们在**EventOS Nano**中，对事件所抽象的数据结构如下所示。
 

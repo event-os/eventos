@@ -34,37 +34,70 @@
 #ifndef EVENTOS_CONFIG_H__
 #define EVENTOS_CONFIG_H__
 
+// <<< Use Configuration Wizard in Context Menu >>>
+
 /* EventOS Nano General Configuration --------------------------------------- */
+
+// <h> EventOS Nano's basic configuration
+//   <o>  The MCU type: 8, 16 or 32 bits
 #define EOS_MCU_TYPE                            32
-#define EOS_MAX_ACTORS                          4
+
+//   <o>  The maximum number of actors: 1 - 32
+#define EOS_MAX_ACTORS                          32
+
+//   <o>  The platform type: 32 ort 64 bits.
 #define EOS_TEST_PLATFORM                       32
+
+//   <o>  The time of system tick.
 #define EOS_TICK_MS                             1
 
+
 /* Assert Configuration ----------------------------------------------------- */
+//   <o>  use ASSERT or not (0 or 1) <0-1>
 #define EOS_USE_ASSERT                          1
 
+// </h>
+
 /* State Machine Function Configuration ------------------------------------- */
+// <h> EventOS Nano's state-machine configuration
+//   <o>  use state-machine mode (0 or 1) <0-1>
 #define EOS_USE_SM_MODE                         1
+
+//   <o>  use HSM mode (0 or 1) <0-1>
 #define EOS_USE_HSM_MODE                        1
 #if (EOS_USE_SM_MODE != 0 && EOS_USE_HSM_MODE != 0)
+
+//   <o>  use hsm nest depth (2 - 4) <2-4>
 #define EOS_MAX_HSM_NEST_DEPTH                  4
 #endif
+// </h>
 
 /* Publish & Subscribe Configuration ---------------------------------------- */
+// <h> EventOS Nano's event configuration
+
+//   <o>  use event pub-sub mode (0 or 1) <0-1>
 #define EOS_USE_PUB_SUB                         1
 
+
 /* Time Event Configuration ------------------------------------------------- */
+//   <o>  use time event (0 or 1) <0-1>
 #define EOS_USE_TIME_EVENT                      1
 #if (EOS_USE_TIME_EVENT != 0)
+    //   <o>  The maximum number of event timers (1 - 256)
     #define EOS_MAX_TIME_EVENT                  4           // 时间事件的数量
 #endif
 
 /* Event's Data Configuration ----------------------------------------------- */
+//   <o>  use time event (0 ort 1) <0-1>
 #define EOS_USE_EVENT_DATA                      1
-#define EOS_SIZE_HEAP                           32767       // 设定堆大小
+
+//   <o>  The maximum size of event heap (128 - 32767) <128-32767>
+#define EOS_SIZE_HEAP                           12800       // 设定堆大小
 
 /* Event Bridge Configuration ----------------------------------------------- */
+//   <o>  use event bridge (0 or 1) <0-1>
 #define EOS_USE_EVENT_BRIDGE                    0
+// </h>
 
 /* Error -------------------------------------------------------------------- */
 #if ((EOS_MCU_TYPE != 8) && (EOS_MCU_TYPE != 16) && (EOS_MCU_TYPE != 32))

@@ -116,6 +116,8 @@ typedef struct eos_event {
 } eos_event_t;
 
 // 数据结构 - 行为树相关 --------------------------------------------------------
+typedef void (* eos_func_t)(void);
+
 // 事件处理句柄的定义
 struct eos_reactor;
 typedef void (* eos_event_handler)(struct eos_reactor *const me, eos_event_t const * const e);
@@ -130,7 +132,12 @@ typedef eos_event_t *                       eos_event_quote_t;
 
 // Actor类
 typedef struct eos_actor {
+    eos_u32_t *sp;
+    void *stack;
+    eos_u32_t size;
+    eos_u32_t timeout;
 #if (EOS_MCU_TYPE == 32 || EOS_MCU_TYPE == 16)
+    eos_u32_t stack_size            : 16;              /* stack size */
     eos_u32_t priority              : 5;
     eos_u32_t mode                  : 1;
     eos_u32_t enabled               : 1;
@@ -179,11 +186,12 @@ eos_u32_t eos_time(void);
 // 系统滴答
 void eos_tick(void);
 #endif
+void eos_delay_ms(eos_u32_t time_ms);
 
 // 关于Reactor -----------------------------------------------------------------
 void eos_reactor_init(  eos_reactor_t * const me,
                         eos_u8_t priority,
-                        void const * const parameter);
+                        void *stack, eos_u32_t size);
 void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler);
 #define EOS_HANDLER_CAST(handler)       ((eos_event_handler)(handler))
 
@@ -192,7 +200,7 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 // 状态机初始化函数
 void eos_sm_init(   eos_sm_t * const me,
                     eos_u8_t priority,
-                    void const * const parameter);
+                    void *stack, eos_u32_t size);
 void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init);
 
 eos_ret_t eos_tran(eos_sm_t * const me, eos_state_handler state);
@@ -238,6 +246,7 @@ void eos_event_time_cancel(eos_topic_t topic);
 /* port --------------------------------------------------------------------- */
 void eos_port_critical_enter(void);
 void eos_port_critical_exit(void);
+void eos_port_task_switch(void);
 void eos_port_assert(eos_u32_t error_id);
 
 /* hook --------------------------------------------------------------------- */

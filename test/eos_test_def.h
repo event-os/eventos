@@ -108,6 +108,7 @@ typedef struct eos_tag {
     eos_u32_t timeout_min;
     eos_u8_t timer_count;
 #endif
+    eos_u32_t delay;
 
     eos_u8_t enabled                        : 1;
     eos_u8_t running                        : 1;
@@ -115,7 +116,7 @@ typedef struct eos_tag {
 } eos_t;
 
 /* eventos API for test ----------------------------- */
-eos_s8_t eos_once(void);
+eos_s8_t eos_once(eos_u8_t priority);
 eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size);
 void * eos_get_framework(void);
 void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoot);

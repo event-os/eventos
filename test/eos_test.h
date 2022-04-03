@@ -26,6 +26,7 @@ void fsm_reset_event_count(fsm_t * const me);
 typedef struct reactor_tag {
     eos_reactor_t super;
     bool status;
+    eos_u32_t value;
     int count_test;
     int count_tr;
     int data_size;
@@ -34,6 +35,7 @@ typedef struct reactor_tag {
 void reactor_init(reactor_t * const me, eos_u8_t priority, void const * const parameter);
 int reactor_e_test_count(reactor_t * const me);
 int reactor_e_tr_count(reactor_t * const me);
+eos_u32_t reactor_get_value(reactor_t * const me);
 
 /* tool --------------------------------------------------------------------- */
 void set_time_ms(eos_u32_t time_ms);
