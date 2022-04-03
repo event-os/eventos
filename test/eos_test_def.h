@@ -16,6 +16,8 @@ enum {
     EosTimer_NotTimeout,
     EosTimer_ChangeToEmpty,
 
+    EosRet_Max,
+
     EosRunErr_NotInitEnd                    = -1,
     EosRunErr_ActorNotSub                   = -2,
     EosRunErr_MallocFail                    = -3,
@@ -116,7 +118,7 @@ typedef struct eos_tag {
 } eos_t;
 
 /* eventos API for test ----------------------------- */
-eos_s8_t eos_once(eos_u8_t priority);
+eos_s8_t eos_execute(eos_u8_t priority);
 eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size);
 void * eos_get_framework(void);
 void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoot);
