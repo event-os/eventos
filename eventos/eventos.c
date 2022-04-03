@@ -830,7 +830,7 @@ static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e)
 
         // retrace the entry path in reverse (correct) order...
         do {
-            HSM_TRIG_(path[ip], Event_Enter);       // 进入path[ip]
+            HSM_TRIG_(path[ip --], Event_Enter);       // 进入path[ip]
         } while (ip >= 0);
 
         t = path[0];
