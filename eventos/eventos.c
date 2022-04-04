@@ -357,7 +357,6 @@ eos_s8_t eos_once(void)
     event.data = (void *)((eos_pointer_t)e + sizeof(eos_event_inner_t));
     eos_block_t *block = (eos_block_t *)((eos_pointer_t)e - sizeof(eos_block_t));
     event.size = block->size - block->offset - sizeof(eos_event_inner_t);
-    printf("block->size: %d, block->offset: %d.\n", block->size, block->offset);
     // 对事件进行执行
 #if (EOS_USE_PUB_SUB != 0)
     if ((eos.sub_table[e->topic] & (1 << actor->priority)) != 0)
