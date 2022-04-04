@@ -42,8 +42,11 @@
 //   <o>  The MCU type: 8, 16 or 32 bits
 #define EOS_MCU_TYPE                            32
 
-//   <o>  The maximum number of actors: 1 - 32
-#define EOS_MAX_ACTORS                          32
+//   <o>  The maximum number of tasks: 1 - 64
+#define EOS_MAX_TASKS                           32
+
+//   <o>  The maximum number of events: 16 - 65536
+#define EOS_MAX_EVENTS                          1024
 
 //   <o>  The platform type: 32 ort 64 bits.
 #define EOS_TEST_PLATFORM                       32

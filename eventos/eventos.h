@@ -35,6 +35,7 @@
 #define EVENTOS_H_
 
 /* include ------------------------------------------------------------------ */
+#include <stdint.h>
 #include "eventos_config.h"
 
 #ifdef __cplusplus
@@ -48,6 +49,10 @@ extern "C" {
 
 #ifndef EOS_MAX_ACTORS
 #define EOS_MAX_ACTORS                          8       // 默认最多8个Actor
+#endif
+
+#ifndef EOS_MAX_EVENTS
+#define EOS_MAX_EVENTS                          256     // 默认最多256个事件
 #endif
 
 #ifndef EOS_USE_ASSERT
@@ -92,12 +97,6 @@ enum eos_event_topic {
 #endif
 };
 
-#if (EOS_MCU_TYPE == 8)
-typedef eos_u8_t                        eos_topic_t;
-#else
-typedef eos_u16_t                       eos_topic_t;
-#endif
-
 // 状态返回值的定义
 #if (EOS_USE_SM_MODE != 0)
 typedef enum eos_ret {
@@ -110,9 +109,9 @@ typedef enum eos_ret {
 
 // 事件类
 typedef struct eos_event {
-    eos_topic_t topic;                      // 事件主题
+    const char *topic;                      // 事件主题
     void *data;                             // 事件数据
-    eos_u16_t size;                         // 数据长度
+    uint32_t size;                          // 数据长度
 } eos_event_t;
 
 // 数据结构 - 行为树相关 --------------------------------------------------------
@@ -128,38 +127,28 @@ struct eos_sm;
 typedef eos_ret_t (* eos_state_handler)(struct eos_sm *const me, eos_event_t const * const e);
 #endif
 
-typedef eos_event_t *                       eos_event_quote_t;
-
-// Actor类
-typedef struct eos_actor {
-    eos_u32_t *sp;
+// Task类
+typedef struct eos_task {
+    uint32_t *sp;
     void *stack;
-    eos_u32_t size;
-    eos_u32_t timeout;
-#if (EOS_MCU_TYPE == 32 || EOS_MCU_TYPE == 16)
-    eos_u32_t stack_size            : 16;              /* stack size */
-    eos_u32_t priority              : 5;
-    eos_u32_t mode                  : 1;
-    eos_u32_t enabled               : 1;
-    eos_u32_t reserve               : 1;
-#else
-    eos_u8_t priority               : 5;
-    eos_u8_t mode                   : 1;
-    eos_u8_t enabled                : 1;
-    eos_u8_t reserve                : 1;
-#endif
-} eos_actor_t;
+    uint32_t size;
+    uint32_t timeout;
+    uint32_t stack_size;              /* stack size */
+    uint32_t priority               : 6;
+    uint32_t id                     : 6;
+    uint32_t enabled                : 1;
+} eos_task_t;
 
 // React类
 typedef struct eos_reactor {
-    eos_actor_t super;
+    eos_task_t super;
     eos_event_handler event_handler;
 } eos_reactor_t;
 
 #if (EOS_USE_SM_MODE != 0)
 // 状态机类
 typedef struct eos_sm {
-    eos_actor_t super;
+    eos_task_t super;
     volatile eos_state_handler state;
 } eos_sm_t;
 #endif
@@ -167,9 +156,6 @@ typedef struct eos_sm {
 // api -------------------------------------------------------------------------
 // 对框架进行初始化，在各状态机初始化之前调用。
 void eos_init(void);
-#if (EOS_USE_PUB_SUB != 0)
-void eos_sub_init(eos_mcu_t *flag_sub, eos_topic_t topic_max);
-#endif
 // 启动框架，放在main函数的末尾。
 void eos_run(void);
 // 停止框架的运行（不常用）
@@ -177,21 +163,21 @@ void eos_run(void);
 // 不再执行任何功能，直至框架被再次启动。
 void eos_stop(void);
 // 延时，不屏蔽事件接收（毫秒级延时，释放CPU控制权）
-void eos_delay(eos_u32_t time_ms);
+void eos_delay(uint32_t time_ms);
 // 延时，屏蔽事件的接收（毫秒级延时，释放CPU控制权），直到延时完毕。
-void eos_delay_unsub_event(eos_u32_t time_ms);
+void eos_delay_unsub_event(uint32_t time_ms);
 #if (EOS_USE_TIME_EVENT != 0)
 // 系统当前时间
-eos_u32_t eos_time(void);
+uint32_t eos_time(void);
 // 系统滴答
 void eos_tick(void);
 #endif
-void eos_delay_ms(eos_u32_t time_ms);
+void eos_delay_ms(uint32_t time_ms);
 
 // 关于Reactor -----------------------------------------------------------------
 void eos_reactor_init(  eos_reactor_t * const me,
-                        eos_u8_t priority,
-                        void *stack, eos_u32_t size);
+                        uint8_t priority,
+                        void *stack, uint32_t size);
 void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler);
 #define EOS_HANDLER_CAST(handler)       ((eos_event_handler)(handler))
 
@@ -199,8 +185,8 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 #if (EOS_USE_SM_MODE != 0)
 // 状态机初始化函数
 void eos_sm_init(   eos_sm_t * const me,
-                    eos_u8_t priority,
-                    void *stack, eos_u32_t size);
+                    uint8_t priority,
+                    void *stack, uint32_t size);
 void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init);
 
 eos_ret_t eos_tran(eos_sm_t * const me, eos_state_handler state);
@@ -214,12 +200,12 @@ eos_ret_t eos_state_top(eos_sm_t * const me, eos_event_t const * const e);
 
 // 关于事件 -------------------------------------------------
 // 设置不可阻塞事件（在延时时，此类事件进入，延时结束，对此类事件进行立即响应）
-void eos_event_set_unblocked(eos_topic_t topic);
+void eos_event_set_unblocked(const char *topic);
 #if (EOS_USE_PUB_SUB != 0)
 // 事件订阅
-void eos_event_sub(eos_actor_t * const me, eos_topic_t topic);
+void eos_event_sub(eos_task_t *const me, const char *topic);
 // 事件取消订阅
-void eos_event_unsub(eos_actor_t * const me, eos_topic_t topic);
+void eos_event_unsub(eos_task_t *const me, const char *topic);
 // 事件订阅宏定义
 #define EOS_EVENT_SUB(_evt)               eos_event_sub(&(me->super.super), _evt)
 // 事件取消订阅宏定义
@@ -228,26 +214,26 @@ void eos_event_unsub(eos_actor_t * const me, eos_topic_t topic);
 
 // 注：只有下面两个函数能在中断服务函数中使用，其他都没有必要。如果使用，可能会导致崩溃问题。
 // 发布事件（仅主题）
-void eos_event_pub_topic(eos_topic_t topic);
+void eos_event_pub_topic(const char *topic);
 #if (EOS_USE_EVENT_DATA != 0)
 // 发布事件（携带数据）
-void eos_event_pub(eos_topic_t topic, void *data, eos_u32_t size);
+void eos_event_pub(const char *topic, void *data, uint32_t size);
 #endif
 
 #if (EOS_USE_TIME_EVENT != 0)
 // 发布延时事件
-void eos_event_pub_delay(eos_topic_t topic, eos_u32_t delay_time_ms);
+void eos_event_pub_delay(const char *topic, uint32_t delay_time_ms);
 // 发布周期事件
-void eos_event_pub_period(eos_topic_t topic, eos_u32_t peroid_ms);
+void eos_event_pub_period(const char *topic, uint32_t peroid_ms);
 // 取消延时事件或者周期事件的发布
-void eos_event_time_cancel(eos_topic_t topic);
+void eos_event_time_cancel(const char *topic);
 #endif
 
 /* port --------------------------------------------------------------------- */
 void eos_port_critical_enter(void);
 void eos_port_critical_exit(void);
 void eos_port_task_switch(void);
-void eos_port_assert(eos_u32_t error_id);
+void eos_port_assert(uint32_t error_id);
 
 /* hook --------------------------------------------------------------------- */
 // 空闲回调函数

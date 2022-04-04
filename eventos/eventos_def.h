@@ -45,15 +45,6 @@
 #endif
 
 /* basic data type ---------------------------------------------------------- */
-typedef unsigned __INT64                eos_u64_t;
-typedef signed __INT64                  eos_s64_t;
-typedef unsigned int                    eos_u32_t;
-typedef signed int                      eos_s32_t;
-typedef unsigned short                  eos_u16_t;
-typedef signed short                    eos_s16_t;
-typedef unsigned char                   eos_u8_t;
-typedef signed char                     eos_s8_t;
-
 typedef enum eos_bool {
     EOS_False = 0,
     EOS_True = !EOS_False,
@@ -61,32 +52,8 @@ typedef enum eos_bool {
 
 #define EOS_NULL                        ((void *)0)
 
-#define EOS_U32_MAX                     0xffffffff
-#define EOS_U32_MIN                     0
-
-#define EOS_U16_MAX                     0xffff
-#define EOS_U16_MIN                     0
-
-#define EOS_HEAP_MAX                    0x7fff
-
-#if (EOS_MCU_TYPE == 8)
-typedef eos_u8_t                        eos_mcu_t;
-#elif (EOS_MCU_TYPE == 16)
-typedef eos_u16_t                       eos_mcu_t;
-#else
-typedef eos_u32_t                       eos_mcu_t;
-#endif
-
-#if (EOS_MCU_TYPE == 8)
-typedef eos_u8_t                        eos_sub_t;
-#elif (EOS_MCU_TYPE == 16)
-typedef eos_u16_t                       eos_sub_t;
-#else
-typedef eos_u32_t                       eos_sub_t;
-#endif
-
 #if (EOS_TEST_PLATFORM == 32)
-typedef eos_u32_t                       eos_pointer_t;
+typedef uint32_t                        eos_pointer_t;
 #else
 #include <stdint.h>
 typedef uint64_t                        eos_pointer_t;

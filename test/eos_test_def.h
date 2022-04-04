@@ -39,66 +39,108 @@ enum {
     EosTimerUnit_Max
 };
 
-static const eos_u32_t timer_threshold[EosTimerUnit_Max] = {
+static const uint32_t timer_threshold[EosTimerUnit_Max] = {
     60000,                                          // 60 S
     6000000,                                        // 100 Minutes
     57600000,                                       // 16 hours
     1296000000,                                     // 15 days
 };
 
-static const eos_u32_t timer_unit[EosTimerUnit_Max] = {
+static const uint32_t timer_unit[EosTimerUnit_Max] = {
     1, 100, 1000, 60000
 };
 
 typedef struct eos_event_timer {
-    eos_u32_t topic                         : 13;
-    eos_u32_t oneshoot                      : 1;
-    eos_u32_t unit                          : 2;
-    eos_u32_t period                        : 16;
-    eos_u32_t timeout_ms;
+    uint32_t topic                         : 13;
+    uint32_t oneshoot                      : 1;
+    uint32_t unit                          : 2;
+    uint32_t period                        : 16;
+    uint32_t timeout_ms;
 } eos_event_timer_t;
 #endif
 
 typedef struct eos_block {
     // word[0]
-    eos_u32_t next                          : 15;
-    eos_u32_t q_next                        : 15;
+    uint32_t next                          : 15;
+    uint32_t q_next                        : 15;
     // word[1]
-    eos_u32_t last                          : 15;
-    eos_u32_t q_last                        : 15;
-    eos_u32_t free                          : 1;
+    uint32_t last                          : 15;
+    uint32_t q_last                        : 15;
+    uint32_t free                          : 1;
     // word[2]
-    eos_u16_t size                          : 15;
-    eos_u32_t offset                        : 8;
+    uint16_t size                          : 15;
+    uint32_t offset                        : 8;
 } eos_block_t;
 
 typedef struct eos_event_inner {
-    eos_sub_t sub;
-    eos_topic_t topic;
+    uint64_t sub;
+    const char *topic;
 } eos_event_inner_t;
 
 typedef struct eos_heap {
-    eos_u8_t data[EOS_SIZE_HEAP];
+    uint8_t data[EOS_SIZE_HEAP];
     // word[0]
-    eos_u32_t size                          : 15;       /* total size */
-    eos_u32_t queue                         : 15;
-    eos_u32_t error_id                      : 2;
+    uint32_t size                          : 15;       /* total size */
+    uint32_t queue                         : 15;
+    uint32_t error_id                      : 2;
     // word[2]
-    eos_u32_t current                       : 15;
-    eos_u32_t empty                         : 1;
+    uint32_t current                       : 15;
+    uint32_t empty                         : 1;
     // word[2]
-    eos_sub_t sub_general;
-    eos_sub_t count;
+    uint64_t sub_general;
+    uint32_t count;
 } eos_heap_t;
 
-typedef struct eos_tag {
-#if (EOS_USE_PUB_SUB != 0)
-    eos_mcu_t *sub_table;                                     // event sub table
-#endif
+typedef union eos_obj_block {
+    struct {
+        uint64_t sub;
+    } event;
+    struct {
+        eos_task_t *task;
+        eos_event_handler task_func;
+    } task;
+    struct {
+        eos_task_t *task;
+        eos_event_handler handler;
+    } reactor;
+    struct {
+        eos_task_t *task;
+        volatile eos_state_handler state;
+    } sm;
+/*
+    struct {
+        eos_timer_t *timer;
+        eos_event_handler handler;
+    } timer;
+*/
+    struct {
+        eos_heap_t *heap;
+        void *data;
+    } heap;
 
-    eos_mcu_t actor_exist;
-    eos_mcu_t actor_enabled;
-    eos_actor_t * actor[EOS_MAX_ACTORS];
+    struct {
+        void *block;
+        void *data;
+    } other;
+} eos_obj_block_t;
+
+typedef struct eos_object {
+    const char *key;                                    // Key
+    eos_obj_block_t block;                              // 订阅表
+    uint32_t type;                                      // 类型
+} eos_object_t;
+
+typedef struct eos_hash_table {
+    eos_object_t object[EOS_MAX_EVENTS];
+    uint32_t prime_max;                                 // 最大素数
+    uint32_t size;
+} eos_hash_table_t;
+
+typedef struct eos_tag {
+    eos_hash_table_t hash;
+    uint64_t actor_exist;
+    uint64_t actor_enabled;
+    eos_task_t * actor[EOS_MAX_TASKS];
 
 #if (EOS_USE_EVENT_DATA != 0)
     eos_heap_t heap;
@@ -106,23 +148,24 @@ typedef struct eos_tag {
 
 #if (EOS_USE_TIME_EVENT != 0)
     eos_event_timer_t etimer[EOS_MAX_TIME_EVENT];
-    eos_u32_t time;
-    eos_u32_t timeout_min;
-    eos_u8_t timer_count;
+    uint32_t time;
+    uint32_t timeout_min;
+    uint8_t timer_count;
 #endif
-    eos_u32_t delay;
+    uint32_t delay;
 
-    eos_u8_t enabled                        : 1;
-    eos_u8_t running                        : 1;
-    eos_u8_t init_end                       : 1;
+    uint8_t enabled                        : 1;
+    uint8_t running                        : 1;
+    uint8_t init_end                       : 1;
 } eos_t;
 
 /* eventos API for test ----------------------------- */
-eos_s8_t eos_execute(eos_u8_t priority);
-eos_s8_t eos_event_pub_ret(eos_topic_t topic, void *data, eos_u32_t size);
+int8_t eos_execute(uint8_t priority);
+int8_t eos_event_pub_ret(const char *topic, void *data, uint32_t size);
 void * eos_get_framework(void);
-void eos_event_pub_time(eos_topic_t topic, eos_u32_t time_ms, eos_bool_t oneshoot);
-void eos_set_time(eos_u32_t time_ms);
+void eos_event_pub_time(const char *topic, uint32_t time_ms, eos_bool_t oneshoot);
+void eos_set_time(uint32_t time_ms);
+nt32_t time_ms);
 // **eos end** -----------------------------------------------------------------
 
 #endif
