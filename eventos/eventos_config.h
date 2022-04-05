@@ -46,7 +46,8 @@
 #define EOS_MAX_TASKS                           32
 
 //   <o>  The maximum number of events: 16 - 65536
-#define EOS_MAX_EVENTS                          1024
+#define EOS_MAX_EVENTS                          32
+#define EOS_MAX_HASH_SEEK_TIMES                 5
 
 //   <o>  The platform type: 32 ort 64 bits.
 #define EOS_TEST_PLATFORM                       32
@@ -67,7 +68,7 @@
 #define EOS_USE_SM_MODE                         1
 
 //   <o>  use HSM mode (0 or 1) <0-1>
-#define EOS_USE_HSM_MODE                        1
+#define EOS_USE_HSM_MODE                        0
 #if (EOS_USE_SM_MODE != 0 && EOS_USE_HSM_MODE != 0)
 
 //   <o>  use hsm nest depth (2 - 4) <2-4>
@@ -111,8 +112,8 @@
 #error The test paltform must be 32-bit or 64-bit !
 #endif
 
-#if (EOS_MAX_ACTOR > EOS_MCU_TYPE || EOS_MAX_ACTORS <= 0)
-#error The maximum number of actors must be 1 ~ EOS_MCU_TYPE !
+#if (EOS_MAX_TASKS > EOS_MCU_TYPE || EOS_MAX_TASKS <= 0)
+#error The maximum number of tasks must be 1 ~ EOS_MCU_TYPE !
 #endif
 
 #if (EOS_USE_SM_MODE != 0)

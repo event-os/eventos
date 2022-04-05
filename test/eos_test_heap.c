@@ -12,9 +12,9 @@
 
 /* heap function ------------------------------------------------------------ */
 void eos_heap_init(eos_heap_t * const me);
-void * eos_heap_malloc(eos_heap_t * const me, eos_u32_t size);
+void * eos_heap_malloc(eos_heap_t * const me, uint32_t size);
 void eos_heap_free(eos_heap_t * const me, void * data);
-void *eos_heap_get_block(eos_heap_t * const me, eos_u8_t priority);
+void *eos_heap_get_block(eos_heap_t * const me, uint8_t priority);
 void eos_heap_gc(eos_heap_t * const me, void *data);
 
 /* test data & function ----------------------------------------------------- */
@@ -24,7 +24,7 @@ void eos_heap_gc(eos_heap_t * const me, void *data);
 static eos_heap_t heap;
 uint8_t * p_data;
 
-static void print_heap_list(eos_heap_t * const me, eos_u32_t index);
+static void print_heap_list(eos_heap_t * const me, uint32_t index);
 
 /* test function ------------------------------------------------------------ */
 void eos_test_heap(void)
@@ -50,7 +50,7 @@ void eos_test_heap(void)
         print_heap_list(&heap, i);
     }
     
-    eos_u8_t count = EOS_MAX_ACTORS;
+    uint8_t count = EOS_MAX_ACTORS;
     for (int i = 0; i < EOS_MAX_ACTORS; i ++) {
         TEST_ASSERT_EQUAL_UINT8(count, heap.count);
         eos_event_inner_t *e = (eos_event_inner_t *)eblock[i];
@@ -67,15 +67,15 @@ void eos_test_heap(void)
     }
 
     block_1st = (eos_block_t *)heap.data;
-    TEST_ASSERT_EQUAL_UINT16(EOS_HEAP_MAX, block_1st->next);
+    TEST_ASSERT_EQUAL_UINT16(EOS_SIZE_HEAP, block_1st->next);
     TEST_ASSERT_EQUAL_UINT16((EOS_SIZE_HEAP - sizeof(eos_block_t)), block_1st->size);
 
     for (int i = 0; i < EOS_HEAP_TEST_TIMES; i ++) {
-        eos_u32_t size = ((i + 100) % 10000) + 1;
-        eos_u32_t size_adjust = (size % 4 == 0) ? size : (size + 4 - (size % 4));
+        uint32_t size = ((i + 100) % 10000) + 1;
+        uint32_t size_adjust = (size % 4 == 0) ? size : (size + 4 - (size % 4));
         p_data = eos_heap_malloc(&heap, size);
         eos_event_inner_t *e = (eos_event_inner_t *)p_data;
-        eos_u8_t priority = (size % EOS_MAX_ACTORS);
+        uint8_t priority = (size % EOS_MAX_ACTORS);
         e->sub = (1 << priority);
         eos_event_inner_t *e_block = (eos_event_inner_t *)eos_heap_get_block(&heap, priority);
         TEST_ASSERT_EQUAL_POINTER(e, e_block);
@@ -85,12 +85,12 @@ void eos_test_heap(void)
         TEST_ASSERT_EQUAL_UINT32(block_1st->size, size_adjust);
         eos_block_t * block_next = (eos_block_t *)(heap.data + block_1st->next);
         TEST_ASSERT(block_next != NULL);
-        TEST_ASSERT_EQUAL_UINT16(EOS_HEAP_MAX, block_next->next);
+        TEST_ASSERT_EQUAL_UINT16(EOS_SIZE_HEAP, block_next->next);
 
         eos_heap_gc(&heap, p_data);
         TEST_ASSERT_EQUAL_UINT32(0, heap.error_id);
         TEST_ASSERT_EQUAL_POINTER(p_data, (eos_pointer_t)block_1st + (eos_pointer_t)sizeof(eos_block_t));
-        TEST_ASSERT(block_1st->next == EOS_HEAP_MAX);
+        TEST_ASSERT(block_1st->next == EOS_SIZE_HEAP);
         TEST_ASSERT_EQUAL_UINT32(block_1st->size, EOS_SIZE_HEAP - sizeof(eos_block_t));
     }
 
@@ -115,7 +115,7 @@ void eos_test_heap(void)
         size_malloc[0] + size_malloc[1] + size_malloc[2] + (3 * sizeof(eos_block_t)),
         size_malloc[0] + size_malloc[1] + size_malloc[2] + size_malloc[3] +
         size_malloc[4] + size_malloc[5] + size_malloc[6] + (7 * sizeof(eos_block_t)),
-        EOS_HEAP_MAX
+        EOS_SIZE_HEAP
     };
 
     block_1st = (eos_block_t *)heap.data;
@@ -137,14 +137,14 @@ void eos_test_heap(void)
             TEST_ASSERT_EQUAL_UINT16(first_next[i], block_1st->next);
         }
 
-        TEST_ASSERT_EQUAL_UINT16(EOS_HEAP_MAX, block_1st->next);
+        TEST_ASSERT_EQUAL_UINT16(EOS_SIZE_HEAP, block_1st->next);
         TEST_ASSERT_EQUAL_UINT16((EOS_SIZE_HEAP - sizeof(eos_block_t)), block_1st->size);
     }
 
     block_1st = (eos_block_t *)heap.data;
-    TEST_ASSERT_EQUAL_UINT16(EOS_HEAP_MAX, heap.queue);
+    TEST_ASSERT_EQUAL_UINT16(EOS_SIZE_HEAP, heap.queue);
     TEST_ASSERT_EQUAL_UINT8(1, heap.empty);
-    TEST_ASSERT_EQUAL_UINT16(EOS_HEAP_MAX, block_1st->next);
+    TEST_ASSERT_EQUAL_UINT16(EOS_SIZE_HEAP, block_1st->next);
     TEST_ASSERT_EQUAL_UINT16((EOS_SIZE_HEAP - sizeof(eos_block_t)), block_1st->size);
     TEST_ASSERT_EQUAL_UINT16(0, heap.count);
     printf("\n");
@@ -200,14 +200,14 @@ void eos_test_heap(void)
     }
 
     block_1st = (eos_block_t *)heap.data;
-    TEST_ASSERT_EQUAL_UINT16(EOS_HEAP_MAX, heap.queue);
+    TEST_ASSERT_EQUAL_UINT16(EOS_SIZE_HEAP, heap.queue);
     TEST_ASSERT_EQUAL_UINT8(1, heap.empty);
-    TEST_ASSERT_EQUAL_UINT16(EOS_HEAP_MAX, block_1st->next);
+    TEST_ASSERT_EQUAL_UINT16(EOS_SIZE_HEAP, block_1st->next);
     TEST_ASSERT_EQUAL_UINT16((EOS_SIZE_HEAP - sizeof(eos_block_t)), block_1st->size);
     TEST_ASSERT_EQUAL_UINT16(0, heap.count);
 }
 
-static void print_heap_list(eos_heap_t * const me, eos_u32_t index)
+static void print_heap_list(eos_heap_t * const me, uint32_t index)
 {
 #if (EOS_HEAP_TEST_PRINT_EN == 0)
     (void)me;
@@ -223,7 +223,7 @@ static void print_heap_list(eos_heap_t * const me, eos_u32_t index)
             printf("%u, ", block->size);
         
         next = block->next;
-    } while (next != EOS_HEAP_MAX);
+    } while (next != EOS_SIZE_HEAP);
     printf("\n");
 #endif
 }

@@ -1,43 +1,42 @@
 #include "eventos.h"
 #include "rtt/SEGGER_RTT.h"
-#include "event_def.h"
 
-void eos_thread_start(  eos_actor_t * const me,
+void eos_task_start(    eos_task_t * const me,
                         eos_func_t func,
                         void *stack_addr,
-                        eos_u32_t stack_size)
+                        uint32_t stack_size)
 {
-    *(eos_u32_t volatile *)0xE000ED20 |= (0xFFU << 16U);
+    *(uint32_t volatile *)0xE000ED20 |= (0xFFU << 16U);
     
     /* round down the stack top to the 8-byte boundary
      * NOTE: ARM Cortex-M stack grows down from hi -> low memory
      */
-    eos_u32_t *sp = (eos_u32_t *)((((eos_u32_t)stack_addr + stack_size) >> 3U) << 3U);
-    eos_u32_t *stk_limit;
+    uint32_t *sp = (uint32_t *)((((uint32_t)stack_addr + stack_size) >> 3U) << 3U);
+    uint32_t *stk_limit;
 
-    *(-- sp) = (eos_u32_t)(1 << 24);            /* xPSR, Set Bit24(Thumb Mode) to 1. */
-    *(-- sp) = (eos_u32_t)func;                 /* the entry function (PC) */
-    *(-- sp) = (eos_u32_t)func;                 /* R14(LR) */
-    *(-- sp) = (eos_u32_t)0x12121212u;          /* R12 */
-    *(-- sp) = (eos_u32_t)0x03030303u;          /* R3 */
-    *(-- sp) = (eos_u32_t)0x02020202u;          /* R2 */
-    *(-- sp) = (eos_u32_t)0x01010101u;          /* R1 */
-    *(-- sp) = (eos_u32_t)0x00000000u;          /* R0 */
+    *(-- sp) = (uint32_t)(1 << 24);            /* xPSR, Set Bit24(Thumb Mode) to 1. */
+    *(-- sp) = (uint32_t)func;                 /* the entry function (PC) */
+    *(-- sp) = (uint32_t)func;                 /* R14(LR) */
+    *(-- sp) = (uint32_t)0x12121212u;          /* R12 */
+    *(-- sp) = (uint32_t)0x03030303u;          /* R3 */
+    *(-- sp) = (uint32_t)0x02020202u;          /* R2 */
+    *(-- sp) = (uint32_t)0x01010101u;          /* R1 */
+    *(-- sp) = (uint32_t)0x00000000u;          /* R0 */
     /* additionally, fake registers R4-R11 */
-    *(-- sp) = (eos_u32_t)0x11111111u;          /* R11 */
-    *(-- sp) = (eos_u32_t)0x10101010u;          /* R10 */
-    *(-- sp) = (eos_u32_t)0x09090909u;          /* R9 */
-    *(-- sp) = (eos_u32_t)0x08080808u;          /* R8 */
-    *(-- sp) = (eos_u32_t)0x07070707u;          /* R7 */
-    *(-- sp) = (eos_u32_t)0x06060606u;          /* R6 */
-    *(-- sp) = (eos_u32_t)0x05050505u;          /* R5 */
-    *(-- sp) = (eos_u32_t)0x04040404u;          /* R4 */
+    *(-- sp) = (uint32_t)0x11111111u;          /* R11 */
+    *(-- sp) = (uint32_t)0x10101010u;          /* R10 */
+    *(-- sp) = (uint32_t)0x09090909u;          /* R9 */
+    *(-- sp) = (uint32_t)0x08080808u;          /* R8 */
+    *(-- sp) = (uint32_t)0x07070707u;          /* R7 */
+    *(-- sp) = (uint32_t)0x06060606u;          /* R6 */
+    *(-- sp) = (uint32_t)0x05050505u;          /* R5 */
+    *(-- sp) = (uint32_t)0x04040404u;          /* R4 */
 
     /* save the top of the stack in the task's attibute */
     me->sp = sp;
 
     /* round up the bottom of the stack to the 8-byte boundary */
-    stk_limit = (eos_u32_t *)(((((eos_u32_t)stack_addr - 1U) >> 3U) + 1U) << 3U);
+    stk_limit = (uint32_t *)(((((uint32_t)stack_addr - 1U) >> 3U) + 1U) << 3U);
 
     /* pre-fill the unused part of the stack with 0xDEADBEEF */
     for (sp = sp - 1U; sp >= stk_limit; --sp) {
@@ -88,7 +87,7 @@ PendSV_restore
     BX            lr                    /* return to the next task */
 }
 
-eos_s32_t critical_count = 0;
+int32_t critical_count = 0;
 void eos_port_critical_enter(void)
 {
     __disable_irq();
@@ -97,7 +96,7 @@ void eos_port_critical_enter(void)
 
 void eos_port_task_switch(void)
 {
-    *(eos_u32_t volatile *)0xE000ED04 = (1U << 28);
+    *(uint32_t volatile *)0xE000ED04 = (1U << 28);
 }
 
 void eos_port_critical_exit(void)
@@ -109,8 +108,8 @@ void eos_port_critical_exit(void)
     }
 }
 
-eos_u32_t eos_error_id = 0;
-void eos_port_assert(eos_u32_t error_id)
+uint32_t eos_error_id = 0;
+void eos_port_assert(uint32_t error_id)
 {
     eos_error_id = error_id;
 
@@ -118,12 +117,12 @@ void eos_port_assert(eos_u32_t error_id)
     }
 }
 
-eos_u8_t flag_pub = 0;
+uint8_t flag_pub = 0;
 void eos_hook_idle(void)
 {
     if (flag_pub != 0) {
         flag_pub = 0;
-        eos_event_pub_topic(Event_Time_1000ms);
+        eos_event_pub_topic("Event_Time_1000ms");
     }
 }
 

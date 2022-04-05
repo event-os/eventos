@@ -36,6 +36,7 @@
 
 /* include ------------------------------------------------------------------ */
 #include <stdint.h>
+#include <stdbool.h>
 #include "eventos_config.h"
 
 #ifdef __cplusplus
@@ -82,21 +83,6 @@ extern "C" {
 #include "eventos_def.h"
 
 /* data struct -------------------------------------------------------------- */
-enum eos_event_topic {
-#if (EOS_USE_SM_MODE != 0)
-    Event_Null = 0,
-    Event_Enter,
-    Event_Exit,
-#if (EOS_USE_HSM_MODE != 0)
-    Event_Init,
-#endif
-    Event_User,
-#else
-    Event_Null = 0,
-    Event_User,
-#endif
-};
-
 // 状态返回值的定义
 #if (EOS_USE_SM_MODE != 0)
 typedef enum eos_ret {
@@ -176,6 +162,7 @@ void eos_delay_ms(uint32_t time_ms);
 
 // 关于Reactor -----------------------------------------------------------------
 void eos_reactor_init(  eos_reactor_t * const me,
+                        const char *name,
                         uint8_t priority,
                         void *stack, uint32_t size);
 void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler);
@@ -185,6 +172,7 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 #if (EOS_USE_SM_MODE != 0)
 // 状态机初始化函数
 void eos_sm_init(   eos_sm_t * const me,
+                    const char *name,
                     uint8_t priority,
                     void *stack, uint32_t size);
 void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init);
@@ -199,6 +187,7 @@ eos_ret_t eos_state_top(eos_sm_t * const me, eos_event_t const * const e);
 #endif
 
 // 关于事件 -------------------------------------------------
+bool eos_event_topic(eos_event_t const * const e, const char *topic);
 // 设置不可阻塞事件（在延时时，此类事件进入，延时结束，对此类事件进行立即响应）
 void eos_event_set_unblocked(const char *topic);
 #if (EOS_USE_PUB_SUB != 0)

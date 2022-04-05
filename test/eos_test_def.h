@@ -27,6 +27,8 @@ enum {
     EosRunErr_TimerRepeated                 = -7,
 };
 
+typedef uint32_t (* hash_algorithm_t)(const char *string);
+
 #if (EOS_USE_TIME_EVENT != 0)
 #define EOS_MS_NUM_30DAY                    (2592000000)
 
@@ -51,7 +53,7 @@ static const uint32_t timer_unit[EosTimerUnit_Max] = {
 };
 
 typedef struct eos_event_timer {
-    uint32_t topic                         : 13;
+    const char *topic;
     uint32_t oneshoot                      : 1;
     uint32_t unit                          : 2;
     uint32_t period                        : 16;
@@ -73,7 +75,7 @@ typedef struct eos_block {
 } eos_block_t;
 
 typedef struct eos_event_inner {
-    uint64_t sub;
+    uint32_t sub;
     const char *topic;
 } eos_event_inner_t;
 
@@ -92,53 +94,30 @@ typedef struct eos_heap {
 } eos_heap_t;
 
 typedef union eos_obj_block {
-    struct {
-        uint64_t sub;
-    } event;
-    struct {
-        eos_task_t *task;
-        eos_event_handler task_func;
-    } task;
-    struct {
-        eos_task_t *task;
-        eos_event_handler handler;
-    } reactor;
-    struct {
-        eos_task_t *task;
-        volatile eos_state_handler state;
-    } sm;
-/*
-    struct {
-        eos_timer_t *timer;
-        eos_event_handler handler;
-    } timer;
-*/
-    struct {
-        eos_heap_t *heap;
-        void *data;
-    } heap;
-
-    struct {
-        void *block;
-        void *data;
-    } other;
+    uint32_t event_sub;
+    eos_task_t *task;
+    eos_heap_t *heap;
+    // eos_timer_t *timer;
+    // eos_device_t *device;
+    void *other;
 } eos_obj_block_t;
 
 typedef struct eos_object {
     const char *key;                                    // Key
-    eos_obj_block_t block;                              // 订阅表
-    uint32_t type;                                      // 类型
+    eos_obj_block_t block;                              // object block
+    uint32_t type;                                      // Object type
 } eos_object_t;
 
 typedef struct eos_hash_table {
     eos_object_t object[EOS_MAX_EVENTS];
-    uint32_t prime_max;                                 // 最大素数
+    uint32_t prime_max;                                 // prime max
     uint32_t size;
 } eos_hash_table_t;
 
 typedef struct eos_tag {
     eos_hash_table_t hash;
-    uint64_t actor_exist;
+    hash_algorithm_t hash_func;
+    uint64_t task_exist;
     uint64_t actor_enabled;
     eos_task_t * actor[EOS_MAX_TASKS];
 
@@ -165,7 +144,8 @@ int8_t eos_event_pub_ret(const char *topic, void *data, uint32_t size);
 void * eos_get_framework(void);
 void eos_event_pub_time(const char *topic, uint32_t time_ms, eos_bool_t oneshoot);
 void eos_set_time(uint32_t time_ms);
-nt32_t time_ms);
+void eos_set_hash(hash_algorithm_t hash);
+
 // **eos end** -----------------------------------------------------------------
 
 #endif
