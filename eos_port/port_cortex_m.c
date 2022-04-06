@@ -1,48 +1,54 @@
 #include "eventos.h"
 
-void eos_task_start(    eos_task_t * const me,
-                        eos_func_t func,
-                        uint8_t priority,
-                        void *stack_addr,
-                        uint32_t stack_size)
+void eos_task_start_private(eos_task_t * const me,
+                            eos_func_t func,
+                            uint8_t priority,
+                            void *stack_addr,
+                            uint32_t stack_size)
 {
+    // Set PendSV to be the lowest priority.
     *(uint32_t volatile *)0xE000ED20 |= (0xFFU << 16U);
+    
+    uint32_t mod = (uint32_t)me->stack % 4;
+    if (mod == 0) {
+        me->stack = stack_addr;
+        me->size = stack_size;
+    }
+    else {
+        me->stack = (void *)((uint32_t)stack_addr - mod);
+        me->size = stack_size - 4;
+    }
+    /* pre-fill the unused part of the stack with 0xDEADBEEF */
+    for (uint32_t i = 0; i < (me->size / 4); i ++) {
+        ((uint32_t *)me->stack)[i] = 0xDEADBEEFU;
+    }
     
     /* round down the stack top to the 8-byte boundary
      * NOTE: ARM Cortex-M stack grows down from hi -> low memory
      */
     uint32_t *sp = (uint32_t *)((((uint32_t)stack_addr + stack_size) >> 3U) << 3U);
-    uint32_t *stk_limit;
 
     *(-- sp) = (uint32_t)(1 << 24);            /* xPSR, Set Bit24(Thumb Mode) to 1. */
     *(-- sp) = (uint32_t)func;                 /* the entry function (PC) */
     *(-- sp) = (uint32_t)func;                 /* R14(LR) */
     *(-- sp) = (uint32_t)0x12121212u;          /* R12 */
     *(-- sp) = (uint32_t)0x03030303u;          /* R3 */
-    *(-- sp) = (uint32_t)0x02020202u;          /* R2 */
+    *(-- sp) = (uint32_t)0x02020202u;          /* r2 */
     *(-- sp) = (uint32_t)0x01010101u;          /* R1 */
-    *(-- sp) = (uint32_t)0x00000000u;          /* R0 */
-    /* additionally, fake registers R4-R11 */
-    *(-- sp) = (uint32_t)0x11111111u;          /* R11 */
-    *(-- sp) = (uint32_t)0x10101010u;          /* R10 */
-    *(-- sp) = (uint32_t)0x09090909u;          /* R9 */
-    *(-- sp) = (uint32_t)0x08080808u;          /* R8 */
-    *(-- sp) = (uint32_t)0x07070707u;          /* R7 */
-    *(-- sp) = (uint32_t)0x06060606u;          /* R6 */
-    *(-- sp) = (uint32_t)0x05050505u;           /* R5 */
-    *(-- sp) = (uint32_t)0x04040404u;          /* R4 */
+    *(-- sp) = (uint32_t)0x00000000u;          /* r0 */
+    /* additionally, fake registers r4-r11 */
+    *(-- sp) = (uint32_t)0x11111111u;          /* r11 */
+    *(-- sp) = (uint32_t)0x10101010u;          /* r10 */
+    *(-- sp) = (uint32_t)0x09090909u;          /* r9 */
+    *(-- sp) = (uint32_t)0x08080808u;          /* r8 */
+    *(-- sp) = (uint32_t)0x07070707u;          /* r7 */
+    *(-- sp) = (uint32_t)0x06060606u;          /* r6 */
+    *(-- sp) = (uint32_t)0x05050505u;          /* r5 */
+    *(-- sp) = (uint32_t)0x04040404u;          /* r4 */
 
     /* save the top of the stack in the task's attibute */
     me->sp = sp;
     me->priority = priority;
-
-    /* round up the bottom of the stack to the 8-byte boundary */
-    stk_limit = (uint32_t *)(((((uint32_t)stack_addr - 1U) >> 3U) + 1U) << 3U);
-
-    /* pre-fill the unused part of the stack with 0xDEADBEEF */
-    for (sp = sp - 1U; sp >= stk_limit; --sp) {
-        *sp = 0xDEADBEEFU;
-    }
 }
 
 /* Interrupt service function ----------------------------------------------- */

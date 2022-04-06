@@ -99,7 +99,7 @@ Task
  * Defines the prototype to which the application task hook function must
  * conform.
  */
-typedef void (* eos_func_t)(void);
+typedef void (* eos_func_t)(void *parameter);
 
 /*
  * Definition of the task class.
@@ -110,6 +110,7 @@ typedef struct eos_task {
     uint32_t size;
     uint32_t timeout;
     uint32_t stack_size;              /* stack size */
+    uint32_t state                  : 4;
     uint32_t priority               : 6;
     uint32_t id                     : 6;
     uint32_t enabled                : 1;
@@ -150,25 +151,24 @@ typedef struct eos_timer {
     uint32_t time;
     uint32_t time_out;
     eos_func_t callback;
-    uint32_t id                     : 10;
-    uint32_t domain                 : 8;
     uint32_t oneshoot               : 1;
     uint32_t running                : 1;
 } eos_timer_t;
 
 // 启动软定时器，允许在中断中调用。
-int32_t eos_timer_start(eos_timer_t * const me,
+void eos_timer_start(   eos_timer_t * const me,
+                        const char *name,
                         uint32_t time_ms,
                         bool oneshoot,
                         eos_func_t callback);
 // 删除软定时器，允许在中断中调用。
-void eos_timer_delete(uint16_t timer_id);
+void eos_timer_delete(const char *name);
 // 暂停软定时器，允许在中断中调用。
-void eos_timer_pause(uint16_t timer_id);
+void eos_timer_pause(const char *name);
 // 继续软定时器，允许在中断中调用。
-void eos_timer_continue(uint16_t timer_id);
+void eos_timer_continue(const char *name);
 // 重启软定时器的定时，允许在中断中调用。
-void eos_timer_reset(uint16_t timer_id);
+void eos_timer_reset(const char *name);
 
 /* -----------------------------------------------------------------------------
 Event
@@ -219,6 +219,20 @@ void eos_event_unsub(eos_task_t *const me, const char *topic);
 #define EOS_EVENT_SUB(_evt)               eos_event_sub(&(me->super.super), _evt)
 // 事件取消订阅宏定义
 #define EOS_EVENT_UNSUB(_evt)             eos_event_unsub(&(me->super.super), _evt)
+
+/* -----------------------------------------------------------------------------
+Event Bridge
+----------------------------------------------------------------------------- */
+typedef struct eos_ebridge {
+    const char *name;
+} eos_ebridge_t;
+
+void eos_ebridge_init(eos_ebridge_t * const me);
+
+/* -----------------------------------------------------------------------------
+Event Region
+----------------------------------------------------------------------------- */
+void eos_eregion_init(void);
 
 /* -----------------------------------------------------------------------------
 Reactor
@@ -285,6 +299,13 @@ eos_ret_t eos_state_top(eos_sm_t * const me, eos_event_t const * const e);
 #define EOS_SUPER(super)            eos_super((eos_sm_t * )me, (eos_state_handler)super)
 #define EOS_STATE_CAST(state)       ((eos_state_handler)(state))
 #endif
+
+/* -----------------------------------------------------------------------------
+Device
+----------------------------------------------------------------------------- */
+typedef struct eos_device {
+    const char *name;
+} eos_device_t;
 
 /* -----------------------------------------------------------------------------
 Trace

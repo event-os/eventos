@@ -160,8 +160,8 @@ typedef union eos_obj_block {
     uint32_t event_sub;
     eos_task_t *task;
     eos_heap_t *heap;
-    // eos_timer_t *timer;
-    // eos_device_t *device;
+    eos_timer_t *timer;
+    eos_device_t *device;
     void *other;
 } eos_obj_block_t;
 
@@ -172,7 +172,7 @@ typedef struct eos_object {
 } eos_object_t;
 
 typedef struct eos_hash_table {
-    eos_object_t object[EOS_MAX_EVENTS];
+    eos_object_t object[EOS_MAX_OBJECTS];
     uint32_t prime_max;                                 // prime max
     uint32_t size;
 } eos_hash_table_t;
@@ -182,7 +182,10 @@ typedef struct eos_tag {
     hash_algorithm_t hash_func;
     uint64_t task_exist;
     uint64_t actor_enabled;
+
     eos_object_t *task[EOS_MAX_TASKS];
+    eos_timer_t *timers;
+    uint32_t timer_out_min;
 
 #if (EOS_USE_EVENT_DATA != 0)
     eos_heap_t heap;
@@ -250,6 +253,15 @@ static const eos_event_t eos_event_table[Event_User] = {
 #define LOG2(x) (32U - __builtin_clz(x))
 
 // static function -------------------------------------------------------------
+void eos_task_start_private(eos_task_t * const me,
+                            eos_func_t func,
+                            uint8_t priority,
+                            void *stack_addr,
+                            uint32_t stack_size);
+static uint16_t eos_task_init(  eos_task_t * const me,
+                                const char *name,
+                                uint8_t priority,
+                                void *stack, uint32_t size);
 static void eos_sheduler(void);
 static int8_t eos_get_current(void);
 static uint32_t eos_hash_time33(const char *string);
@@ -269,29 +281,26 @@ void *eos_heap_get_block(eos_heap_t * const me, uint8_t priority);
 void eos_heap_gc(eos_heap_t * const me, void *data);
 #endif
 
-// eventos ---------------------------------------------------------------------
-static void eos_clear(void)
-{
-#if (EOS_USE_TIME_EVENT != 0)
-    eos.timer_count = 0;
-#endif
-}
-
+/* -----------------------------------------------------------------------------
+EventOS
+----------------------------------------------------------------------------- */
 uint64_t stack_idle[32];
 eos_task_t task_idle;
 
-uint32_t count_eos = 0;
-void thread_idle(void)
+static void task_func_idle(void *parameter)
 {
+    (void)parameter;
+
     while (1) {
-        count_eos ++;
         eos_hook_idle();
     }
 }
 
 void eos_init(void)
 {
-    eos_clear();
+#if (EOS_USE_TIME_EVENT != 0)
+    eos.timer_count = 0;
+#endif
 
     eos.enabled = EOS_True;
     eos.running = EOS_False;
@@ -309,9 +318,9 @@ void eos_init(void)
 #endif
 
     // 求最大素数
-    for (int32_t i = EOS_MAX_EVENTS; i > 0; i --) {
+    for (int32_t i = EOS_MAX_OBJECTS; i > 0; i --) {
         bool is_prime = true;
-        for (uint32_t j = 2; j < EOS_MAX_EVENTS; j ++) {
+        for (uint32_t j = 2; j < EOS_MAX_OBJECTS; j ++) {
             if (i <= j) {
                 break;
             }
@@ -329,14 +338,135 @@ void eos_init(void)
         }
     }
     // 哈希表初始化
-    for (uint32_t i = 0; i < EOS_MAX_EVENTS; i ++) {
+    for (uint32_t i = 0; i < EOS_MAX_OBJECTS; i ++) {
         eos.hash.object[i].key = (const char *)0;
     }
     
     eos_current = 0;
     eos_next = &task_idle;
     
-    eos_task_start(&task_idle, thread_idle, 0, stack_idle, sizeof(stack_idle));
+    eos_task_start( &task_idle,
+                    "task_idle",
+                    task_func_idle, 0, stack_idle, sizeof(stack_idle));
+}
+
+/* -----------------------------------------------------------------------------
+Timer
+----------------------------------------------------------------------------- */
+// 启动软定时器，允许在中断中调用。
+void eos_timer_start(   eos_timer_t * const me,
+                        const char *name,
+                        uint32_t time_ms,
+                        bool oneshoot,
+                        eos_func_t callback)
+{
+    EOS_ASSERT(time_ms <= EOS_MS_NUM_30DAY);
+
+    // 检查重名
+    eos_critical_enter();
+    uint16_t index = eos_hash_get_index(name);
+    EOS_ASSERT(index == EOS_MAX_OBJECTS);
+    eos_critical_exit();
+
+    // Timer data.
+    me->time = time_ms;
+    me->time_out = eos.time + time_ms;
+    me->callback = callback;
+    me->oneshoot = oneshoot == false ? 0 : 1;
+    me->running = 1;
+
+    eos_critical_enter();
+    // Add in the hash table.
+    index = eos_hash_insert(name);
+    eos.hash.object[index].type = EosObj_Timer;
+    // Add the timer to the list.
+    me->next = eos.timers;
+    eos.timers = me;
+    
+    if (eos.timer_out_min > me->time_out) {
+        eos.timer_out_min = me->time_out;
+    }
+    eos_critical_exit();
+}
+
+// 删除软定时器，允许在中断中调用。
+void eos_timer_delete(const char *name)
+{
+    // 检查是否存在
+    eos_critical_enter();
+    uint16_t index = eos_hash_get_index(name);
+    EOS_ASSERT(index != EOS_MAX_OBJECTS);
+
+    eos_timer_t *current = eos.hash.object[index].block.timer;
+    eos.hash.object[index].key = (const char *)0;
+    eos_timer_t *list = eos.timers;
+    eos_timer_t *last = (eos_timer_t *)0;
+    while (list != (eos_timer_t *)0) {
+        if (list == current) {
+            if (last == (eos_timer_t *)0) {
+                eos.timers = list->next;
+            }
+            else {
+                last->next = list->next;
+            }
+            eos_critical_exit();
+            return;
+        }
+        last = list;
+        list = list->next;
+    }
+
+    // not found.
+    EOS_ASSERT(0);
+}
+
+// 暂停软定时器，允许在中断中调用。
+void eos_timer_pause(const char *name)
+{
+    // 检查是否存在
+    eos_critical_enter();
+    uint16_t index = eos_hash_get_index(name);
+    EOS_ASSERT(index != EOS_MAX_OBJECTS);
+    eos_timer_t *timer = eos.hash.object[index].block.timer;
+    timer->running = 0;
+
+    // 重新计算最小定时器值
+    eos_timer_t *list = eos.timers;
+    uint32_t time_out_min = UINT32_MAX;
+    while (list != (eos_timer_t *)0) {
+        if (list->running != 0 && time_out_min > list->time_out) {
+            time_out_min = list->time_out;
+        }
+        list = list->next;
+    }
+    eos.timer_out_min = time_out_min;
+    eos_critical_exit();
+}
+
+// 继续软定时器，允许在中断中调用。
+void eos_timer_continue(const char *name)
+{
+    eos_critical_enter();
+    uint16_t index = eos_hash_get_index(name);
+    EOS_ASSERT(index != EOS_MAX_OBJECTS);
+    eos_timer_t *timer = eos.hash.object[index].block.timer;
+    timer->running = 1;
+    if (eos.timer_out_min > timer->time_out) {
+        eos.timer_out_min = timer->time_out;
+    }
+    eos_critical_exit();
+}
+
+// 重启软定时器的定时，允许在中断中调用。
+void eos_timer_reset(const char *name)
+{
+    eos_critical_enter();
+    uint16_t index = eos_hash_get_index(name);
+    EOS_ASSERT(index != EOS_MAX_OBJECTS);
+    eos_timer_t *timer = eos.hash.object[index].block.timer;
+    timer->running = 1;
+    timer->time_out = eos.time + timer->time;
+    eos_critical_exit();
 }
 
 void eos_set_hash(hash_algorithm_t hash)
@@ -406,9 +536,9 @@ void eos_delay_ms(uint32_t time_ms)
     ((eos_task_t *)eos_current)->timeout = eos.time + time_ms;
     bit = (1U << (((eos_task_t *)eos_current)->priority));
     eos.delay |= bit;
+    eos_critical_exit();
     
     eos_sheduler();
-    eos_critical_exit();
 }
 
 static int8_t eos_get_current(void)
@@ -418,7 +548,9 @@ static int8_t eos_get_current(void)
     }
 
     if (eos.enabled == EOS_False) {
-        eos_clear();
+#if (EOS_USE_TIME_EVENT != 0)
+        eos.timer_count = 0;
+#endif
         return (int8_t)EosRun_NotEnabled;
     }
 
@@ -508,8 +640,61 @@ int8_t eos_execute(uint8_t priority)
     return (int8_t)EosRun_OK;
 }
 
-static void eos_task_function(void)
+void eos_task_start(eos_task_t * const me,
+                    const char *name,
+                    eos_func_t func,
+                    uint8_t priority,
+                    void *stack_addr,
+                    uint32_t stack_size)
 {
+    uint16_t index = eos_task_init(me, name, priority, stack_addr, stack_size);
+    eos.hash.object[index].block.task = me;
+    eos.hash.object[index].type = EosObj_Task;
+
+    eos_task_start_private(me, func, me->priority, stack_addr, stack_size);
+    
+    if (eos_current == &task_idle) {
+        eos_critical_exit();
+        eos_sheduler();
+    }
+    else {
+        eos_critical_exit();
+    }
+}
+
+static void eos_actor_start(eos_task_t * const me,
+                            eos_func_t func,
+                            uint8_t priority,
+                            void *stack_addr,
+                            uint32_t stack_size)
+{
+    eos_task_start_private(me, func, me->priority, stack_addr, stack_size);
+    
+    if (eos_current == &task_idle || eos_current == (eos_task_t *)0) {
+        eos_critical_exit();
+        eos_sheduler();
+    }
+    else {
+        eos_critical_exit();
+    }
+}
+
+
+void eos_task_exit(void)
+{
+    eos_critical_enter();
+    eos.task[eos_current->priority]->key = (const char *)0;
+    eos.task[eos_current->priority] = (void *)0;
+    eos.task_exist &= ~(1 << eos_current->priority);
+    eos_critical_exit();
+    
+    eos_sheduler();
+}
+
+static void eos_task_function(void *parameter)
+{
+    (void)parameter;
+    
     while (1) {
         int8_t ret = eos_get_current();
         EOS_ASSERT(ret >= 0);
@@ -525,20 +710,20 @@ static void eos_sheduler(void)
 {
     eos_critical_enter();
     /* eos_next = ... */
-    if (eos.heap.sub_general == 0U) {                        /* idle condition? */
-        eos_next = &task_idle;                       /* the idle task */
-    }
-    else {
-        eos_next = &task_idle;
-        for (int8_t i = (EOS_MAX_TASKS - 1); i >= 0; i --) {
-            if ((eos.heap.sub_general & (1 << i)) == 0) {
-                continue;
-            }
+    eos_next = &task_idle;
+    for (int8_t i = (EOS_MAX_TASKS - 1); i >= 1; i --) {
+        if ((eos.heap.sub_general & (1 << i)) == 0 &&
+            (eos.task[i]->type == EosObj_Reactor || eos.task[i]->type == EosObj_StateMachine)) {
+            continue;
+        }
+        if ((eos.task_exist & (1 << i)) != 0) {
             if ((eos.delay & (1 << i)) != 0) {
                 continue;
             }
-            eos_next = eos.task[i]->block.task;
-            break;
+            else {
+                eos_next = eos.task[i]->block.task;
+                break;
+            }
         }
     }
 
@@ -597,6 +782,10 @@ void eos_tick(void)
         }
         working_set &=~ bit;                /* remove from working set */
     }
+    
+    if (eos_current == &task_idle) {
+        eos_sheduler();
+    }
 }
 #endif
 
@@ -614,17 +803,16 @@ static uint16_t eos_task_init(  eos_task_t * const me,
     EOS_ASSERT(priority < EOS_MAX_TASKS);
     // 防止二次启动
     EOS_ASSERT(me->enabled == EOS_False);
-
     // 检查优先级的重复注册
     EOS_ASSERT((eos.task_exist & (1 << priority)) == 0);
     // 检查重名
-    EOS_ASSERT(eos_hash_get_index(name) == EOS_MAX_EVENTS);
+    EOS_ASSERT(eos_hash_get_index(name) == EOS_MAX_OBJECTS);
     // 获取哈希表的位置
     uint16_t index = eos_hash_insert(name);
     eos.hash.object[index].block.task = me;
     // 注册到框架里
     eos.task_exist |= (1 << priority);
-    eos.task[priority] = &eos.hash.object[index];
+    eos.task[priority] = &(eos.hash.object[index]);
     // 状态机
     me->priority = priority;
     me->stack = stack;
@@ -639,7 +827,6 @@ void eos_reactor_init(  eos_reactor_t * const me,
                         void *stack, uint32_t size)
 {
     uint16_t index = eos_task_init(&me->super, name, priority, stack, size);
-    eos.hash.object[index].block.task = &me->super;
     eos.hash.object[index].type = EosObj_Reactor;
 }
 
@@ -649,8 +836,10 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
     me->super.enabled = EOS_True;
     eos.actor_enabled |= (1 << me->super.priority);
     
-    eos_task_start( &me->super, eos_task_function,
-                    me->super.priority, me->super.stack, me->super.size);
+    eos_actor_start(&me->super,
+                    eos_task_function,
+                    me->super.priority,
+                    me->super.stack, me->super.size);
 }
 
 // state machine ---------------------------------------------------------------
@@ -661,7 +850,6 @@ void eos_sm_init(   eos_sm_t * const me,
                     void *stack, uint32_t size)
 {
     uint16_t index = eos_task_init(&me->super, name, priority, stack, size);
-    eos.hash.object[index].block.task = &me->super;
     eos.hash.object[index].type = EosObj_StateMachine;
     me->state = eos_state_top;
 }
@@ -716,8 +904,10 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
     me->state = t;
 #endif
     
-    eos_task_start( &me->super, eos_task_function,
-                    me->super.priority, me->super.stack, me->super.size);
+    eos_actor_start(&me->super,
+                    eos_task_function,
+                    me->super.priority,
+                    me->super.stack, me->super.size);
 }
 #endif
 
@@ -761,7 +951,7 @@ int8_t eos_event_pub_ret(const char *topic, void *data, uint32_t size)
     e->topic = topic;
 #if (EOS_USE_PUB_SUB != 0)
     uint16_t index = eos_hash_get_index(topic);
-    EOS_ASSERT(index != EOS_MAX_EVENTS);
+    EOS_ASSERT(index != EOS_MAX_OBJECTS);
     e->sub = eos.hash.object[index].block.event_sub;
 #else
     e->sub = eos.task_exist;
@@ -806,7 +996,7 @@ void eos_event_sub(eos_task_t * const me, const char *topic)
     // 通过Topic找到对应的Object
     uint16_t index;
     index = eos_hash_get_index(topic);
-    if (index == EOS_MAX_EVENTS) {
+    if (index == EOS_MAX_OBJECTS) {
         index = eos_hash_insert(topic);
         eos.hash.object[index].type = EosObj_Event;
     }
@@ -1388,10 +1578,10 @@ static uint16_t eos_hash_insert(const char *string)
     uint32_t hash = eos.hash_func(string);
     uint16_t index_init = hash % eos.prime_max;
 
-    for (uint16_t i = 0; i < (EOS_MAX_EVENTS / 2 + 1); i ++) {
+    for (uint16_t i = 0; i < (EOS_MAX_OBJECTS / 2 + 1); i ++) {
         for (int8_t j = -1; j <= 1; j += 2) {
-            index = index_init + i * j + 2 * (int16_t)EOS_MAX_EVENTS;
-            index %= EOS_MAX_EVENTS;
+            index = index_init + i * j + 2 * (int16_t)EOS_MAX_OBJECTS;
+            index %= EOS_MAX_OBJECTS;
 
             // 寻找到空的哈希
             if (eos.hash.object[index].key == (const char *)0) {
@@ -1426,10 +1616,10 @@ static uint16_t eos_hash_get_index(const char *string)
     uint32_t hash = eos.hash_func(string);
     uint16_t index_init = hash % eos.prime_max;
 
-    for (uint16_t i = 0; i < (EOS_MAX_EVENTS / 2 + 1); i ++) {
+    for (uint16_t i = 0; i < (EOS_MAX_OBJECTS / 2 + 1); i ++) {
         for (int8_t j = -1; j <= 1; j += 2) {
-            index = index_init + i * j + 2 * (int16_t)EOS_MAX_EVENTS;
-            index %= EOS_MAX_EVENTS;
+            index = index_init + i * j + 2 * (int16_t)EOS_MAX_OBJECTS;
+            index %= EOS_MAX_OBJECTS;
 
             if (eos.hash.object[index].key == (const char *)0) {
                 continue;
@@ -1443,11 +1633,11 @@ static uint16_t eos_hash_get_index(const char *string)
 
         // 确保哈希表的查找速度
         if (i >= EOS_MAX_HASH_SEEK_TIMES) {
-            return EOS_MAX_EVENTS;
+            return EOS_MAX_OBJECTS;
         }
     }
     
-    return EOS_MAX_EVENTS;
+    return EOS_MAX_OBJECTS;
 }
 
 /* for unittest ------------------------------------------------------------- */

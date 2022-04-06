@@ -4,6 +4,20 @@
 #include "eos_led.h"                                // LED灯闪烁状态机
 
 /* main function ------------------------------------------------------------ */
+uint8_t stack_task[1024];
+eos_task_t task;
+uint32_t count_test = 0;
+
+void task_func_test(void *parameter)
+{
+    (void)parameter;
+    
+    while (1) {
+        count_test ++;
+        eos_delay_ms(100);
+    }
+}
+
 int main(void)
 {
     if (SysTick_Config(SystemCoreClock / 1000) != 0)
@@ -15,6 +29,10 @@ int main(void)
     eos_sm_led_init();                              // LED状态机初始化
 #endif
     eos_reactor_led_init();
+    
+//    eos_task_start( &task,
+//                    "task_test", task_func_test, 3,
+//                    stack_task, sizeof(stack_task));
 
     eos_run();                                      // EventOS启动
 

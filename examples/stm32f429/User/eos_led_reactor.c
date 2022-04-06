@@ -21,8 +21,6 @@ static void led_e_handler(eos_reactor_led_t * const me, eos_event_t const * cons
 void eos_reactor_led_init(void)
 {
     eos_reactor_init(&actor_led.super, "actor_led", 31, stack_led, sizeof(stack_led));
-    eos_reactor_start(&actor_led.super, EOS_HANDLER_CAST(led_e_handler));
-
     actor_led.status = 0;
 
 #if (EOS_USE_PUB_SUB != 0)
@@ -31,6 +29,8 @@ void eos_reactor_led_init(void)
 #if (EOS_USE_TIME_EVENT != 0)
     eos_event_pub_period("Event_Time_1000ms", 1000);
 #endif
+    
+    eos_reactor_start(&actor_led.super, EOS_HANDLER_CAST(led_e_handler));
 }
 
 /* static state function ---------------------------------------------------- */

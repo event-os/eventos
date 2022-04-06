@@ -42,8 +42,8 @@
 //   <o>  The maximum number of tasks: 1 - 64
 #define EOS_MAX_TASKS                           32
 
-//   <o>  The maximum number of events: 16 - 65536
-#define EOS_MAX_EVENTS                          32
+//   <o>  The maximum number of objects: 16 - 65536
+#define EOS_MAX_OBJECTS                         32
 #define EOS_MAX_HASH_SEEK_TIMES                 5
 
 //   <o>  The platform type: 32 ort 64 bits.
