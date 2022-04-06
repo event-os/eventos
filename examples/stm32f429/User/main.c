@@ -30,9 +30,9 @@ int main(void)
 #endif
     eos_reactor_led_init();
     
-//    eos_task_start( &task,
-//                    "task_test", task_func_test, 3,
-//                    stack_task, sizeof(stack_task));
+    eos_task_start( &task,
+                    "task_test", task_func_test, 3,
+                    stack_task, sizeof(stack_task));
 
     eos_run();                                      // EventOS启动
 

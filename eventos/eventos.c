@@ -647,6 +647,7 @@ void eos_task_start(eos_task_t * const me,
                     void *stack_addr,
                     uint32_t stack_size)
 {
+    eos_critical_enter();
     uint16_t index = eos_task_init(me, name, priority, stack_addr, stack_size);
     eos.hash.object[index].block.task = me;
     eos.hash.object[index].type = EosObj_Task;
@@ -668,9 +669,10 @@ static void eos_actor_start(eos_task_t * const me,
                             void *stack_addr,
                             uint32_t stack_size)
 {
+    eos_critical_enter();
     eos_task_start_private(me, func, me->priority, stack_addr, stack_size);
     
-    if (eos_current == &task_idle || eos_current == (eos_task_t *)0) {
+    if (eos_current == &task_idle) {
         eos_critical_exit();
         eos_sheduler();
     }
@@ -712,18 +714,16 @@ static void eos_sheduler(void)
     /* eos_next = ... */
     eos_next = &task_idle;
     for (int8_t i = (EOS_MAX_TASKS - 1); i >= 1; i --) {
-        if ((eos.heap.sub_general & (1 << i)) == 0 &&
+        if ((eos.heap.sub_general & (1 << i)) != 0 &&
             (eos.task[i]->type == EosObj_Reactor || eos.task[i]->type == EosObj_StateMachine)) {
-            continue;
+            eos_next = eos.task[i]->block.task;
+            break;
         }
-        if ((eos.task_exist & (1 << i)) != 0) {
-            if ((eos.delay & (1 << i)) != 0) {
-                continue;
-            }
-            else {
-                eos_next = eos.task[i]->block.task;
-                break;
-            }
+        if ((eos.task_exist & (1 << i)) != 0 &&
+            (eos.delay & (1 << i)) == 0 &&
+            eos.task[i]->type == EosObj_Task) {
+            eos_next = eos.task[i]->block.task;
+            break;
         }
     }
 

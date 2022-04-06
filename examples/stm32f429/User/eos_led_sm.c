@@ -23,9 +23,9 @@ uint8_t stack_sm[256];
 void eos_sm_led_init(void)
 {
     eos_sm_init(&sm_led.super, "sm_led", 1, stack_sm, sizeof(stack_sm));
-    eos_sm_start(&sm_led.super, EOS_STATE_CAST(state_init));
-
     sm_led.status = 0;
+    
+    eos_sm_start(&sm_led.super, EOS_STATE_CAST(state_init));
 }
 
 /* static state function ---------------------------------------------------- */
