@@ -74,7 +74,23 @@ EventOS Default Configuration
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "eventos_def.h"
+
+/* -----------------------------------------------------------------------------
+Basic type
+----------------------------------------------------------------------------- */
+typedef enum eos_bool {
+    EOS_False = 0,
+    EOS_True = !EOS_False,
+} eos_bool_t;
+
+#define EOS_NULL                        ((void *)0)
+
+#if (EOS_TEST_PLATFORM == 32)
+typedef uint32_t                        eos_pointer_t;
+#else
+#include <stdint.h>
+typedef uint64_t                        eos_pointer_t;
+#endif
 
 /* -----------------------------------------------------------------------------
 EventOS
@@ -127,17 +143,17 @@ void eos_task_start(eos_task_t * const me,
 void eos_task_exit(void);
 // 任务内延时，任务函数中调用，不允许在定时器的回调函数调用，不允许在空闲回调函数中调用。
 void eos_delay_ms(uint32_t time_ms);
-// 延时，屏蔽事件的接收（毫秒级延时，释放CPU控制权），直到延时完毕。
+// TODO 延时，屏蔽事件的接收（毫秒级延时，释放CPU控制权），直到延时完毕。
 void eos_delay_unsub_event(uint32_t time_ms);
-// 挂起某任务
+// TODO 挂起某任务
 void eos_task_suspend(const char *task);
-// 删除某任务
+// TODO 删除某任务
 void eos_task_delete(const char *task);
-// 恢复某任务
+// TODO 恢复某任务
 void eos_task_resume(const char *task);
-// 任务等待某事件
+// TODO 任务等待某事件
 void eos_task_wait_event(const char *event);
-// 任务取消等待
+// TODO 任务取消等待
 void eos_task_wait_cancel(void);
 
 /* -----------------------------------------------------------------------------
@@ -183,31 +199,44 @@ typedef struct eos_event {
 } eos_event_t;
 
 // 检查事件的主题 -----------------------------------------
+// 检查某事件是否当前主题
 bool eos_event_topic(eos_event_t const * const e, const char *topic);
+// TODO 获取某个值事件的值
+void eos_event_get_value(const char *topic, void const *data);
 
 // 事件的属性设置 -----------------------------------------
+// TODO 设置事件为全局事件，可以发送到事件桥与事件域。
 void eos_event_set_global(const char *topic);
-// 设置不可阻塞事件。在延时时，此类事件进入，延时结束，对此类事件进行立即响应。
+// TODO 设置不可阻塞事件。在延时时，此类事件进入，延时结束，对此类事件进行立即响应。
 void eos_event_set_unblocked(const char *topic);
+// TODO 设置事件为流事件。
 void eos_event_set_stream(const char *topic);
 
 // 事件的直接发送 -----------------------------------------
+// TODO 直接发送主题事件。可在中断中使用。
 void eos_event_send_topic(const char *task, const char *topic);
+// TODO 直接发送值事件。可在中断中使用。
 void eos_event_send_value(const char *task, const char *topic, void const *data);
+// TODO 直接发送流事件。可在中断中使用。
 void eos_event_send_stream(const char *task, const char *topic, void const *data, uint32_t size);
 
 // 事件的广播 --------------------------------------------
+// TODO 广播发布某主题事件
 void eos_event_broadcast_topic(const char *topic);
+// TODO 广播发布某值事件
 void eos_event_broadcast_value(const char *topic, void const *data);
 
 // 事件的发布 --------------------------------------------
 // 注：只有下面两个函数能在中断服务函数中使用，其他都没有必要。如果使用，可能会导致崩溃问题。
-// 发布事件（仅主题）
+// 发布主题事件，可在中断中使用。
 void eos_event_pub_topic(const char *topic);
-void eos_event_pub_delay(const char *topic, uint32_t time_delay_ms);
-// 发布事件（携带数据）
+// 发布值事件，可在中断中使用。
 void eos_event_pub_value(const char *topic, void *data);
+// 延时发布某事件。
+void eos_event_pub_delay(const char *topic, uint32_t time_delay_ms);
+// 周期发布某事件。
 void eos_event_pub_period(const char *topic, uint32_t time_period_ms);
+// 取消某延时或者周期事件的发布
 void eos_event_time_cancel(const char *topic);
 
 // 事件的订阅 --------------------------------------------
@@ -221,18 +250,25 @@ void eos_event_unsub(eos_task_t *const me, const char *topic);
 #define EOS_EVENT_UNSUB(_evt)             eos_event_unsub(&(me->super.super), _evt)
 
 /* -----------------------------------------------------------------------------
+Event Region
+----------------------------------------------------------------------------- */
+typedef struct eos_bridge {
+    const char *topic;
+} eos_bridge_t;
+
+// TODO 创建事件域
+void eos_eregion_init(void);
+void eos_region_add_node(void);
+
+/* -----------------------------------------------------------------------------
 Event Bridge
 ----------------------------------------------------------------------------- */
 typedef struct eos_ebridge {
     const char *name;
 } eos_ebridge_t;
 
+// TODO 创建事件桥
 void eos_ebridge_init(eos_ebridge_t * const me);
-
-/* -----------------------------------------------------------------------------
-Event Region
------------------------------------------------------------------------------ */
-void eos_eregion_init(void);
 
 /* -----------------------------------------------------------------------------
 Reactor
@@ -254,6 +290,7 @@ void eos_reactor_init(  eos_reactor_t * const me,
                         uint8_t priority,
                         void *stack, uint32_t size);
 void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler);
+
 #define EOS_HANDLER_CAST(handler)       ((eos_event_handler)(handler))
 
 /* -----------------------------------------------------------------------------

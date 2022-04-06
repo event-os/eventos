@@ -284,8 +284,8 @@ void eos_heap_gc(eos_heap_t * const me, void *data);
 /* -----------------------------------------------------------------------------
 EventOS
 ----------------------------------------------------------------------------- */
-uint64_t stack_idle[32];
-eos_task_t task_idle;
+static uint64_t stack_idle[32];
+static eos_task_t task_idle;
 
 static void task_func_idle(void *parameter)
 {
@@ -349,6 +349,164 @@ void eos_init(void)
                     "task_idle",
                     task_func_idle, 0, stack_idle, sizeof(stack_idle));
 }
+
+void eos_run(void)
+{
+    eos_hook_start();
+    
+    eos_sheduler();
+}
+
+uint32_t eos_time(void)
+{
+    return eos.time;
+}
+
+void eos_tick(void)
+{
+    uint32_t system_time = eos.time, system_time_bkp = eos.time;
+    uint32_t offset = EOS_MS_NUM_30DAY - 1 + EOS_TICK_MS;
+    system_time = ((system_time + EOS_TICK_MS) % EOS_MS_NUM_30DAY);
+    if (system_time_bkp >= (EOS_MS_NUM_30DAY - EOS_TICK_MS) && system_time < EOS_TICK_MS) {
+        eos_critical_enter();
+        EOS_ASSERT(eos.timeout_min >= offset);
+        eos.timeout_min -= offset;
+        for (uint32_t i = 0; i < eos.timer_count; i ++) {
+            EOS_ASSERT(eos.etimer[i].timeout_ms >= offset);
+            eos.etimer[i].timeout_ms -= offset;
+        }
+        eos_critical_exit();
+    }
+    eos.time = system_time;
+    
+#if (EOS_USE_TIME_EVENT != 0)
+    eos_evttimer();
+#endif
+
+    /* check all the time-events are timeout or not */
+    uint32_t working_set, bit;
+    working_set = eos.delay;
+    while (working_set != 0U) {
+        eos_task_t *t = eos.task[LOG2(working_set) - 1]->block.task;
+        EOS_ASSERT(t != (eos_task_t *)0);
+        EOS_ASSERT(((eos_task_t *)t)->timeout != 0U);
+
+        bit = (1U << (((eos_task_t *)t)->priority));
+        if (eos.time >= ((eos_task_t *)t)->timeout) {
+            eos.delay &= ~bit;              /* remove from set */
+        }
+        working_set &=~ bit;                /* remove from working set */
+    }
+    
+    if (eos_current == &task_idle) {
+        eos_sheduler();
+    }
+}
+
+// 仅为单元测试
+void eos_set_hash(hash_algorithm_t hash)
+{
+    eos.hash_func = hash;
+}
+
+/* -----------------------------------------------------------------------------
+Task
+----------------------------------------------------------------------------- */
+static void eos_sheduler(void)
+{
+    eos_critical_enter();
+    /* eos_next = ... */
+    eos_next = &task_idle;
+    for (int8_t i = (EOS_MAX_TASKS - 1); i >= 1; i --) {
+        if ((eos.heap.sub_general & (1 << i)) != 0 &&
+            (eos.task[i]->type == EosObj_Reactor ||
+            eos.task[i]->type == EosObj_StateMachine)) {
+            eos_next = eos.task[i]->block.task;
+            break;
+        }
+        if ((eos.task_exist & (1 << i)) != 0 &&
+            (eos.delay & (1 << i)) == 0 &&
+            eos.task[i]->type == EosObj_Task) {
+            eos_next = eos.task[i]->block.task;
+            break;
+        }
+    }
+
+    /* trigger PendSV, if needed */
+    if (eos_next != eos_current) {
+        eos_port_task_switch();
+    }
+    eos_critical_exit();
+}
+
+void eos_task_start(eos_task_t * const me,
+                    const char *name,
+                    eos_func_t func,
+                    uint8_t priority,
+                    void *stack_addr,
+                    uint32_t stack_size)
+{
+    eos_critical_enter();
+    uint16_t index = eos_task_init(me, name, priority, stack_addr, stack_size);
+    eos.hash.object[index].block.task = me;
+    eos.hash.object[index].type = EosObj_Task;
+
+    eos_task_start_private(me, func, me->priority, stack_addr, stack_size);
+    
+    if (eos_current == &task_idle) {
+        eos_critical_exit();
+        eos_sheduler();
+    }
+    else {
+        eos_critical_exit();
+    }
+}
+
+static void eos_actor_start(eos_task_t * const me,
+                            eos_func_t func,
+                            uint8_t priority,
+                            void *stack_addr,
+                            uint32_t stack_size)
+{
+    eos_critical_enter();
+    eos_task_start_private(me, func, me->priority, stack_addr, stack_size);
+    
+    if (eos_current == &task_idle) {
+        eos_critical_exit();
+        eos_sheduler();
+    }
+    else {
+        eos_critical_exit();
+    }
+}
+
+void eos_task_exit(void)
+{
+    eos_critical_enter();
+    eos.task[eos_current->priority]->key = (const char *)0;
+    eos.task[eos_current->priority] = (void *)0;
+    eos.task_exist &= ~(1 << eos_current->priority);
+    eos_critical_exit();
+    
+    eos_sheduler();
+}
+
+void eos_delay_ms(uint32_t time_ms)
+{
+    uint32_t bit;
+    eos_critical_enter();
+
+    /* never call eos_delay_ms and eos_delay_ticks in the idle task */
+    EOS_ASSERT(eos_current != &task_idle);
+
+    ((eos_task_t *)eos_current)->timeout = eos.time + time_ms;
+    bit = (1U << (((eos_task_t *)eos_current)->priority));
+    eos.delay |= bit;
+    eos_critical_exit();
+    
+    eos_sheduler();
+}
+
 
 /* -----------------------------------------------------------------------------
 Timer
@@ -469,10 +627,11 @@ void eos_timer_reset(const char *name)
     eos_critical_exit();
 }
 
-void eos_set_hash(hash_algorithm_t hash)
-{
-    eos.hash_func = hash;
-}
+/* -----------------------------------------------------------------------------
+Event
+----------------------------------------------------------------------------- */
+
+
 
 #if (EOS_USE_TIME_EVENT != 0)
 int32_t eos_evttimer(void)
@@ -525,21 +684,6 @@ int32_t eos_evttimer(void)
 }
 #endif
 
-void eos_delay_ms(uint32_t time_ms)
-{
-    uint32_t bit;
-    eos_critical_enter();
-
-    /* never call eos_delay_ms and eos_delay_ticks in the idle task */
-    EOS_ASSERT(eos_current != &task_idle);
-
-    ((eos_task_t *)eos_current)->timeout = eos.time + time_ms;
-    bit = (1U << (((eos_task_t *)eos_current)->priority));
-    eos.delay |= bit;
-    eos_critical_exit();
-    
-    eos_sheduler();
-}
 
 static int8_t eos_get_current(void)
 {
@@ -640,58 +784,6 @@ int8_t eos_execute(uint8_t priority)
     return (int8_t)EosRun_OK;
 }
 
-void eos_task_start(eos_task_t * const me,
-                    const char *name,
-                    eos_func_t func,
-                    uint8_t priority,
-                    void *stack_addr,
-                    uint32_t stack_size)
-{
-    eos_critical_enter();
-    uint16_t index = eos_task_init(me, name, priority, stack_addr, stack_size);
-    eos.hash.object[index].block.task = me;
-    eos.hash.object[index].type = EosObj_Task;
-
-    eos_task_start_private(me, func, me->priority, stack_addr, stack_size);
-    
-    if (eos_current == &task_idle) {
-        eos_critical_exit();
-        eos_sheduler();
-    }
-    else {
-        eos_critical_exit();
-    }
-}
-
-static void eos_actor_start(eos_task_t * const me,
-                            eos_func_t func,
-                            uint8_t priority,
-                            void *stack_addr,
-                            uint32_t stack_size)
-{
-    eos_critical_enter();
-    eos_task_start_private(me, func, me->priority, stack_addr, stack_size);
-    
-    if (eos_current == &task_idle) {
-        eos_critical_exit();
-        eos_sheduler();
-    }
-    else {
-        eos_critical_exit();
-    }
-}
-
-
-void eos_task_exit(void)
-{
-    eos_critical_enter();
-    eos.task[eos_current->priority]->key = (const char *)0;
-    eos.task[eos_current->priority] = (void *)0;
-    eos.task_exist &= ~(1 << eos_current->priority);
-    eos_critical_exit();
-    
-    eos_sheduler();
-}
 
 static void eos_task_function(void *parameter)
 {
@@ -708,86 +800,9 @@ static void eos_task_function(void *parameter)
     }
 }
 
-static void eos_sheduler(void)
-{
-    eos_critical_enter();
-    /* eos_next = ... */
-    eos_next = &task_idle;
-    for (int8_t i = (EOS_MAX_TASKS - 1); i >= 1; i --) {
-        if ((eos.heap.sub_general & (1 << i)) != 0 &&
-            (eos.task[i]->type == EosObj_Reactor || eos.task[i]->type == EosObj_StateMachine)) {
-            eos_next = eos.task[i]->block.task;
-            break;
-        }
-        if ((eos.task_exist & (1 << i)) != 0 &&
-            (eos.delay & (1 << i)) == 0 &&
-            eos.task[i]->type == EosObj_Task) {
-            eos_next = eos.task[i]->block.task;
-            break;
-        }
-    }
 
-    /* trigger PendSV, if needed */
-    if (eos_next != eos_current) {
-        eos_port_task_switch();
-    }
-    eos_critical_exit();
-}
 
-void eos_run(void)
-{
-    eos_hook_start();
-    
-    eos_sheduler();
-}
 
-#if (EOS_USE_TIME_EVENT != 0)
-uint32_t eos_time(void)
-{
-    return eos.time;
-}
-
-void eos_tick(void)
-{
-    uint32_t system_time = eos.time, system_time_bkp = eos.time;
-    uint32_t offset = EOS_MS_NUM_30DAY - 1 + EOS_TICK_MS;
-    system_time = ((system_time + EOS_TICK_MS) % EOS_MS_NUM_30DAY);
-    if (system_time_bkp >= (EOS_MS_NUM_30DAY - EOS_TICK_MS) && system_time < EOS_TICK_MS) {
-        eos_critical_enter();
-        EOS_ASSERT(eos.timeout_min >= offset);
-        eos.timeout_min -= offset;
-        for (uint32_t i = 0; i < eos.timer_count; i ++) {
-            EOS_ASSERT(eos.etimer[i].timeout_ms >= offset);
-            eos.etimer[i].timeout_ms -= offset;
-        }
-        eos_critical_exit();
-    }
-    eos.time = system_time;
-    
-#if (EOS_USE_TIME_EVENT != 0)
-    eos_evttimer();
-#endif
-
-    /* check all the time-events are timeout or not */
-    uint32_t working_set, bit;
-    working_set = eos.delay;
-    while (working_set != 0U) {
-        eos_task_t *t = eos.task[LOG2(working_set) - 1]->block.task;
-        EOS_ASSERT(t != (eos_task_t *)0);
-        EOS_ASSERT(((eos_task_t *)t)->timeout != 0U);
-
-        bit = (1U << (((eos_task_t *)t)->priority));
-        if (eos.time >= ((eos_task_t *)t)->timeout) {
-            eos.delay &= ~bit;              /* remove from set */
-        }
-        working_set &=~ bit;                /* remove from working set */
-    }
-    
-    if (eos_current == &task_idle) {
-        eos_sheduler();
-    }
-}
-#endif
 
 // 关于Reactor -----------------------------------------------------------------
 static uint16_t eos_task_init(  eos_task_t * const me,
