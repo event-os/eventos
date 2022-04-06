@@ -1,5 +1,5 @@
 /*
- * EventOS Nano
+ * EventOS
  * Copyright (c) 2021, EventOS Team, <event-os@outlook.com>
  *
  * SPDX-License-Identifier: MIT
@@ -22,8 +22,8 @@
  * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * https://www.event-os.cn
- * https://github.com/event-os/eventos-nano
- * https://gitee.com/event-os/eventos-nano
+ * https://github.com/event-os/eventos
+ * https://gitee.com/event-os/eventos
  * 
  * Change Logs:
  * Date           Author        Notes
@@ -43,7 +43,7 @@ extern "C" {
 #if (EOS_USE_ASSERT != 0)
 #define EOS_ASSERT(test_) do { if (!(test_)) {                                 \
         eos_hook_stop();                                                       \
-        eos_port_critical_enter();                                             \
+        eos_critical_enter();                                                  \
         eos_port_assert(__LINE__);                                             \
     } } while (0)
 #else
@@ -255,8 +255,6 @@ static int8_t eos_get_current(void);
 static uint32_t eos_hash_time33(const char *string);
 static uint16_t eos_hash_insert(const char *string);
 static uint16_t eos_hash_get_index(const char *string);
-void eos_task_start(eos_task_t * const me, eos_func_t func, void *stack_addr,
-                      uint32_t stack_size);
 #if (EOS_USE_SM_MODE != 0)
 static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e);
 #if (EOS_USE_HSM_MODE != 0)
@@ -338,7 +336,7 @@ void eos_init(void)
     eos_current = 0;
     eos_next = &task_idle;
     
-    eos_task_start(&task_idle, thread_idle, stack_idle, sizeof(stack_idle));
+    eos_task_start(&task_idle, thread_idle, 0, stack_idle, sizeof(stack_idle));
 }
 
 void eos_set_hash(hash_algorithm_t hash)
@@ -400,7 +398,7 @@ int32_t eos_evttimer(void)
 void eos_delay_ms(uint32_t time_ms)
 {
     uint32_t bit;
-    eos_port_critical_enter();
+    eos_critical_enter();
 
     /* never call eos_delay_ms and eos_delay_ticks in the idle task */
     EOS_ASSERT(eos_current != &task_idle);
@@ -410,7 +408,7 @@ void eos_delay_ms(uint32_t time_ms)
     eos.delay |= bit;
     
     eos_sheduler();
-    eos_port_critical_exit();
+    eos_critical_exit();
 }
 
 static int8_t eos_get_current(void)
@@ -456,12 +454,12 @@ static int8_t eos_get_current(void)
 int8_t eos_execute(uint8_t priority)
 {
     // 寻找当前Actor的最老的事件
-    eos_port_critical_enter();
+    eos_critical_enter();
     eos_event_inner_t * e = eos_heap_get_block(&eos.heap, priority);
     if (e == EOS_NULL) {
         EOS_ASSERT(0);
     }
-    eos_port_critical_exit();
+    eos_critical_exit();
     
     eos_task_t *task = eos.task[priority]->block.task;
     
@@ -502,9 +500,9 @@ int8_t eos_execute(uint8_t priority)
 #endif
 #if (EOS_USE_EVENT_DATA != 0)
     // 销毁过期事件与其携带的参数
-    eos_port_critical_enter();
+    eos_critical_enter();
     eos_heap_gc(&eos.heap, e);
-    eos_port_critical_exit();
+    eos_critical_exit();
 #endif
 
     return (int8_t)EosRun_OK;
@@ -525,7 +523,7 @@ static void eos_task_function(void)
 
 static void eos_sheduler(void)
 {
-    eos_port_critical_enter();
+    eos_critical_enter();
     /* eos_next = ... */
     if (eos.heap.sub_general == 0U) {                        /* idle condition? */
         eos_next = &task_idle;                       /* the idle task */
@@ -548,7 +546,7 @@ static void eos_sheduler(void)
     if (eos_next != eos_current) {
         eos_port_task_switch();
     }
-    eos_port_critical_exit();
+    eos_critical_exit();
 }
 
 void eos_run(void)
@@ -556,12 +554,6 @@ void eos_run(void)
     eos_hook_start();
     
     eos_sheduler();
-}
-
-void eos_stop(void)
-{
-    eos.enabled = EOS_False;
-    eos_hook_stop();
 }
 
 #if (EOS_USE_TIME_EVENT != 0)
@@ -576,14 +568,14 @@ void eos_tick(void)
     uint32_t offset = EOS_MS_NUM_30DAY - 1 + EOS_TICK_MS;
     system_time = ((system_time + EOS_TICK_MS) % EOS_MS_NUM_30DAY);
     if (system_time_bkp >= (EOS_MS_NUM_30DAY - EOS_TICK_MS) && system_time < EOS_TICK_MS) {
-        eos_port_critical_enter();
+        eos_critical_enter();
         EOS_ASSERT(eos.timeout_min >= offset);
         eos.timeout_min -= offset;
         for (uint32_t i = 0; i < eos.timer_count; i ++) {
             EOS_ASSERT(eos.etimer[i].timeout_ms >= offset);
             eos.etimer[i].timeout_ms -= offset;
         }
-        eos_port_critical_exit();
+        eos_critical_exit();
     }
     eos.time = system_time;
     
@@ -604,10 +596,6 @@ void eos_tick(void)
             eos.delay &= ~bit;              /* remove from set */
         }
         working_set &=~ bit;                /* remove from working set */
-    }
-
-    if (eos_current == &task_idle) {
-        eos_sheduler();
     }
 }
 #endif
@@ -662,7 +650,7 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
     eos.actor_enabled |= (1 << me->super.priority);
     
     eos_task_start( &me->super, eos_task_function,
-                    me->super.stack, me->super.size);
+                    me->super.priority, me->super.stack, me->super.size);
 }
 
 // state machine ---------------------------------------------------------------
@@ -729,7 +717,7 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 #endif
     
     eos_task_start( &me->super, eos_task_function,
-                    me->super.stack, me->super.size);
+                    me->super.priority, me->super.stack, me->super.size);
 }
 #endif
 
@@ -763,11 +751,11 @@ int8_t eos_event_pub_ret(const char *topic, void *data, uint32_t size)
         return (int8_t)EosRun_NotEnabled;
     }
 
-    eos_port_critical_enter();
+    eos_critical_enter();
     // 申请事件空间
     eos_event_inner_t *e = eos_heap_malloc(&eos.heap, (size + sizeof(eos_event_inner_t)));
     if (e == (eos_event_inner_t *)0) {
-        eos_port_critical_exit();
+        eos_critical_exit();
         return (int8_t)EosRunErr_MallocFail;
     }
     e->topic = topic;
@@ -783,7 +771,7 @@ int8_t eos_event_pub_ret(const char *topic, void *data, uint32_t size)
     for (uint32_t i = 0; i < size; i ++) {
         e_data[i] = ((uint8_t *)data)[i];
     }
-    eos_port_critical_exit();
+    eos_critical_exit();
     
     return (int8_t)EosRun_OK;
 }

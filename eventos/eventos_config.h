@@ -1,6 +1,6 @@
 
 /*
- * EventOS Nano
+ * EventOS
  * Copyright (c) 2021, EventOS Team, <event-os@outlook.com>
  *
  * SPDX-License-Identifier: MIT
@@ -23,8 +23,8 @@
  * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * https://www.event-os.cn
- * https://github.com/event-os/eventos-nano
- * https://gitee.com/event-os/eventos-nano
+ * https://github.com/event-os/eventos
+ * https://gitee.com/event-os/eventos
  * 
  * Change Logs:
  * Date           Author        Notes
@@ -36,12 +36,9 @@
 
 // <<< Use Configuration Wizard in Context Menu >>>
 
-/* EventOS Nano General Configuration --------------------------------------- */
+/* EventOS General Configuration --------------------------------------- */
 
 // <h> EventOS Nano's basic configuration
-//   <o>  The MCU type: 8, 16 or 32 bits
-#define EOS_MCU_TYPE                            32
-
 //   <o>  The maximum number of tasks: 1 - 64
 #define EOS_MAX_TASKS                           32
 
@@ -55,6 +52,11 @@
 //   <o>  The time of system tick.
 #define EOS_TICK_MS                             1
 
+//    <o>  use stack usage function (0 or 1) <0-1>
+#define EOS_USE_STACK_USAGE                     1
+
+//    <o>  use cpu usage function (0 or 1) <0-1>
+#define EOS_USE_CPU_USAGE                       1
 
 /* Assert Configuration ----------------------------------------------------- */
 //   <o>  use ASSERT or not (0 or 1) <0-1>
@@ -104,16 +106,12 @@
 // </h>
 
 /* Error -------------------------------------------------------------------- */
-#if ((EOS_MCU_TYPE != 8) && (EOS_MCU_TYPE != 16) && (EOS_MCU_TYPE != 32))
-#error The MCU type must be 8-bit, 16-bit or 32-bit !
-#endif
-
 #if ((EOS_TEST_PLATFORM != 32) && (EOS_TEST_PLATFORM != 64))
 #error The test paltform must be 32-bit or 64-bit !
 #endif
 
-#if (EOS_MAX_TASKS > EOS_MCU_TYPE || EOS_MAX_TASKS <= 0)
-#error The maximum number of tasks must be 1 ~ EOS_MCU_TYPE !
+#if (EOS_MAX_TASKS > 32 || EOS_MAX_TASKS <= 0)
+#error The maximum number of tasks must be 1 ~ 32 !
 #endif
 
 #if (EOS_USE_SM_MODE != 0)

@@ -1,6 +1,6 @@
 
 /*
- * EventOS Nano
+ * EventOS
  * Copyright (c) 2021, EventOS Team, <event-os@outlook.com>
  *
  * SPDX-License-Identifier: MIT
@@ -23,8 +23,8 @@
  * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * https://www.event-os.cn
- * https://github.com/event-os/eventos-nano
- * https://gitee.com/event-os/eventos-nano
+ * https://github.com/event-os/eventos
+ * https://gitee.com/event-os/eventos
  * 
  * Change Logs:
  * Date           Author        Notes

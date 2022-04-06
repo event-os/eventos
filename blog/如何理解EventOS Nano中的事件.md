@@ -1,6 +1,6 @@
 ### 如何理解EventOS Nano中的事件？
 
-**EventOS Nano**项目地址，在[Gitee EventOS Nano](https://gitee.com/event-os/eventos-nano.git)处。
+**EventOS Nano**项目地址，在[Gitee EventOS Nano](https://gitee.com/event-os/eventos.git)处。
 
 ------
 
