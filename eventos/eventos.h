@@ -151,10 +151,10 @@ void eos_task_suspend(const char *task);
 void eos_task_delete(const char *task);
 // TODO 恢复某任务
 void eos_task_resume(const char *task);
-// TODO 任务等待某事件
-void eos_task_wait_event(const char *event);
-// TODO 任务取消等待
-void eos_task_wait_cancel(void);
+// TODO 任务等待某特定事件
+eos_ret_t eos_task_wait_specific_event(const char *event, uint32_t time_ms);
+// TODO 任务阻塞式等待事件
+eos_ret_t eos_task_wait_event(eos_event_t *e, uint32_t time_ms);
 
 /* -----------------------------------------------------------------------------
 Timer

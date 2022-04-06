@@ -684,7 +684,6 @@ int32_t eos_evttimer(void)
 }
 #endif
 
-
 static int8_t eos_get_current(void)
 {
     if (eos.init_end == 0) {
@@ -799,10 +798,6 @@ static void eos_task_function(void *parameter)
         eos_sheduler();
     }
 }
-
-
-
-
 
 // 关于Reactor -----------------------------------------------------------------
 static uint16_t eos_task_init(  eos_task_t * const me,
