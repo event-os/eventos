@@ -51,7 +51,7 @@ extern "C" {
 #endif
 
 // eos define ------------------------------------------------------------------
-enum eos_object_type {
+enum {
     EosObj_Task = 0,
     EosObj_Reactor,
     EosObj_StateMachine,
@@ -60,6 +60,18 @@ enum eos_object_type {
     EosObj_Device,
     EosObj_Heap,
     EosObj_Other,
+};
+
+enum {
+    EosTaskState_Ready = 0,
+    EosTaskState_Suspend,
+    EosTaskState_Running,
+    EosTaskState_Delay,
+    EosTaskState_DelayNoEvent,
+    EosTaskState_WaitEvent,
+    EosTaskState_WaitSpecificEvent,
+    
+    EosTaskState_Max
 };
 
 /* eos task ----------------------------------------------------------------- */
@@ -179,19 +191,24 @@ typedef struct eos_hash_table {
 } eos_hash_table_t;
 
 typedef struct eos_tag {
+    // Hash table
     eos_hash_table_t hash;
     hash_algorithm_t hash_func;
-    uint64_t task_exist;
-    uint64_t actor_enabled;
+    uint16_t prime_max;
 
+    // Task
     eos_object_t *task[EOS_MAX_TASKS];
+    uint32_t task_exist;
+    uint32_t task_enabled;
+    uint32_t task_delay;
+    uint32_t task_suspend;
+    uint32_t task_delay_no_event;
+    
+    // Timer
     eos_timer_t *timers;
     uint32_t timer_out_min;
 
-#if (EOS_USE_EVENT_DATA != 0)
-    eos_heap_t heap;
-#endif
-
+    // Time event
 #if (EOS_USE_TIME_EVENT != 0)
     eos_event_timer_t etimer[EOS_MAX_TIME_EVENT];
     uint32_t time;
@@ -199,10 +216,13 @@ typedef struct eos_tag {
     uint64_t time_offset;
     uint8_t timer_count;
 #endif
-    uint32_t delay;
-    
-    uint16_t prime_max;
 
+    // Heap
+#if (EOS_USE_EVENT_DATA != 0)
+    eos_heap_t heap;
+#endif
+
+    // flag
     uint8_t enabled                        : 1;
     uint8_t running                        : 1;
     uint8_t init_end                       : 1;
@@ -298,7 +318,7 @@ static void task_func_idle(void *parameter)
         eos_critical_enter();
         /* check all the tasks are timeout or not */
         uint32_t working_set, bit;
-        working_set = eos.delay;
+        working_set = eos.task_delay;
         while (working_set != 0U) {
             eos_task_t *t = eos.task[LOG2(working_set) - 1]->block.task;
             EOS_ASSERT(t != (eos_task_t *)0);
@@ -306,7 +326,9 @@ static void task_func_idle(void *parameter)
 
             bit = (1U << (((eos_task_t *)t)->priority));
             if (eos.time >= ((eos_task_t *)t)->timeout) {
-                eos.delay &= ~bit;              /* remove from set */
+                t->state = EosTaskState_Ready;
+                eos.task_delay &= ~bit;              /* remove from set */
+                eos.task_delay_no_event &= ~bit;
             }
             working_set &=~ bit;                /* remove from working set */
         }
@@ -320,7 +342,7 @@ static void task_func_idle(void *parameter)
         if (eos.time >= EOS_MS_NUM_15DAY) {
             // Adjust all task daley timing.
             for (uint32_t i = 1; i < EOS_MAX_TASKS; i ++) {
-                if (eos.task[i] != (void *)0 && ((eos.delay & (1 << i)) != 0)) {
+                if (eos.task[i] != (void *)0 && ((eos.task_delay & (1 << i)) != 0)) {
                     eos.task[i]->block.task->timeout -= eos.time;
                 }
             }
@@ -343,7 +365,7 @@ static void task_func_idle(void *parameter)
             eos.time = 0;
         }
         eos_critical_exit();
-        
+
         eos_hook_idle();
     }
 }
@@ -357,7 +379,7 @@ void eos_init(void)
     eos.enabled = EOS_True;
     eos.running = EOS_False;
     eos.task_exist = 0;
-    eos.actor_enabled = 0;
+    eos.task_enabled = 0;
     eos.hash_func = eos_hash_time33;
 
 #if (EOS_USE_EVENT_DATA != 0)
@@ -436,14 +458,18 @@ static void eos_sheduler(void)
     /* eos_next = ... */
     eos_next = &task_idle;
     for (int8_t i = (EOS_MAX_TASKS - 1); i >= 1; i --) {
+        // Actor有事件且不被延时
         if ((eos.heap.sub_general & (1 << i)) != 0 &&
+            (eos.task_delay & (1 << i)) == 0 &&
+            (eos.task_suspend & (1 << i)) == 0 &&
             (eos.task[i]->type == EosObj_Reactor ||
             eos.task[i]->type == EosObj_StateMachine)) {
             eos_next = eos.task[i]->block.task;
             break;
         }
         if ((eos.task_exist & (1 << i)) != 0 &&
-            (eos.delay & (1 << i)) == 0 &&
+            (eos.task_delay & (1 << i)) == 0 &&
+            (eos.task_suspend & (1 << i)) == 0 &&
             eos.task[i]->type == EosObj_Task) {
             eos_next = eos.task[i]->block.task;
             break;
@@ -509,22 +535,67 @@ void eos_task_exit(void)
     eos_sheduler();
 }
 
-void eos_delay_ms(uint32_t time_ms)
+static inline void eos_delay_ms_private(uint32_t time_ms, bool no_event)
 {
-    uint32_t bit;
-    eos_critical_enter();
-
     /* never call eos_delay_ms and eos_delay_ticks in the idle task */
     EOS_ASSERT(eos_current != &task_idle);
+    EOS_ASSERT(eos_current->state != EosTaskState_Running);
 
+    uint32_t bit;
+    eos_critical_enter();
     ((eos_task_t *)eos_current)->timeout = eos.time + time_ms;
+    eos_current->state = no_event ? EosTaskState_DelayNoEvent : EosTaskState_Delay;
     bit = (1U << (((eos_task_t *)eos_current)->priority));
-    eos.delay |= bit;
+    eos.task_delay |= bit;
+    if (no_event) {
+        eos.task_delay_no_event |= bit;
+    }
     eos_critical_exit();
     
     eos_sheduler();
 }
 
+void eos_delay_ms(uint32_t time_ms)
+{
+    eos_delay_ms_private(time_ms, false);
+}
+
+void eos_delay_no_event(uint32_t time_ms)
+{
+    eos_delay_ms_private(time_ms, true);
+}
+
+void eos_task_suspend(const char *task)
+{
+    uint16_t index = eos_hash_get_index(task);
+    EOS_ASSERT(index != EOS_MAX_OBJECTS);
+
+    eos_object_t *obj = &eos.hash.object[index];
+    EOS_ASSERT( obj->type == EosObj_Task ||
+                obj->type == EosObj_StateMachine ||
+                obj->type == EosObj_Reactor);
+
+    obj->block.task->state = EosTaskState_Suspend;
+    eos.task_suspend |= (1 << obj->block.task->priority);
+
+    eos_sheduler();
+}
+
+void eos_task_resume(const char *task)
+{
+    uint16_t index = eos_hash_get_index(task);
+    EOS_ASSERT(index != EOS_MAX_OBJECTS);
+
+    eos_object_t *obj = &eos.hash.object[index];
+    EOS_ASSERT( obj->type == EosObj_Task ||
+                obj->type == EosObj_StateMachine ||
+                obj->type == EosObj_Reactor);
+
+    obj->block.task->state = EosTaskState_Ready;
+    eos.task_suspend &=~ (1 << obj->block.task->priority);
+
+    eos_sheduler();
+}
 
 /* -----------------------------------------------------------------------------
 Timer
@@ -713,7 +784,7 @@ static int8_t eos_get_current(void)
     }
 
     // 检查是否有状态机的注册
-    if (eos.task_exist == 0 || eos.actor_enabled == 0) {
+    if (eos.task_exist == 0 || eos.task_enabled == 0) {
         return (int8_t)EosRun_NoActor;
     }
 
@@ -728,7 +799,7 @@ static int8_t eos_get_current(void)
             continue;
         if ((eos.heap.sub_general & (1 << i)) == 0)
             continue;
-        if ((eos.delay & (1 << i)) != 0)
+        if ((eos.task_delay & (1 << i)) != 0)
             continue;
         priority = i;
         break;
@@ -858,7 +929,7 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 {
     me->event_handler = event_handler;
     me->super.enabled = EOS_True;
-    eos.actor_enabled |= (1 << me->super.priority);
+    eos.task_enabled |= (1 << me->super.priority);
     
     eos_actor_start(&me->super,
                     eos_task_function,
@@ -887,7 +958,7 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
 
     me->state = state_init;
     me->super.enabled = EOS_True;
-    eos.actor_enabled |= (1 << me->super.priority);
+    eos.task_enabled |= (1 << me->super.priority);
 
     // 进入初始状态，执行TRAN动作。这也意味着，进入初始状态，必须无条件执行Tran动作。
     t = me->state;
@@ -961,7 +1032,7 @@ int8_t eos_event_pub_ret(const char *topic, void *data, uint32_t size)
     }
 
     // 没有状态机使能，返回
-    if (eos.actor_enabled == EOS_False) {
+    if (eos.task_enabled == EOS_False) {
         return (int8_t)EosRun_NotEnabled;
     }
 
@@ -980,6 +1051,7 @@ int8_t eos_event_pub_ret(const char *topic, void *data, uint32_t size)
 #else
     e->sub = eos.task_exist;
 #endif
+    e->sub &= ~eos.task_delay_no_event;
     eos.heap.sub_general |= e->sub;
     uint8_t *e_data = (uint8_t *)e + sizeof(eos_event_inner_t);
     for (uint32_t i = 0; i < size; i ++) {

@@ -145,7 +145,7 @@ typedef struct eos_task {
     uint32_t size;
     uint32_t timeout;
     uint32_t stack_size;              /* stack size */
-    uint32_t state                  : 4;
+    uint32_t state                  : 3;
     uint32_t priority               : 6;
     uint32_t id                     : 6;
     uint32_t enabled                : 1;
@@ -162,13 +162,13 @@ void eos_task_start(eos_task_t * const me,
 void eos_task_exit(void);
 // 任务内延时，任务函数中调用，不允许在定时器的回调函数调用，不允许在空闲回调函数中调用。
 void eos_delay_ms(uint32_t time_ms);
-// TODO 延时，屏蔽事件的接收（毫秒级延时，释放CPU控制权），直到延时完毕。
-void eos_delay_unsub_event(uint32_t time_ms);
-// TODO 挂起某任务
+// 延时，屏蔽事件的接收（毫秒级延时，释放CPU控制权），直到延时完毕。
+void eos_delay_no_event(uint32_t time_ms);
+// 挂起某任务
 void eos_task_suspend(const char *task);
 // TODO 删除某任务
 void eos_task_delete(const char *task);
-// TODO 恢复某任务
+// 恢复某任务
 void eos_task_resume(const char *task);
 // TODO 任务等待某特定事件
 eos_ret_t eos_task_wait_specific_event(const char *event, uint32_t time_ms);
@@ -239,7 +239,6 @@ void eos_event_broadcast_topic(const char *topic);
 void eos_event_broadcast_value(const char *topic, void const *data);
 
 // 事件的发布 --------------------------------------------
-// 注：只有下面两个函数能在中断服务函数中使用，其他都没有必要。如果使用，可能会导致崩溃问题。
 // 发布主题事件，可在中断中使用。
 void eos_event_pub_topic(const char *topic);
 // 发布值事件，可在中断中使用。

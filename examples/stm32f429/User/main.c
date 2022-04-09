@@ -14,6 +14,12 @@ void task_func_test(void *parameter)
     
     while (1) {
         count_test ++;
+        if (count_test == 100) {
+            eos_task_suspend("sm_led");
+        }
+        if (count_test == 200) {
+            eos_task_resume("sm_led");
+        }
         eos_delay_ms(100);
     }
 }
