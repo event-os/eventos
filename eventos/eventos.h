@@ -100,7 +100,7 @@ void eos_init(void);
 // Run EventOS.
 void eos_run(void);
 // System time.
-uint32_t eos_time(void);
+uint64_t eos_time(void);
 // System tick function.
 void eos_tick(void);
 // 关闭中断
@@ -116,6 +116,25 @@ Task
  * conform.
  */
 typedef void (* eos_func_t)(void *parameter);
+
+/*
+ * Definition of the EventOS reture value.
+ */
+typedef enum eos_ret {
+    EOS_Ret_Null = 0,                       // 无效值
+    EOS_Ret_Handled,                        // 已处理，不产生跳转
+    EOS_Ret_Super,                          // 到超状态
+    EOS_Ret_Tran,                           // 跳转
+} eos_ret_t;
+
+/*
+ * Definition of the event class.
+ */
+typedef struct eos_event {
+    const char *topic;                      // 事件主题
+    void *data;                             // 事件数据
+    uint32_t size;                          // 数据长度
+} eos_event_t;
 
 /*
  * Definition of the task class.
@@ -189,15 +208,6 @@ void eos_timer_reset(const char *name);
 /* -----------------------------------------------------------------------------
 Event
 ----------------------------------------------------------------------------- */
-/*
- * Definition of the event class.
- */
-typedef struct eos_event {
-    const char *topic;                      // 事件主题
-    void *data;                             // 事件数据
-    uint32_t size;                          // 数据长度
-} eos_event_t;
-
 // 检查事件的主题 -----------------------------------------
 // 检查某事件是否当前主题
 bool eos_event_topic(eos_event_t const * const e, const char *topic);
@@ -211,6 +221,8 @@ void eos_event_set_global(const char *topic);
 void eos_event_set_unblocked(const char *topic);
 // TODO 设置事件为流事件。
 void eos_event_set_stream(const char *topic);
+// TODO 设置事件为值事件。
+void eos_event_set_value(const char *topic, void *memory, uint32_t size);
 
 // 事件的直接发送 -----------------------------------------
 // TODO 直接发送主题事件。可在中断中使用。
@@ -296,16 +308,6 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 /* -----------------------------------------------------------------------------
 State machine
 ----------------------------------------------------------------------------- */
-// 状态返回值的定义
-#if (EOS_USE_SM_MODE != 0)
-typedef enum eos_ret {
-    EOS_Ret_Null = 0,                       // 无效值
-    EOS_Ret_Handled,                        // 已处理，不产生跳转
-    EOS_Ret_Super,                          // 到超状态
-    EOS_Ret_Tran,                           // 跳转
-} eos_ret_t;
-#endif
-
 #if (EOS_USE_SM_MODE != 0)
 // 状态函数句柄的定义
 struct eos_sm;

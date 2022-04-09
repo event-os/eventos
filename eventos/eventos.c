@@ -93,7 +93,8 @@ enum {
 typedef uint32_t (* hash_algorithm_t)(const char *string);
 
 #if (EOS_USE_TIME_EVENT != 0)
-#define EOS_MS_NUM_30DAY                    (2592000000)
+#define EOS_MS_NUM_30DAY                    (2592000000U)
+#define EOS_MS_NUM_15DAY                    (1296000000U)
 
 enum {
     EosTimerUnit_Ms                         = 0,    // 60S, ms
@@ -195,6 +196,7 @@ typedef struct eos_tag {
     eos_event_timer_t etimer[EOS_MAX_TIME_EVENT];
     uint32_t time;
     uint32_t timeout_min;
+    uint64_t time_offset;
     uint8_t timer_count;
 #endif
     uint32_t delay;
@@ -263,6 +265,7 @@ static uint16_t eos_task_init(  eos_task_t * const me,
                                 uint8_t priority,
                                 void *stack, uint32_t size);
 static void eos_sheduler(void);
+static int32_t eos_evttimer(void);
 static int8_t eos_get_current(void);
 static uint32_t eos_hash_time33(const char *string);
 static uint16_t eos_hash_insert(const char *string);
@@ -292,6 +295,55 @@ static void task_func_idle(void *parameter)
     (void)parameter;
 
     while (1) {
+        eos_critical_enter();
+        /* check all the tasks are timeout or not */
+        uint32_t working_set, bit;
+        working_set = eos.delay;
+        while (working_set != 0U) {
+            eos_task_t *t = eos.task[LOG2(working_set) - 1]->block.task;
+            EOS_ASSERT(t != (eos_task_t *)0);
+            EOS_ASSERT(((eos_task_t *)t)->timeout != 0U);
+
+            bit = (1U << (((eos_task_t *)t)->priority));
+            if (eos.time >= ((eos_task_t *)t)->timeout) {
+                eos.delay &= ~bit;              /* remove from set */
+            }
+            working_set &=~ bit;                /* remove from working set */
+        }
+        eos_critical_exit();
+        eos_sheduler();
+
+        eos_critical_enter();
+#if (EOS_USE_TIME_EVENT != 0)
+        eos_evttimer();
+#endif
+        if (eos.time >= EOS_MS_NUM_15DAY) {
+            // Adjust all task daley timing.
+            for (uint32_t i = 1; i < EOS_MAX_TASKS; i ++) {
+                if (eos.task[i] != (void *)0 && ((eos.delay & (1 << i)) != 0)) {
+                    eos.task[i]->block.task->timeout -= eos.time;
+                }
+            }
+            // Adjust all timer's timing.
+            eos_timer_t *list = eos.timers;
+            while (list != (eos_timer_t *)0) {
+                if (list->running != 0) {
+                    list->time_out -= eos.time;
+                }
+                list = list->next;
+            }
+            eos.timer_out_min -= eos.time;
+            // Adjust all event timer's
+            eos.timeout_min -= eos.time;
+            for (uint32_t i = 0; i < eos.timer_count; i ++) {
+                EOS_ASSERT(eos.etimer[i].timeout_ms >= eos.time);
+                eos.etimer[i].timeout_ms -= eos.time;
+            }
+            eos.time_offset += eos.time;
+            eos.time = 0;
+        }
+        eos_critical_exit();
+        
         eos_hook_idle();
     }
 }
@@ -357,50 +409,16 @@ void eos_run(void)
     eos_sheduler();
 }
 
-uint32_t eos_time(void)
+uint64_t eos_time(void)
 {
-    return eos.time;
+    return (uint64_t)(eos.time + eos.time_offset);
 }
 
 void eos_tick(void)
 {
-    uint32_t system_time = eos.time, system_time_bkp = eos.time;
-    uint32_t offset = EOS_MS_NUM_30DAY - 1 + EOS_TICK_MS;
-    system_time = ((system_time + EOS_TICK_MS) % EOS_MS_NUM_30DAY);
-    if (system_time_bkp >= (EOS_MS_NUM_30DAY - EOS_TICK_MS) && system_time < EOS_TICK_MS) {
-        eos_critical_enter();
-        EOS_ASSERT(eos.timeout_min >= offset);
-        eos.timeout_min -= offset;
-        for (uint32_t i = 0; i < eos.timer_count; i ++) {
-            EOS_ASSERT(eos.etimer[i].timeout_ms >= offset);
-            eos.etimer[i].timeout_ms -= offset;
-        }
-        eos_critical_exit();
-    }
-    eos.time = system_time;
-    
-#if (EOS_USE_TIME_EVENT != 0)
-    eos_evttimer();
-#endif
-
-    /* check all the time-events are timeout or not */
-    uint32_t working_set, bit;
-    working_set = eos.delay;
-    while (working_set != 0U) {
-        eos_task_t *t = eos.task[LOG2(working_set) - 1]->block.task;
-        EOS_ASSERT(t != (eos_task_t *)0);
-        EOS_ASSERT(((eos_task_t *)t)->timeout != 0U);
-
-        bit = (1U << (((eos_task_t *)t)->priority));
-        if (eos.time >= ((eos_task_t *)t)->timeout) {
-            eos.delay &= ~bit;              /* remove from set */
-        }
-        working_set &=~ bit;                /* remove from working set */
-    }
-    
-    if (eos_current == &task_idle) {
-        eos_sheduler();
-    }
+    uint32_t time = eos.time;
+    time += EOS_TICK_MS;
+    eos.time = time;
 }
 
 // 仅为单元测试
@@ -630,9 +648,6 @@ void eos_timer_reset(const char *name)
 /* -----------------------------------------------------------------------------
 Event
 ----------------------------------------------------------------------------- */
-
-
-
 #if (EOS_USE_TIME_EVENT != 0)
 int32_t eos_evttimer(void)
 {
@@ -782,7 +797,6 @@ int8_t eos_execute(uint8_t priority)
 
     return (int8_t)EosRun_OK;
 }
-
 
 static void eos_task_function(void *parameter)
 {

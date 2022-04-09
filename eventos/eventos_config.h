@@ -70,7 +70,7 @@
 #define EOS_USE_SM_MODE                         1
 
 //   <o>  use HSM mode (0 or 1) <0-1>
-#define EOS_USE_HSM_MODE                        0
+#define EOS_USE_HSM_MODE                        1
 #if (EOS_USE_SM_MODE != 0 && EOS_USE_HSM_MODE != 0)
 
 //   <o>  use hsm nest depth (2 - 4) <2-4>
