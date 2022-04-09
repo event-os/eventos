@@ -40,12 +40,12 @@ extern "C" {
 /* -----------------------------------------------------------------------------
 EventOS Default Configuration
 ----------------------------------------------------------------------------- */
-#ifndef EOS_MAX_ACTORS
-#define EOS_MAX_ACTORS                          8       // 默认最多8个Actor
+#ifndef EOS_MAX_TASKS
+#define EOS_MAX_TASKS                           8       // 默认最多8个Actor
 #endif
 
-#ifndef EOS_MAX_EVENTS
-#define EOS_MAX_EVENTS                          256     // 默认最多256个事件
+#ifndef EOS_MAX_OBJECTS
+#define EOS_MAX_OBJECTS                         256     // 默认最多256个事件
 #endif
 
 #ifndef EOS_USE_ASSERT
@@ -118,14 +118,12 @@ Task
 typedef void (* eos_func_t)(void *parameter);
 
 /*
- * Definition of the EventOS reture value.
+ * Definition of the EventOS error id.
  */
-typedef enum eos_ret {
-    EOS_Ret_Null = 0,                       // 无效值
-    EOS_Ret_Handled,                        // 已处理，不产生跳转
-    EOS_Ret_Super,                          // 到超状态
-    EOS_Ret_Tran,                           // 跳转
-} eos_ret_t;
+typedef enum eos_error {
+    Eos_OK = 0,
+    EosError_Timeout                    = -1,
+} eos_error_t;
 
 /*
  * Definition of the event class.
@@ -170,10 +168,12 @@ void eos_task_suspend(const char *task);
 void eos_task_delete(const char *task);
 // 恢复某任务
 void eos_task_resume(const char *task);
-// TODO 任务等待某特定事件
-eos_ret_t eos_task_wait_specific_event(const char *event, uint32_t time_ms);
-// TODO 任务阻塞式等待事件
-eos_ret_t eos_task_wait_event(eos_event_t *e, uint32_t time_ms);
+// 任务等待某特定事件
+eos_error_t eos_task_wait_specific_event(   const char *topic,
+                                            eos_event_t *e,
+                                            uint32_t time_ms);
+// 任务阻塞式等待事件
+eos_error_t eos_task_wait_event(eos_event_t *e, uint32_t time_ms);
 
 /* -----------------------------------------------------------------------------
 Timer
@@ -251,14 +251,10 @@ void eos_event_pub_period(const char *topic, uint32_t time_period_ms);
 void eos_event_time_cancel(const char *topic);
 
 // 事件的订阅 --------------------------------------------
-// 事件订阅
-void eos_event_sub(eos_task_t *const me, const char *topic);
-// 事件取消订阅
-void eos_event_unsub(eos_task_t *const me, const char *topic);
-// 事件订阅宏定义
-#define EOS_EVENT_SUB(_evt)               eos_event_sub(&(me->super.super), _evt)
-// 事件取消订阅宏定义
-#define EOS_EVENT_UNSUB(_evt)             eos_event_unsub(&(me->super.super), _evt)
+// 事件订阅，仅在任务函数、状态函数或者事件回调函数中使用。
+void eos_event_sub(const char *topic);
+// 事件取消订阅，仅在任务函数、状态函数或者事件回调函数中使用。
+void eos_event_unsub(const char *topic);
 
 /* -----------------------------------------------------------------------------
 Event Region
@@ -307,6 +303,16 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
 /* -----------------------------------------------------------------------------
 State machine
 ----------------------------------------------------------------------------- */
+/*
+ * Definition of the EventOS reture value.
+ */
+typedef enum eos_ret {
+    EOS_Ret_Null = 0,                       // 无效值
+    EOS_Ret_Handled,                        // 已处理，不产生跳转
+    EOS_Ret_Super,                          // 到超状态
+    EOS_Ret_Tran,                           // 跳转
+} eos_ret_t;
+
 #if (EOS_USE_SM_MODE != 0)
 // 状态函数句柄的定义
 struct eos_sm;
