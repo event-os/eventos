@@ -18,11 +18,11 @@ void task_func_test(void *parameter)
     
     while (1) {
         count_test ++;
-//        eos_event_send_topic("task_event", "Event_One");
-//        eos_event_send_topic("task_e_specific", "Event_One");
-//        if ((count_test % 10) == 0) {
-//            eos_event_send_topic("task_e_specific", "Event_Specific");
-//        }
+        eos_event_send_topic("task_event", "Event_One");
+        eos_event_send_topic("task_e_specific", "Event_One");
+        if ((count_test % 10) == 0) {
+            eos_event_send_topic("task_e_specific", "Event_Specific");
+        }
         if (count_test == 100) {
             eos_task_suspend("sm_led");
         }
@@ -84,19 +84,19 @@ int main(void)
     
     eos_init();                                     // EventOS初始化
 
-#if (EOS_USE_SM_MODE != 0)
+//#if (EOS_USE_SM_MODE != 0)
     eos_sm_led_init();                              // LED状态机初始化
-#endif
+//#endif
     eos_reactor_led_init();
     
     eos_task_start( &task,
-                    "task_test", task_func_test, 3,
+                    "task_test", task_func_test, 1,
                     stack_task, sizeof(stack_task));
     eos_task_start( &task_event,
-                    "task_event", task_func_event_test, 4,
+                    "task_event", task_func_event_test, 3,
                     stack_task_event, sizeof(stack_task_event));
     eos_task_start( &task_e_specific,
-                    "task_e_specific", task_func_e_specific_test, 5,
+                    "task_e_specific", task_func_e_specific_test, 2,
                     stack_task_e_specific, sizeof(stack_task_e_specific));
     
     eos_run();                                      // EventOS启动

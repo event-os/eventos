@@ -225,7 +225,7 @@ void eos_event_set_stream(const char *topic);
 void eos_event_set_value(const char *topic, void *memory, uint32_t size);
 
 // 事件的直接发送 -----------------------------------------
-// TODO 直接发送主题事件。可在中断中使用。
+// 直接发送主题事件。可在中断中使用。
 void eos_event_send_topic(const char *task, const char *topic);
 // TODO 直接发送值事件。可在中断中使用。
 void eos_event_send_value(const char *task, const char *topic, void const *data);

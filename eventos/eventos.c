@@ -150,6 +150,12 @@ typedef struct eos_block {
     uint32_t free                          : 1;
 } eos_block_t;
 
+typedef struct eos_block_event {
+    eos_block_t super;
+    uint32_t sub;
+    const char *topic;
+} eos_block_event_t;
+
 // TODO 此处修改topic为index，以节省RAM，简化某些运算。
 typedef struct eos_event_inner {
     uint32_t sub;
@@ -616,87 +622,91 @@ void eos_task_resume(const char *task)
 
 eos_error_t eos_task_wait_event(eos_event_t *e, uint32_t time_ms)
 {
-    eos_critical_enter();
-    uint8_t priority = eos_current->priority;
-    eos_object_t *obj = eos.task[priority];
-    EOS_ASSERT(obj->type == EosObj_Task);
-    
-    if ((eos.heap.sub_general & (1 << priority)) != 0) {
-        eos_event_inner_t *event = eos_heap_get_block(&eos.heap, priority);
-        EOS_ASSERT(event != EOS_NULL);
-
-        e->topic = event->topic;
-        e->data = (void *)((eos_pointer_t)event + sizeof(eos_event_inner_t));
-        eos_block_t *block = (eos_block_t *)((eos_pointer_t)event - sizeof(eos_block_t));
-        e->size = block->size - block->offset - sizeof(eos_event_inner_t);
+    do {
+        eos_critical_enter();
+        uint8_t priority = eos_current->priority;
+        eos_object_t *obj = eos.task[priority];
+        EOS_ASSERT(obj->type == EosObj_Task);
         
-        eos_heap_gc(&eos.heap, event);
-        
-        eos_critical_exit();
+        if ((eos.heap.sub_general & (1 << priority)) != 0) {
+            eos_event_inner_t *event = eos_heap_get_block(&eos.heap, priority);
+            EOS_ASSERT(event != EOS_NULL);
 
-        return Eos_OK;
-    }
-    else {
-        uint32_t bit;
-        ((eos_task_t *)eos_current)->timeout = eos.time + time_ms;
-        eos_current->state = EosTaskState_WaitEvent;
-        bit = (1U << priority);
-        eos.task_wait_event |= bit;
-        eos_critical_exit();
-        
-        e->topic = "Event_Null";
-        e->data = EOS_NULL;
-        e->size = 0;
+            e->topic = event->topic;
+            e->data = (void *)((eos_pointer_t)event + sizeof(eos_event_inner_t));
+            eos_block_t *block = (eos_block_t *)((eos_pointer_t)event - sizeof(eos_block_t));
+            e->size = block->size - block->offset - sizeof(eos_event_inner_t);
+            
+            eos_heap_gc(&eos.heap, event);
+            
+            eos_critical_exit();
 
-        eos_sheduler();
+            return Eos_OK;
+        }
+        else {
+            uint32_t bit;
+            ((eos_task_t *)eos_current)->timeout = eos.time + time_ms;
+            eos_current->state = EosTaskState_WaitEvent;
+            bit = (1U << priority);
+            eos.task_wait_event |= bit;
+            eos_critical_exit();
+            
+            e->topic = "Event_Null";
+            e->data = EOS_NULL;
+            e->size = 0;
 
-        return EosError_Timeout;
-    }
+            eos_sheduler();
+        }
+    } while (eos.time < eos_current->timeout);
+
+    return EosError_Timeout;
 }
 
 eos_error_t eos_task_wait_specific_event(   const char *topic,
                                             eos_event_t *e,
                                             uint32_t time_ms)
 {
-    eos_critical_enter();
-    uint8_t priority = eos_current->priority;
-    eos_object_t *obj = eos.task[priority];
-    EOS_ASSERT(obj->type == EosObj_Task);
-    
-    while ((eos.heap.sub_general & (1 << priority)) != 0) {
-        eos_event_inner_t *event = eos_heap_get_block(&eos.heap, priority);
-        EOS_ASSERT(event != EOS_NULL);
+    do {
+        eos_critical_enter();
+        uint8_t priority = eos_current->priority;
+        eos_object_t *obj = eos.task[priority];
+        EOS_ASSERT(obj->type == EosObj_Task);
+        
+        while ((eos.heap.sub_general & (1 << priority)) != 0) {
+            eos_event_inner_t *event = eos_heap_get_block(&eos.heap, priority);
+            EOS_ASSERT(event != EOS_NULL);
 
-        if (strcmp(event->topic, topic) == 0) {
-            e->topic = event->topic;
-            e->data = (void *)((eos_pointer_t)event + sizeof(eos_event_inner_t));
-            eos_block_t *block =
-                (eos_block_t *)((eos_pointer_t)event - sizeof(eos_block_t));
-            e->size = block->size - block->offset - sizeof(eos_event_inner_t);
-            eos_heap_gc(&eos.heap, event);
-            eos_critical_exit();
+            if (strcmp(event->topic, topic) == 0) {
+                e->topic = event->topic;
+                e->data = (void *)((eos_pointer_t)event + sizeof(eos_event_inner_t));
+                eos_block_t *block =
+                    (eos_block_t *)((eos_pointer_t)event - sizeof(eos_block_t));
+                e->size = block->size - block->offset - sizeof(eos_event_inner_t);
+                eos_heap_gc(&eos.heap, event);
+                eos_critical_exit();
 
-            return Eos_OK;
+                return Eos_OK;
+            }
+            else {
+                eos_heap_gc(&eos.heap, event);
+            }
         }
-        else {
-            eos_heap_gc(&eos.heap, event);
-        }
-    }
 
-    uint32_t bit;
-    ((eos_task_t *)eos_current)->timeout = eos.time + time_ms;
-    eos_current->state = EosTaskState_WaitSpecificEvent;
-    bit = (1U << priority);
-    eos.task_wait_specific_event |= bit;
-    eos.event_wait[priority] = topic;
-    
-    e->topic = "Event_Null";
-    e->data = EOS_NULL;
-    e->size = 0;
-    
-    eos_critical_exit();
+        uint32_t bit;
+        eos_current->timeout = eos.time + time_ms;
+        eos_current->state = EosTaskState_WaitSpecificEvent;
+        bit = (1U << priority);
+        eos.task_wait_specific_event |= bit;
+        eos.event_wait[priority] = topic;
+        
+        e->topic = "Event_Null";
+        e->data = EOS_NULL;
+        e->size = 0;
+        
+        eos_critical_exit();
 
-    eos_sheduler();
+        eos_sheduler();
+    } while (eos.time < eos_current->timeout);
 
     return EosError_Timeout;
 }

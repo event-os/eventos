@@ -20,7 +20,7 @@ static void led_e_handler(eos_reactor_led_t * const me, eos_event_t const * cons
 /* api ---------------------------------------------------- */
 void eos_reactor_led_init(void)
 {
-    eos_reactor_init(&actor_led.super, "actor_led", 2, stack_led, sizeof(stack_led));
+    eos_reactor_init(&actor_led.super, "actor_led", 4, stack_led, sizeof(stack_led));
     actor_led.status = 0;
 
 #if (EOS_USE_TIME_EVENT != 0)
