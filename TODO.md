@@ -3,7 +3,7 @@
 + 添加返回历史状态的功能
 + 整理eos.enabled的用法，使之更加简洁。
 + actor_exist和enabled可以合为一体。
-+ 将Queue功能与Heap进行隔绝。
++ 【完成】将Queue功能与Heap进行隔绝。
 + Doxgen风格的注释
 + 对EventOS的eBridge（事件桥接）功能
 + 对ARM Cortex-M0 M3 M4 M7等单片机上的移植，增加对最常见型号单片机的支持，如STM32F103等。

@@ -118,20 +118,12 @@ Task
 typedef void (* eos_func_t)(void *parameter);
 
 /*
- * Definition of the EventOS error id.
- */
-typedef enum eos_error {
-    Eos_OK = 0,
-    EosError_Timeout                    = -1,
-} eos_error_t;
-
-/*
  * Definition of the event class.
  */
 typedef struct eos_event {
     const char *topic;                      // 事件主题
-    void *data;                             // 事件数据
-    uint32_t size;                          // 数据长度
+    uint32_t eid;                           // 事件的ID
+    uint32_t size;                          // 事件的内容大小
 } eos_event_t;
 
 /*
@@ -164,16 +156,17 @@ void eos_delay_ms(uint32_t time_ms);
 void eos_delay_no_event(uint32_t time_ms);
 // 挂起某任务
 void eos_task_suspend(const char *task);
-// TODO 删除某任务
+// 删除某任务
 void eos_task_delete(const char *task);
 // 恢复某任务
 void eos_task_resume(const char *task);
+// 切换任务
+void eos_task_yield(void);
 // 任务等待某特定事件
-eos_error_t eos_task_wait_specific_event(   const char *topic,
-                                            eos_event_t *e,
-                                            uint32_t time_ms);
+bool eos_task_wait_specific_event(  eos_event_t * const e_out,
+                                    const char *topic, uint32_t time_ms);
 // 任务阻塞式等待事件
-eos_error_t eos_task_wait_event(eos_event_t *e, uint32_t time_ms);
+bool eos_task_wait_event(eos_event_t * const e_out, uint32_t time_ms);
 
 /* -----------------------------------------------------------------------------
 Timer
@@ -208,46 +201,44 @@ void eos_timer_reset(const char *name);
 /* -----------------------------------------------------------------------------
 Event
 ----------------------------------------------------------------------------- */
-// 检查事件的主题 -----------------------------------------
-// 检查某事件是否当前主题
-bool eos_event_topic(eos_event_t const * const e, const char *topic);
-// TODO 获取某个值事件的值
-void eos_event_get_value(const char *topic, void const *data);
-
 // 事件的属性设置 -----------------------------------------
-// TODO 设置事件为全局事件，可以发送到事件桥与事件域。
-void eos_event_set_global(const char *topic);
-// TODO 设置不可阻塞事件。在延时时，此类事件进入，延时结束，对此类事件进行立即响应。
-void eos_event_set_unblocked(const char *topic);
-// TODO 设置事件为流事件。
-void eos_event_set_stream(const char *topic);
-// TODO 设置事件为值事件。
-void eos_event_set_value(const char *topic, void *memory, uint32_t size);
+// 设置事件为全局事件，可以发送到事件桥与事件域，进而形成跨CPU的事件总线。
+void eos_event_attribute_global(const char *topic);
+// 设置不可阻塞事件。在延时时，此类事件进入，延时结束，对此类事件进行立即响应。
+void eos_event_attribute_unblocked(const char *topic);
+// 设置事件为流事件。流事件不会保留原本的发送时序。
+void eos_event_attribute_stream(const char *topic,
+                                const char *target,
+                                void *memory, uint32_t capacity);
+// 设置事件为值事件。值事件不会保留原本的发送时序。
+void eos_event_attribute_value(const char *topic, void *memory, uint32_t size);
 
 // 事件的直接发送 -----------------------------------------
-// 直接发送主题事件。可在中断中使用。
+// 直接发送主题事件。允许在中断中调用。
 void eos_event_send_topic(const char *task, const char *topic);
-// TODO 直接发送值事件。可在中断中使用。
+// 直接发送值事件。允许在中断中调用。
 void eos_event_send_value(const char *task, const char *topic, void const *data);
-// TODO 直接发送流事件。可在中断中使用。
-void eos_event_send_stream(const char *task, const char *topic, void const *data, uint32_t size);
+// 直接发送流事件。允许在中断中调用。
+void eos_event_send_stream(const char *topic, void const *data, uint32_t size);
+// 设定事件的值。允许在中断中调用。
+void eos_event_set_value(const char *topic, void *data);
 
 // 事件的广播 --------------------------------------------
-// TODO 广播发布某主题事件
+// 广播发布某主题事件。允许在中断中调用。
 void eos_event_broadcast_topic(const char *topic);
-// TODO 广播发布某值事件
+// 广播发布某值事件。允许在中断中调用。
 void eos_event_broadcast_value(const char *topic, void const *data);
 
 // 事件的发布 --------------------------------------------
-// 发布主题事件，可在中断中使用。
+// 发布主题事件。允许在中断中调用。
 void eos_event_pub_topic(const char *topic);
-// 发布值事件，可在中断中使用。
+// 发布值事件。允许在中断中调用。
 void eos_event_pub_value(const char *topic, void *data);
-// 延时发布某事件。
+// 延时发布某主题事件。允许在中断中调用。
 void eos_event_pub_delay(const char *topic, uint32_t time_delay_ms);
-// 周期发布某事件。
+// 周期发布某主题事件。允许在中断中调用。
 void eos_event_pub_period(const char *topic, uint32_t time_period_ms);
-// 取消某延时或者周期事件的发布
+// 取消某延时或者周期事件的发布。允许在中断中调用。
 void eos_event_time_cancel(const char *topic);
 
 // 事件的订阅 --------------------------------------------
@@ -256,26 +247,15 @@ void eos_event_sub(const char *topic);
 // 事件取消订阅，仅在任务函数、状态函数或者事件回调函数中使用。
 void eos_event_unsub(const char *topic);
 
-/* -----------------------------------------------------------------------------
-Event Region
------------------------------------------------------------------------------ */
-typedef struct eos_bridge {
-    const char *topic;
-} eos_bridge_t;
-
-// TODO 创建事件域
-void eos_eregion_init(void);
-void eos_region_add_node(void);
-
-/* -----------------------------------------------------------------------------
-Event Bridge
------------------------------------------------------------------------------ */
-typedef struct eos_ebridge {
-    const char *name;
-} eos_ebridge_t;
-
-// TODO 创建事件桥
-void eos_ebridge_init(eos_ebridge_t * const me);
+// 事件的接收 --------------------------------------------
+// TODO 主题事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
+bool eos_event_topic(eos_event_t *const e, const char *topic);
+// TODO 读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
+bool eos_event_value_recieve(eos_event_t *const e, void *value);
+// TODO 流事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
+int32_t eos_event_stream_recieve(eos_event_t *const e, void *buffer, uint32_t size);
+// TODO 读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
+bool eos_event_get_value(const char *topic, void *value);
 
 /* -----------------------------------------------------------------------------
 Reactor
