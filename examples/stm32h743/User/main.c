@@ -107,8 +107,8 @@ int main(void)
 uint32_t count_tick = 0;
 void SysTick_Handler(void)
 {
-    count_tick ++;
-    //eos_tick();
+    //count_tick ++;
+    eos_tick();
 }
 
 void HardFault_Handler(void)

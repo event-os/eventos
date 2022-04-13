@@ -85,6 +85,7 @@ eos_task_t *volatile eos_current;
 eos_task_t *volatile eos_next;
 
 // **eos** ---------------------------------------------------------------------
+// TODO 优化。重新考虑以下枚举是否还有价值。
 enum {
     EosRun_OK                               = 0,
     EosRun_NotEnabled,
@@ -126,6 +127,8 @@ typedef uint32_t (* hash_algorithm_t)(const char *string);
 #define EOS_MS_NUM_30DAY                    (2592000000U)
 #define EOS_MS_NUM_15DAY                    (1296000000U)
 
+// TODO 优化。定时器考虑使用uint64_t，并以微秒为单位。以增强时间的精确度。
+// TODO 优化。内存充分的前提下，不再搞这个东西。
 enum {
     EosTimerUnit_Ms                         = 0,    // 60S, ms
     EosTimerUnit_100Ms,                             // 100Min, 50ms
@@ -135,6 +138,7 @@ enum {
     EosTimerUnit_Max
 };
 
+// TODO 优化。内存充分的前提下，不再搞这个东西。
 static const uint32_t timer_threshold[EosTimerUnit_Max] = {
     60000,                                          // 60 S
     6000000,                                        // 100 Minutes
@@ -142,6 +146,7 @@ static const uint32_t timer_threshold[EosTimerUnit_Max] = {
     1296000000,                                     // 15 days
 };
 
+// TODO 优化。内存充分的前提下，不再搞这个东西。
 static const uint32_t timer_unit[EosTimerUnit_Max] = {
     1, 100, 1000, 60000
 };
@@ -155,12 +160,14 @@ typedef struct eos_event_timer {
 } eos_event_timer_t;
 #endif
 
+// TODO。优化。删除这个数据结构。
 typedef struct eos_heap_block {
     struct eos_heap_block *next;
     uint32_t is_free                            : 1;
     uint32_t size;
 } eos_heap_block_t;
 
+// TODO。优化。删除这个数据结构。
 typedef struct eos_heap_tag {
     uint8_t data[EOS_SIZE_HEAP];
     eos_heap_block_t * list;
@@ -168,6 +175,7 @@ typedef struct eos_heap_tag {
     uint32_t error_id                           : 3;
 } eos_heap_t;
 
+// TODO 优化。删除next和last指针。同时，heap库也不在有必要。
 typedef struct eos_event_data {
     struct eos_event_data *next;
     struct eos_event_data *last;
@@ -194,23 +202,50 @@ typedef struct eos_stream {
 } eos_stream_t;
 
 typedef union eos_obj_block {
+    // TODO 优化。Event对应的OCB优化为以下样子。
+    struct {
+        uint32_t sub;
+        // TODO 优化。如果支持无限任务。订阅标志位按照以下来。
+        uint8_t sub_flag[EOS_MAX_TASKS / 8];
+        uint16_t e_id;
+        void *data;
+        uint32_t attribute              : 8;
+        uint32_t size                   : 16;               // Value size
+    } e;
+    // TODO 优化。Task对应的OCB优化为以下样子。
+    struct {
+        eos_task_t *task;
+        const char *e_wait;
+        uint32_t attribute              : 8;
+        // TODO 优化。用于支持无限任务。
+        uint32_t id;
+    } t;
+    // TODO 优化。Timer对应的OCB优化为以下样子。
+    struct {
+        uint32_t time;
+        uint32_t time_out;
+        eos_func_t callback;
+        uint32_t timer_id               : 16;
+        uint32_t oneshoot               : 1;
+        uint32_t running                : 1;
+    } tim;
     struct {
         eos_event_data_t *list;
         uint32_t sub;
     } event;
     eos_task_t *task;
-    eos_heap_t *heap;
     eos_timer_t *timer;
-    eos_device_t *device;
-    void *other;
 } eos_ocb_t;
 
 typedef struct eos_object {
     const char *key;                                    // Key
     eos_ocb_t ocb;                                      // object block
     uint32_t type                   : 8;                // Object type
+    // TODO 优化。attribute优化进入ocb
     uint32_t attribute              : 8;
+    // TODO 优化。放进ocb。
     uint32_t size                   : 16;               // Value size
+    // TODO 优化。放进OCB。
     union {
         void *value;                                    // for value-event
         eos_stream_t *stream;                           // for stream-event
@@ -218,6 +253,7 @@ typedef struct eos_object {
 } eos_object_t;
 
 typedef struct eos_hash_table {
+    // TODO 优化。将这些成员直接放进eos中。
     eos_object_t object[EOS_MAX_OBJECTS];
     uint32_t prime_max;                                 // prime max
     uint32_t size;
@@ -231,8 +267,10 @@ typedef struct eos_tag {
 
     // Task
     eos_object_t *task[EOS_MAX_TASKS];
-    // TODO 优化。将此处优化为index。
+    // TODO 优化。将此处优化到OCB里去。
     const char *event_wait[EOS_MAX_TASKS];                 // 等待的事件ID
+    // TODO 优化。如果支持无限任务，就支持如下格式的标志位。同时，任务数必须为8的倍数。
+    uint8_t flag[EOS_MAX_TASKS / 8];
     uint32_t task_exist;
     uint32_t task_enabled;
     uint32_t task_delay;
@@ -246,6 +284,7 @@ typedef struct eos_tag {
     uint32_t timer_out_min;
 
     // Time event
+    // TODO 优化。将此处优化到哈希表里去，最好是跟Timer合为一体。
 #if (EOS_USE_TIME_EVENT != 0)
     eos_event_timer_t etimer[EOS_MAX_TIME_EVENT];
     uint32_t time;
@@ -255,12 +294,17 @@ typedef struct eos_tag {
 #endif
 
     // Heap
+    // TODO 优化。删除heap。
 #if (EOS_USE_EVENT_DATA != 0)
     eos_heap_t heap;
 #endif
+    // TODO 优化。e-queue改为全静态管理。
     eos_event_data_t *e_queue;
 
     uint32_t owner_global;
+
+    // TODO 优化。用于支持无限任务。
+    uint32_t id_count;
 
     // flag
     uint8_t enabled                        : 1;
@@ -269,12 +313,11 @@ typedef struct eos_tag {
 } eos_t;
 
 /* eventos API for test ----------------------------- */
-int8_t eos_execute(uint8_t priority);
-int8_t eos_event_pub_ret(const char *topic, void *data, uint32_t size);
 void * eos_get_framework(void);
 void eos_event_pub_time(const char *topic, uint32_t time_ms, eos_bool_t oneshoot);
 void eos_set_time(uint32_t time_ms);
 void eos_set_hash(hash_algorithm_t hash);
+
 // **eos end** -----------------------------------------------------------------
 eos_t eos;
 
@@ -332,6 +375,7 @@ static int32_t eos_evttimer(void);
 static uint32_t eos_hash_time33(const char *string);
 static uint16_t eos_hash_insert(const char *string);
 static uint16_t eos_hash_get_index(const char *string);
+static bool eos_hash_existed(const char *string);
 #if (EOS_USE_SM_MODE != 0)
 static void eos_sm_dispath(eos_sm_t * const me, eos_event_t const * const e);
 #if (EOS_USE_HSM_MODE != 0)
@@ -925,23 +969,22 @@ Event
 void eos_event_attribute_global(const char *topic)
 {
     eos_critical_enter();
-    // TODO 优化。修改此处为eos_hash_existed函数，更换掉所有类似的地方。
-    uint16_t e_id = eos_hash_get_index(topic);
-    if (e_id != EOS_MAX_OBJECTS) {
+    uint16_t e_id;
+    if (eos_hash_existed(topic) == false) {
         e_id = eos_hash_insert(topic);
         eos.hash.object[e_id].type = EosObj_Event;
     }
     EOS_ASSERT(eos.hash.object[e_id].type == EosObj_Event);
     eos.hash.object[e_id].attribute |= EOS_EVENT_ATTRIBUTE_GLOBAL;
-
+    
     eos_critical_exit();
 }
 
 void eos_event_attribute_unblocked(const char *topic)
 {
     eos_critical_enter();
-    uint16_t e_id = eos_hash_get_index(topic);
-    if (e_id != EOS_MAX_OBJECTS) {
+    uint16_t e_id;
+    if (eos_hash_existed(topic) == false) {
         e_id = eos_hash_insert(topic);
         eos.hash.object[e_id].type = EosObj_Event;
     }
@@ -956,8 +999,8 @@ void eos_event_attribute_stream(const char *topic,
                                 void *memory, uint32_t capacity)
 {
     eos_critical_enter();
-    uint16_t e_id = eos_hash_get_index(topic);
-    if (e_id != EOS_MAX_OBJECTS) {
+    uint16_t e_id;
+    if (eos_hash_existed(topic) == false) {
         e_id = eos_hash_insert(topic);
         eos.hash.object[e_id].type = EosObj_Event;
     }
@@ -982,8 +1025,8 @@ void eos_event_attribute_stream(const char *topic,
 void eos_event_attribute_value(const char *topic, void *memory, uint32_t size)
 {
     eos_critical_enter();
-    uint16_t e_id = eos_hash_get_index(topic);
-    if (e_id != EOS_MAX_OBJECTS) {
+    uint16_t e_id;
+    if (eos_hash_existed(topic) == false) {
         e_id = eos_hash_insert(topic);
         eos.hash.object[e_id].type = EosObj_Event;
     }
@@ -1776,6 +1819,17 @@ int32_t eos_event_stream_recieve(eos_event_t *const e, void *buffer, uint32_t si
     }
 }
 
+void eos_event_get_value(const char *topic, void *value)
+{
+    eos_critical_enter();
+    uint16_t e_id = eos_hash_get_index(topic);
+    EOS_ASSERT(e_id != EOS_MAX_OBJECTS);
+
+    eos_object_t *object = &eos.hash.object[e_id];
+    memcpy(value, object->data.value, object->size);
+    eos_critical_exit();
+}
+
 // state tran ------------------------------------------------------------------
 #if (EOS_USE_SM_MODE != 0)
 eos_ret_t eos_tran(eos_sm_t * const me, eos_state_handler state)
@@ -2212,6 +2266,38 @@ static uint16_t eos_hash_get_index(const char *string)
     }
     
     return EOS_MAX_OBJECTS;
+}
+
+static bool eos_hash_existed(const char *string)
+{
+    uint16_t index = 0;
+
+    // 计算哈希值。
+    uint32_t hash = eos.hash_func(string);
+    uint16_t index_init = hash % eos.prime_max;
+
+    for (uint16_t i = 0; i < (EOS_MAX_OBJECTS / 2 + 1); i ++) {
+        for (int8_t j = -1; j <= 1; j += 2) {
+            index = index_init + i * j + 2 * (int16_t)EOS_MAX_OBJECTS;
+            index %= EOS_MAX_OBJECTS;
+
+            if (eos.hash.object[index].key == (const char *)0) {
+                continue;
+            }
+            if (strcmp(eos.hash.object[index].key, string) != 0) {
+                continue;
+            }
+            
+            return true;
+        }
+
+        // 确保哈希表的查找速度
+        if (i >= EOS_MAX_HASH_SEEK_TIMES) {
+            return false;
+        }
+    }
+    
+    return false;
 }
 
 /* -----------------------------------------------------------------------------

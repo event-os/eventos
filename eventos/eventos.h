@@ -184,6 +184,7 @@ typedef struct eos_timer {
 } eos_timer_t;
 
 // 启动软定时器，允许在中断中调用。
+// TODO 优化。此处完全不必面向对象。
 void eos_timer_start(   eos_timer_t * const me,
                         const char *name,
                         uint32_t time_ms,
@@ -248,21 +249,22 @@ void eos_event_sub(const char *topic);
 void eos_event_unsub(const char *topic);
 
 // 事件的接收 --------------------------------------------
-// TODO 主题事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
+// 主题事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
 bool eos_event_topic(eos_event_t *const e, const char *topic);
-// TODO 读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
+// 读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
 bool eos_event_value_recieve(eos_event_t *const e, void *value);
-// TODO 流事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
+// 流事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
 int32_t eos_event_stream_recieve(eos_event_t *const e, void *buffer, uint32_t size);
-// TODO 读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
-bool eos_event_get_value(const char *topic, void *value);
+// 读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
+void eos_event_get_value(const char *topic, void *value);
 
 /* -----------------------------------------------------------------------------
 Reactor
 ----------------------------------------------------------------------------- */
 // 事件处理句柄的定义
 struct eos_reactor;
-typedef void (* eos_event_handler)(struct eos_reactor *const me, eos_event_t const * const e);
+typedef void (* eos_event_handler)( struct eos_reactor *const me,
+                                    eos_event_t const * const e);
 
 /*
  * Definition of the Reactor class.
@@ -296,7 +298,8 @@ typedef enum eos_ret {
 #if (EOS_USE_SM_MODE != 0)
 // 状态函数句柄的定义
 struct eos_sm;
-typedef eos_ret_t (* eos_state_handler)(struct eos_sm *const me, eos_event_t const * const e);
+typedef eos_ret_t (* eos_state_handler)(struct eos_sm *const me,
+                                        eos_event_t const * const e);
 #endif
 
 #if (EOS_USE_SM_MODE != 0)
@@ -323,13 +326,6 @@ eos_ret_t eos_state_top(eos_sm_t * const me, eos_event_t const * const e);
 #define EOS_SUPER(super)            eos_super((eos_sm_t * )me, (eos_state_handler)super)
 #define EOS_STATE_CAST(state)       ((eos_state_handler)(state))
 #endif
-
-/* -----------------------------------------------------------------------------
-Device
------------------------------------------------------------------------------ */
-typedef struct eos_device {
-    const char *name;
-} eos_device_t;
 
 /* -----------------------------------------------------------------------------
 Trace

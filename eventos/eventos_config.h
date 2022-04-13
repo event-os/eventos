@@ -34,16 +34,18 @@
 #ifndef EVENTOS_CONFIG_H__
 #define EVENTOS_CONFIG_H__
 
+// TODO 实现。设置为可配置抢占和协作内核。
+
 // <<< Use Configuration Wizard in Context Menu >>>
 
 /* EventOS General Configuration --------------------------------------- */
 
 // <h> EventOS Nano's basic configuration
-//   <o>  The maximum number of tasks: 1 - 64
-#define EOS_MAX_TASKS                           32
+//   <o>  The maximum number of tasks: 8 - 64
+#define EOS_MAX_TASKS                          8
 
 //   <o>  The maximum number of objects: 16 - 65536
-#define EOS_MAX_OBJECTS                         32
+#define EOS_MAX_OBJECTS                         16
 #define EOS_MAX_HASH_SEEK_TIMES                 5
 
 //   <o>  The platform type: 32 ort 64 bits.
@@ -98,7 +100,7 @@
 #define EOS_USE_EVENT_DATA                      1
 
 //   <o>  The maximum size of event heap (128 - 32767) <128-32767>
-#define EOS_SIZE_HEAP                           32000       // 设定堆大小
+#define EOS_SIZE_HEAP                           4000       // 设定堆大小
 
 /* Event Bridge Configuration ----------------------------------------------- */
 //   <o>  use event bridge (0 or 1) <0-1>
