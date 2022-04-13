@@ -221,8 +221,11 @@ void eos_event_attribute_stream(const char *topic,
 void eos_event_attribute_value(const char *topic, void *memory, uint32_t size);
 
 // 事件的直接发送 -----------------------------------------
-// 直接发送主题事件。允许在中断中调用。
+// TODO 优化。删除topic字样。直接发送主题事件。
+// TODO 优化。不允许在中断中调用。
 void eos_event_send_topic(const char *task, const char *topic);
+// TODO 优化。允许在中断调用。
+void eos_event_send_isr(const char *task, const char *topic);
 // TODO 优化。数据库实现后，删去这个。直接发送值事件。允许在中断中调用。
 void eos_event_send_value(const char *task, const char *topic, void const *data);
 // TODO 优化。数据库实现后，删去这个。直接发送流事件。允许在中断中调用。
@@ -231,8 +234,11 @@ void eos_event_send_stream(const char *topic, void const *data, uint32_t size);
 void eos_event_set_value(const char *topic, void *data);
 
 // 事件的广播 --------------------------------------------
-// 广播发布某主题事件。允许在中断中调用。
+// TODO 优化。删除topic字样。广播发布某主题事件。
+// TODO 优化。不允许在中断中调用。
 void eos_event_broadcast_topic(const char *topic);
+// TODO 实现。允许在中断调用。
+void eos_event_broadcast_isr(const char *topic);
 // TODO 优化。数据库实现后，删去这个。广播发布某值事件。允许在中断中调用。
 void eos_event_broadcast_value(const char *topic, void const *data);
 
