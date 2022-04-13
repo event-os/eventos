@@ -261,6 +261,8 @@ void eos_event_get_value(const char *topic, void *value);
 /* -----------------------------------------------------------------------------
 Key-Value Database
 ----------------------------------------------------------------------------- */
+// TODO 增加持久化设备。
+void eos_db_add_device_persistence(const char *device);
 // TODO 实现。数据库的注册。
 void eos_db_register(   const char *key,
                         void * const data, uint32_t size,
