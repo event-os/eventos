@@ -99,8 +99,10 @@ EventOS
 void eos_init(void);
 // Run EventOS.
 void eos_run(void);
-// System time.
+// TODO 优化。修改为毫秒和微秒两个获取时间的函数。System time.
 uint64_t eos_time(void);
+// uint64_t eos_time_ms(void)；
+// uint64_t eos_time_us(void);
 // System tick function.
 void eos_tick(void);
 // 关闭中断
