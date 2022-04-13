@@ -107,6 +107,10 @@ void eos_tick(void);
 void eos_critical_enter(void);
 // 开中断
 void eos_critical_exit(void);
+// TODO 实现。禁止任务切换
+void eos_sheduler_lock(void);
+// TODO 实现。关闭禁止任务切换
+void eos_sheduler_unlock(void);
 
 /* -----------------------------------------------------------------------------
 Task
