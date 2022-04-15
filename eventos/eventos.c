@@ -1127,7 +1127,7 @@ void *eos_heap_get_block(eos_heap_t * const me, eos_u8_t priority)
 
     EOS_ASSERT(priority < EOS_MAX_ACTORS);
 
-    eos_u16_t next = me->current;
+    eos_u16_t next = me->queue;
     eos_u16_t loop_count = 0;
     while (next != EOS_HEAP_MAX && loop_count < me->count) {
         eos_event_inner_t *evt;
