@@ -13,7 +13,6 @@
 *.d
 *.exe
 
-eos
 posix
 core
 

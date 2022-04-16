@@ -1,0 +1,15 @@
+src = Glob('*.c')
+
+paths = ['.']
+
+defines = ['eventos']
+ccflags = []
+
+env = Environment()
+env.Append(CPPDEFINES = defines)
+env.Append(CCCOMSTR = "CC $SOURCES")
+env.Append(CPPPATH = paths)
+
+obj = env.Object(src)
+ 
+Return('obj')
