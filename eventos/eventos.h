@@ -146,7 +146,10 @@ typedef struct eos_task {
     uint32_t state                  : 3;
     uint32_t priority               : 6;
     uint32_t id                     : 6;
+    uint32_t usage                  : 7;
     uint32_t enabled                : 1;
+    uint32_t cpu_usage              : 7;
+    uint32_t cpu_usage_count;
 } eos_task_t;
 
 // 启动任务，main函数或者任务函数中调用。
@@ -262,9 +265,9 @@ void eos_event_unsub(const char *topic);
 // 主题事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
 bool eos_event_topic(eos_event_t const * const e, const char *topic);
 // 读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
-bool eos_event_value_recieve(eos_event_t const *const e, void *value);
+bool eos_event_value_recieve(eos_event_t const *const e, const char *topic, void *value);
 // 流事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
-int32_t eos_event_stream_recieve(eos_event_t const *const e, void *buffer, uint32_t size);
+int32_t eos_event_stream_recieve(eos_event_t const *const e, const char *topic, void *buffer, uint32_t size);
 // 读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
 void eos_event_get_value(const char *topic, void *value);
 

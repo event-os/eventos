@@ -12,6 +12,11 @@ uint64_t stack_task_e_specific[512];
 eos_task_t task_e_specific;
 uint32_t count_test = 0;
 
+typedef struct e_value {
+    uint32_t count;
+    uint32_t value;
+} e_value_t;
+
 void block_delay(uint32_t ms)
 {
     while (ms --) {
@@ -31,6 +36,12 @@ void task_func_test(void *parameter)
         count_test ++;
         eos_event_send_topic("task_event", "Event_One");
         eos_event_send_topic("task_e_specific", "Event_Two");
+        
+        e_value_t e_value;
+        e_value.count = count_test;
+        e_value.value = 12345678;
+        eos_event_send_value("task_event", "Event_Value", &e_value);
+        
         if ((count_test % 10) == 0) {
             eos_event_send_topic("task_event", "Event_Specific");
             eos_event_send_topic("task_e_specific", "Event_Two");
@@ -49,6 +60,8 @@ void task_func_test(void *parameter)
 uint32_t event_one_count = 0;
 uint32_t event_specific_count = 0;
 uint32_t task_event_error = 0;
+uint32_t event_value_count = 0;
+e_value_t e_value_recv;
 void task_func_event_test(void *parameter)
 {
     (void)parameter;
@@ -66,6 +79,11 @@ void task_func_event_test(void *parameter)
         
         if (eos_event_topic(&e, "Event_Specific")) {
             event_specific_count ++;
+        }
+        
+        // TODO BUG。值事件收不到正确的值，也不能得到正确的次数。
+        if (eos_event_value_recieve(&e, "Event_Value", &e_value_recv)) {
+            event_value_count ++;
         }
     }
 }
@@ -94,7 +112,7 @@ void task_func_e_specific_test(void *parameter)
     }
 }
 
-
+e_value_t e_value;
 
 int main(void)
 {
@@ -107,6 +125,8 @@ int main(void)
         while (1);
     
     eos_init();                                     // EventOS初始化
+    
+    eos_event_attribute_value("Event_Value", &e_value, sizeof(e_value_t));
 
 //#if (EOS_USE_SM_MODE != 0)
     eos_sm_led_init();                              // LED状态机初始化

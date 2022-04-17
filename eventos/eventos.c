@@ -282,6 +282,7 @@ typedef struct eos_tag {
 
     // TODO 优化。用于支持无限任务。
     uint32_t id_count;
+    uint32_t cpu_usage_count;
 
     // flag
     uint8_t enabled                         : 1;
@@ -384,6 +385,28 @@ static void task_func_idle(void *parameter)
     (void)parameter;
 
     while (1) {
+#if (EOS_USE_STACK_USAGE != 0)
+        // 堆栈使用率的计算
+        uint8_t usage = 0;
+        uint32_t *stack;
+        uint32_t size_used = 0;
+        for (uint8_t i = 0; i < EOS_MAX_TASKS; i ++) {
+            if (eos.task[i] != (eos_object_t *)0) {
+                size_used = 0;
+                stack = (uint32_t *)(eos.task[i]->ocb.task->stack);
+                for (uint32_t m = 0; m < (eos.task[i]->size / 4); m ++) {
+                    if (stack[m] == 0xDEADBEEFU) {
+                        size_used += 4;
+                    }
+                    else {
+                        break;
+                    }
+                }
+                usage = 100 - (size_used * 100 / eos.task[i]->ocb.task->size);
+                eos.task[i]->ocb.task->usage = usage;
+            }
+        }
+#endif
         eos_critical_enter();
         /* check all the tasks are timeout or not */
         uint32_t working_set, bit;
@@ -687,8 +710,8 @@ void eos_task_resume(const char *task)
 
 bool eos_task_wait_event(eos_event_t * const e_out, uint32_t time_ms)
 {
+    eos_critical_enter();
     do {
-        eos_critical_enter();
         uint8_t priority = eos_current->priority;
         
         if ((eos.owner_global & (1 << priority)) != 0) {
@@ -707,7 +730,7 @@ bool eos_task_wait_event(eos_event_t * const e_out, uint32_t time_ms)
                 uint8_t type = e_object->attribute & 0x03;
                 // Event out
                 e_out->topic = e_object->key;
-                e_out->eid = ~((uint32_t)e_item);
+                e_out->eid = e_item->id;
                 if (type == EOS_EVENT_ATTRIBUTE_TOPIC) {
                     e_out->size = 0;
                 }
@@ -747,6 +770,8 @@ bool eos_task_wait_event(eos_event_t * const e_out, uint32_t time_ms)
             eos_critical_exit();
 
             eos_sheduler();
+            // TODO BUG。这里的关中断，不应被去掉。但只有去掉，值事件才能接收。一定有BUG。
+//            eos_critical_enter();
         }
     } while (eos.time < eos_current->timeout || time_ms == 0);
 
@@ -1791,16 +1816,11 @@ static inline bool __eos_event_recieve( eos_event_t const *const e,
                                         uint32_t *size_out)
 {
     eos_critical_enter();
-    uint8_t priority = eos_current->priority;
-    uint32_t bits = (1 << priority);
-    EOS_ASSERT((eos.owner_global & bits) != 0);
     
     // Event ID
     uint16_t e_id = e->eid;
-    if (e_id == EOS_MAX_OBJECTS) {
-        eos_critical_exit();
-        return false;
-    }
+    EOS_ASSERT(e_id < EOS_MAX_OBJECTS);
+    
     uint8_t type = eos.object[e_id].type;
     // Get the data size and copy the data to buffer
     int32_t size_data;
@@ -1830,13 +1850,21 @@ bool eos_event_topic(eos_event_t const *const e, const char *topic)
     }
 }
 
-bool eos_event_value_recieve(eos_event_t const *const e, void *value)
+bool eos_event_value_recieve(eos_event_t const *const e, const char *topic, void *value)
 {
+    if (strcmp(e->topic, topic) == 0) {
+        return false;
+    }
+    
     return __eos_event_recieve(e, value, 0, EOS_NULL);
 }
 
-int32_t eos_event_stream_recieve(eos_event_t const *const e, void *buffer, uint32_t size)
+int32_t eos_event_stream_recieve(eos_event_t const *const e, const char *topic, void *buffer, uint32_t size)
 {
+    if (strcmp(e->topic, topic) == 0) {
+        return -1;
+    }
+    
     uint32_t size_out;
     bool ret = __eos_event_recieve(e, buffer, size, &size_out);
     if (ret == false) {
@@ -2101,6 +2129,52 @@ static int32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX_H
     return ip;
 }
 #endif
+#endif
+
+/* -----------------------------------------------------------------------------
+Trace
+----------------------------------------------------------------------------- */
+#if (EOS_USE_STACK_USAGE != 0)
+// 任务的堆栈使用率
+uint8_t eos_task_stack_usage(uint8_t priority)
+{
+    EOS_ASSERT(priority < EOS_MAX_TASKS);
+    EOS_ASSERT(eos.task[priority] != (eos_object_t *)0);
+
+    return eos.task[priority]->ocb.task->usage;
+}
+#endif
+
+#if (EOS_USE_CPU_USAGE != 0)
+// 任务的CPU使用率
+uint8_t eos_task_cpu_usage(uint8_t priority)
+{
+    EOS_ASSERT(priority < EOS_MAX_TASKS);
+    EOS_ASSERT(eos.task[priority] != (eos_object_t *)0);
+
+    return eos.task[priority]->ocb.task->cpu_usage;
+}
+
+// 监控函数，放进一个单独的定时器中断函数，中断频率为SysTick的10-20倍。
+void eos_cpu_usage_monitor(void)
+{
+    uint8_t usage;
+
+    // CPU使用率的计算
+    eos.cpu_usage_count ++;
+    eos_current->cpu_usage_count ++;
+    if (eos.cpu_usage_count >= 10000) {
+        for (uint8_t i = 0; i < EOS_MAX_TASKS; i ++) {
+            if (eos.task[i] != (eos_object_t *)0) {
+                usage = eos.task[i]->ocb.task->cpu_usage_count * 100 / eos.cpu_usage_count;
+                eos.task[i]->ocb.task->cpu_usage = usage;
+                eos.task[i]->ocb.task->cpu_usage_count = 0;
+            }
+        }
+        
+        eos.cpu_usage_count = 0;
+    }
+}
 #endif
 
 /* -----------------------------------------------------------------------------

@@ -189,7 +189,7 @@ void PendSV_Handler(void)
 }
 #endif
 
-static int32_t critical_count = 0;
+int32_t critical_count = 0;
 #if (defined __CC_ARM)
 inline void eos_critical_enter(void)
 #elif ((defined __GNUC__) || (defined __ICCARM__))
