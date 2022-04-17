@@ -5,7 +5,7 @@
 
 /* main function ------------------------------------------------------------ */
 uint64_t stack_task[512];
-eos_task_t task;
+eos_task_t task_test;
 uint64_t stack_task_event[512];
 eos_task_t task_event;
 uint64_t stack_task_e_specific[512];
@@ -19,10 +19,11 @@ void task_func_test(void *parameter)
     while (1) {
         count_test ++;
         eos_event_send_topic("task_event", "Event_One");
-//        eos_event_send_topic("task_e_specific", "Event_One");
-//        if ((count_test % 10) == 0) {
-//            eos_event_send_topic("task_e_specific", "Event_Specific");
-//        }
+        eos_event_send_topic("task_e_specific", "Event_Two");
+        if ((count_test % 10) == 0) {
+            eos_event_send_topic("task_event", "Event_Specific");
+            eos_event_send_topic("task_e_specific", "Event_Two");
+        }
 //        if (count_test == 100) {
 //            eos_task_suspend("sm_led");
 //        }
@@ -34,6 +35,7 @@ void task_func_test(void *parameter)
 }
 
 uint32_t event_one_count = 0;
+uint32_t event_specific_count = 0;
 uint32_t task_event_error = 0;
 void task_func_event_test(void *parameter)
 {
@@ -48,6 +50,10 @@ void task_func_event_test(void *parameter)
 
         if (eos_event_topic(&e, "Event_One")) {
             event_one_count ++;
+        }
+        
+        if (eos_event_topic(&e, "Event_Specific")) {
+            event_specific_count ++;
         }
     }
 }
@@ -66,7 +72,7 @@ void task_func_e_specific_test(void *parameter)
             continue;
         }
 
-        if (eos_event_topic(&e, "Event_One")) {
+        if (eos_event_topic(&e, "Event_Two")) {
             e_one_count ++;
         }
         
@@ -89,15 +95,15 @@ int main(void)
 //#endif
 //    eos_reactor_led_init();
     
-    eos_task_start( &task,
+    eos_task_start( &task_test,
                     "task_test", task_func_test, 1,
                     stack_task, sizeof(stack_task));
     eos_task_start( &task_event,
                     "task_event", task_func_event_test, 2,
                     stack_task_event, sizeof(stack_task_event));
-//    eos_task_start( &task_e_specific,
-//                    "task_e_specific", task_func_e_specific_test, 3,
-//                    stack_task_e_specific, sizeof(stack_task_e_specific));
+    eos_task_start( &task_e_specific,
+                    "task_e_specific", task_func_e_specific_test, 3,
+                    stack_task_e_specific, sizeof(stack_task_e_specific));
     
     eos_run();                                      // EventOS启动
 

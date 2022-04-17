@@ -705,6 +705,7 @@ bool eos_task_wait_event(eos_event_t * const e_out, uint32_t time_ms)
             uint32_t bits = (1 << priority);
             while (e_item != EOS_NULL) {
                 if ((e_item->owner & bits) == 0) {
+                    e_item = e_item->next;
                     continue;
                 }
 
@@ -723,6 +724,22 @@ bool eos_task_wait_event(eos_event_t * const e_out, uint32_t time_ms)
                 }
                 else if (type == EOS_EVENT_ATTRIBUTE_STREAM) {
                     e_out->size = eos_stream_size(e_object->data.stream);
+                }
+
+                // If the event data is just the current task's event.
+                e_item->owner &=~ bits;
+                if (e_item->owner == 0) {
+                    // Delete the event data from the e-queue.
+                    __eos_e_queue_delete(e_item);
+                    // free the event data.
+                    eos_heap_free(&eos.heap, e_item);
+                    // update the global owner flag.
+                    eos.owner_global = 0;
+                    eos_event_data_t *e_queue = eos.e_queue;
+                    while (e_queue != EOS_NULL) {
+                        eos.owner_global |= e_queue->owner;
+                        e_queue = e_queue->next;
+                    }
                 }
 
                 eos_critical_exit();
@@ -800,10 +817,9 @@ bool eos_task_wait_specific_event(  eos_event_t * const e_out,
              *  be updated.
              */ 
             eos_event_data_t *e_item = eos.e_queue;
-            eos.owner_global = 0;
             while (e_item != EOS_NULL) {
                 if ((e_item->owner & bits) == 0) {
-                    eos.owner_global |= e_item->owner;
+                    e_item = e_item->next;
                     continue;
                 }
                 
@@ -814,7 +830,7 @@ bool eos_task_wait_specific_event(  eos_event_t * const e_out,
                     uint8_t type = e_object->attribute & 0x03;
 
                     e_out->topic = topic;
-                    e_out->eid = ~((uint32_t)e_item);
+                    e_out->eid = e_item->id;
                     if (type == EOS_EVENT_ATTRIBUTE_TOPIC) {
                         e_out->size = 0;
                     }
@@ -825,8 +841,27 @@ bool eos_task_wait_specific_event(  eos_event_t * const e_out,
                         e_out->size = eos_stream_size(e_object->data.stream);
                     }
 
+                    // Get the event.
+                    e_item->owner &=~ bits;
+                    if (e_item->owner == 0) {
+                        // Delete the event data from the e-queue.
+                        __eos_e_queue_delete(e_item);
+                        // free the event data.
+                        eos_heap_free(&eos.heap, e_item);
+                        // update the global owner flag.
+                        eos.owner_global = 0;
+                        eos_event_data_t *e_queue = eos.e_queue;
+                        while (e_queue != EOS_NULL) {
+                            eos.owner_global |= e_queue->owner;
+                            e_queue = e_queue->next;
+                        }
+                    }
+
                     eos_critical_exit();
                     return true;
+                }
+                else {
+                    __eos_e_queue_delete(e_item);
                 }
             }
         }
@@ -1259,6 +1294,9 @@ static void __eos_e_queue_delete(eos_event_data_t const *item)
         item->next->last = item->last;
     }
     
+    // free the event data.
+    eos_heap_free(&eos.heap, (void *)item);
+    
     // Calculate the owner_global.
     eos.owner_global = 0;
     eos_event_data_t *e_item = eos.e_queue;
@@ -1434,15 +1472,17 @@ static int8_t __eos_event_give(  const char *task,
     
     uint32_t owner = 0;
     if (give_type == EosEventGiveType_Send) {
-        if (task != EOS_NULL) {
-            uint8_t priority;
-            uint16_t t_index = eos_hash_get_index(task);
-            EOS_ASSERT(t_index != EOS_MAX_OBJECTS);
-            EOS_ASSERT(eos.hash.object[t_index].type == EosObj_Task);
-            eos_task_t *tcb = eos.hash.object[t_index].ocb.task;
-            priority = tcb->priority;
-            owner = (1 << priority);
+        uint16_t t_index = eos_hash_get_index(task);
+        EOS_ASSERT(t_index != EOS_MAX_OBJECTS);
+        EOS_ASSERT(eos.hash.object[t_index].type == EosObj_Task);
+        eos_task_t *tcb = eos.hash.object[t_index].ocb.task;
+        // 如果任务在等待特定事件，等待的不是当前事件。
+        if (tcb->state == EosTaskState_WaitSpecificEvent &&
+            strcmp(topic, eos.event_wait[tcb->priority]) != 0) {
+            eos_critical_exit();
+            return (int8_t)EosRun_OK;
         }
+        owner = (1 << tcb->priority);
     }
     else if (give_type == EosEventGiveType_Broadcast) {
         owner = eos.task_exist;
@@ -1455,25 +1495,37 @@ static int8_t __eos_event_give(  const char *task,
     }
     eos.owner_global |= owner;
 
+    // 等待事件和等待特定事件不可能同时存在。
+    EOS_ASSERT((eos.task_wait_specific_event & eos.task_wait_event) == 0);
+    
     // 查看是否相关线程，在等待特定事件。
-    uint32_t wait_event = owner & eos.task_wait_event;
     uint32_t wait_specific_event = owner & eos.task_wait_specific_event;
     for (uint8_t i = 1; i < EOS_MAX_TASKS; i ++) {
-        if ((wait_specific_event & (1 << i)) != 0 &&
-            strcmp(topic, eos.event_wait[i]) == 0) {
-            eos.task[i]->ocb.task->state = EosTaskState_Ready;
-            eos.task_delay &=~ (1 << i);
-            eos.task_wait_event &=~ (1 << i);
-            eos.task_wait_specific_event &=~ (1 << i);
+        if (strcmp(topic, eos.event_wait[i]) != 0) {
+            wait_specific_event &= (1 << i);
+            if (wait_specific_event == 0)
+                break;
+            else
+                continue;
         }
-        else if ((wait_event & (1 << i)) != 0) {
+        if ((wait_specific_event & (1 << i)) != 0) {
             eos.task[i]->ocb.task->state = EosTaskState_Ready;
             eos.task_delay &=~ (1 << i);
             eos.task_wait_event &=~ (1 << i);
             eos.task_wait_specific_event &=~ (1 << i);
         }
     }
-
+    
+    uint32_t wait_event = owner & eos.task_wait_event;
+    for (uint8_t i = 1; i < EOS_MAX_TASKS; i ++) {
+        if ((wait_event & (1 << i)) != 0) {
+            eos.task[i]->ocb.task->state = EosTaskState_Ready;
+            eos.task_delay &=~ (1 << i);
+            eos.task_wait_event &=~ (1 << i);
+            eos.task_wait_specific_event &=~ (1 << i);
+        }
+    }
+    
     if (e_type == EOS_EVENT_ATTRIBUTE_TOPIC) {
         // Apply one data for the event.
         eos_event_data_t *data = eos_heap_malloc(&eos.heap, sizeof(eos_event_data_t));
@@ -1745,70 +1797,33 @@ static inline bool __eos_event_recieve( eos_event_t *const e,
     EOS_ASSERT((eos.owner_global & bits) != 0);
     
     // Event ID
-    uint16_t e_id = ((eos_event_data_t *)(~e->eid))->id;
+    uint16_t e_id = e->eid;
     if (e_id == EOS_MAX_OBJECTS) {
         eos_critical_exit();
         return false;
     }
     uint8_t type = eos.hash.object[e_id].type;
-    
-    // Get the data
-    eos_event_data_t *data = eos.e_queue;
-    while (data != EOS_NULL) {
-        // If the event data is NOT belong to the current task.
-        if ((data->owner & bits) != 0) {
-            continue;
-        }
-        // Get the data size and copy the data to buffer
-        int32_t size_data;
-        if (type == EOS_EVENT_ATTRIBUTE_VALUE) {
-            size_data = eos.hash.object[e_id].size;
-            memcpy(buffer, eos.hash.object[e_id].data.value, size_data);
-            *size_out = size_data;
-        }
-        else if (type == EOS_EVENT_ATTRIBUTE_STREAM) {
-            eos_stream_t *queue;
-            queue = eos.hash.object[e_id].data.stream;
-            size_data = eos_stream_pull_pop(queue, buffer, size);
-            EOS_ASSERT(size_data > 0);
-            *size_out = size_data;
-        }
-        
-        // If the event data is just the current task's event.
-        data->owner &=~ bits;
-        if (data->owner == 0) {
-            // Delete the event data from the e-queue.
-            __eos_e_queue_delete(data);
-            // free the event data.
-            eos_heap_free(&eos.heap, data);
-            // update the global owner flag.
-            eos.owner_global = 0;
-            eos_event_data_t *e_queue = eos.e_queue;
-            while (e_queue != EOS_NULL) {
-                eos.owner_global |= e_queue->owner;
-                e_queue = e_queue->next;
-            }
-        }
-        eos_critical_exit();
-        return true;
+    // Get the data size and copy the data to buffer
+    int32_t size_data;
+    if (type == EOS_EVENT_ATTRIBUTE_VALUE) {
+        size_data = eos.hash.object[e_id].size;
+        memcpy(buffer, eos.hash.object[e_id].data.value, size_data);
+        *size_out = size_data;
     }
-    /*  That's impossible that event data can not be found if eos_task_wait_event
-     *  or eos_task_wait_specific_event be used in the right way.
-     */
-    EOS_ASSERT(0);
-    eos_critical_exit();
+    else if (type == EOS_EVENT_ATTRIBUTE_STREAM) {
+        eos_stream_t *queue;
+        queue = eos.hash.object[e_id].data.stream;
+        size_data = eos_stream_pull_pop(queue, buffer, size);
+        EOS_ASSERT(size_data > 0);
+        *size_out = size_data;
+    }
     
-    return false;
+    return true;
 }
 
 bool eos_event_topic(eos_event_t *const e, const char *topic)
 {
     if (strcmp(e->topic, topic) == 0) {
-        eos_event_data_t *e_item = (eos_event_data_t *)(~e->eid);
-        e_item->owner &=~ (1 << eos_current->priority);
-        if (e_item->owner == 0) {
-            __eos_e_queue_delete(e_item);
-        }
         return true;
     }
     else {

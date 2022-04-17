@@ -100,7 +100,7 @@
 #define EOS_USE_EVENT_DATA                      1
 
 //   <o>  The maximum size of event heap (128 - 32767) <128-32767>
-#define EOS_SIZE_HEAP                           4000       // 设定堆大小
+#define EOS_SIZE_HEAP                           512       // 设定堆大小
 
 /* Event Bridge Configuration ----------------------------------------------- */
 //   <o>  use event bridge (0 or 1) <0-1>
