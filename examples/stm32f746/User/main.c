@@ -4,11 +4,11 @@
 #include "eos_led.h"                                // LED灯闪烁状态机
 
 /* main function ------------------------------------------------------------ */
-uint8_t stack_task[1024];
+uint64_t stack_task[512];
 eos_task_t task;
-uint8_t stack_task_event[1024];
+uint64_t stack_task_event[512];
 eos_task_t task_event;
-uint8_t stack_task_e_specific[1024];
+uint64_t stack_task_e_specific[512];
 eos_task_t task_e_specific;
 uint32_t count_test = 0;
 
@@ -93,10 +93,10 @@ int main(void)
                     "task_test", task_func_test, 1,
                     stack_task, sizeof(stack_task));
     eos_task_start( &task_event,
-                    "task_event", task_func_event_test, 3,
+                    "task_event", task_func_event_test, 2,
                     stack_task_event, sizeof(stack_task_event));
 //    eos_task_start( &task_e_specific,
-//                    "task_e_specific", task_func_e_specific_test, 2,
+//                    "task_e_specific", task_func_e_specific_test, 3,
 //                    stack_task_e_specific, sizeof(stack_task_e_specific));
     
     eos_run();                                      // EventOS启动

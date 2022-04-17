@@ -1239,6 +1239,7 @@ static void __eos_e_queue_delete(eos_event_data_t const *item)
 {
     EOS_ASSERT(eos.e_queue != EOS_NULL);
     EOS_ASSERT(item != EOS_NULL);
+    
     // If the event data is only one in queue.
     if (item->last == EOS_NULL && item->next == EOS_NULL) {
         eos.e_queue = EOS_NULL;
@@ -1256,6 +1257,14 @@ static void __eos_e_queue_delete(eos_event_data_t const *item)
     else {
         item->last->next = item->next;
         item->next->last = item->last;
+    }
+    
+    // Calculate the owner_global.
+    eos.owner_global = 0;
+    eos_event_data_t *e_item = eos.e_queue;
+    while (e_item != EOS_NULL) {
+        eos.owner_global |= e_item->owner;
+        e_item = e_item->next;
     }
 }
 
@@ -1402,12 +1411,13 @@ static void eos_sm_enter(eos_sm_t *const me)
 Event
 ----------------------------------------------------------------------------- */
 
-static inline int8_t __eos_event_give(  const char *task,
+static int8_t __eos_event_give(  const char *task,
                                         uint8_t give_type,
                                         const char *topic, 
                                         const void *memory, uint32_t size)
 {
     eos_critical_enter();
+
     // Get event id according the topic.
     uint16_t e_id = eos_hash_get_index(topic);
     uint8_t e_type;
@@ -1421,10 +1431,10 @@ static inline int8_t __eos_event_give(  const char *task,
         e_type = eos.hash.object[e_id].attribute & 0x03;
         EOS_ASSERT(eos.hash.object[e_id].type == EosObj_Event);
     }
-
-    uint32_t owner;
+    
+    uint32_t owner = 0;
     if (give_type == EosEventGiveType_Send) {
-        if (task == EOS_NULL) {
+        if (task != EOS_NULL) {
             uint8_t priority;
             uint16_t t_index = eos_hash_get_index(task);
             EOS_ASSERT(t_index != EOS_MAX_OBJECTS);
@@ -1556,7 +1566,7 @@ static inline int8_t __eos_event_give(  const char *task,
         eos_stream_push(queue, (void *)memory, size);
     }
     eos_critical_exit();
-    
+
     return (int8_t)EosRun_OK;
 }
 
@@ -1794,7 +1804,11 @@ static inline bool __eos_event_recieve( eos_event_t *const e,
 bool eos_event_topic(eos_event_t *const e, const char *topic)
 {
     if (strcmp(e->topic, topic) == 0) {
-        __eos_e_queue_delete((eos_event_data_t *)(~e->eid));
+        eos_event_data_t *e_item = (eos_event_data_t *)(~e->eid);
+        e_item->owner &=~ (1 << eos_current->priority);
+        if (e_item->owner == 0) {
+            __eos_e_queue_delete(e_item);
+        }
         return true;
     }
     else {
