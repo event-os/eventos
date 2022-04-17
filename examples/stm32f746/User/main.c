@@ -12,6 +12,17 @@ uint64_t stack_task_e_specific[512];
 eos_task_t task_e_specific;
 uint32_t count_test = 0;
 
+void block_delay(uint32_t ms)
+{
+    while (ms --) {
+        uint32_t temp = 8500;
+        while (temp --) {
+            __nop();
+        }
+    }
+}
+
+
 void task_func_test(void *parameter)
 {
     (void)parameter;
@@ -30,6 +41,7 @@ void task_func_test(void *parameter)
         if (count_test == 200) {
             eos_task_resume("sm_led");
         }
+        block_delay(10);
         eos_delay_ms(100);
     }
 }
@@ -83,8 +95,14 @@ void task_func_e_specific_test(void *parameter)
 }
 
 
+
 int main(void)
 {
+    SystemCoreClockUpdate();
+
+    SCB_EnableICache(); /* Enable I-Cache */
+    SCB_EnableDCache(); /* Enable D-Cache */
+    
     if (SysTick_Config(SystemCoreClock / 1000) != 0)
         while (1);
     

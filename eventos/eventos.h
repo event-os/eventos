@@ -109,10 +109,12 @@ void eos_tick(void);
 void eos_critical_enter(void);
 // 开中断
 void eos_critical_exit(void);
-// TODO 实现。禁止任务切换
+// 禁止任务切换
 void eos_sheduler_lock(void);
-// TODO 实现。关闭禁止任务切换
+// 关闭禁止任务切换
 void eos_sheduler_unlock(void);
+// TODO 实现。增加持久化设备。
+void eos_set_persistence(const char *device);
 
 /* -----------------------------------------------------------------------------
 Task
@@ -213,39 +215,35 @@ Event
 void eos_event_attribute_global(const char *topic);
 // 设置不可阻塞事件。在延时时，此类事件进入，延时结束，对此类事件进行立即响应。
 void eos_event_attribute_unblocked(const char *topic);
-// TODO 优化。数据库实现后，删去这个。设置事件为流事件。流事件不会保留原本的发送时序。
+// 设置事件为流事件。流事件不会保留原本的发送时序。
 void eos_event_attribute_stream(const char *topic,
                                 const char *target,
                                 void *memory, uint32_t capacity);
-// TODO 优化。数据库实现后，删去这个。设置事件为值事件。值事件不会保留原本的发送时序。
+// 设置事件为值事件。值事件不会保留原本的发送时序。
 void eos_event_attribute_value(const char *topic, void *memory, uint32_t size);
 
+
 // 事件的直接发送 -----------------------------------------
-// TODO 优化。删除topic字样。直接发送主题事件。
-// TODO 优化。不允许在中断中调用。
+// TODO 实现。所有的事件发送、广播、发布、设定值等API考虑ISR专用。
+// 直接发送主题事件。允许在中断中调用。
 void eos_event_send_topic(const char *task, const char *topic);
-// TODO 优化。允许在中断调用。
-void eos_event_send_isr(const char *task, const char *topic);
-// TODO 优化。数据库实现后，删去这个。直接发送值事件。允许在中断中调用。
+// 直接发送值事件。允许在中断中调用。
 void eos_event_send_value(const char *task, const char *topic, void const *data);
-// TODO 优化。数据库实现后，删去这个。直接发送流事件。允许在中断中调用。
+// 直接发送流事件。允许在中断中调用。
 void eos_event_send_stream(const char *topic, void const *data, uint32_t size);
-// TODO 优化。数据库实现后，删去这个。设定事件的值。允许在中断中调用。
+// 设定事件的值。允许在中断中调用。
 void eos_event_set_value(const char *topic, void *data);
 
 // 事件的广播 --------------------------------------------
-// TODO 优化。删除topic字样。广播发布某主题事件。
-// TODO 优化。不允许在中断中调用。
+// 广播发布某主题事件。允许在中断中调用。
 void eos_event_broadcast_topic(const char *topic);
-// TODO 实现。允许在中断调用。
-void eos_event_broadcast_isr(const char *topic);
-// TODO 优化。数据库实现后，删去这个。广播发布某值事件。允许在中断中调用。
+// 广播发布某值事件。允许在中断中调用。
 void eos_event_broadcast_value(const char *topic, void const *data);
 
 // 事件的发布 --------------------------------------------
-// TODO 优化。数据库实现后，去掉topic字样。发布主题事件。允许在中断中调用。
+// 发布主题事件。允许在中断中调用。
 void eos_event_pub_topic(const char *topic);
-// TODO 优化。数据库实现后，删去这个。发布值事件。允许在中断中调用。
+// 发布值事件。允许在中断中调用。
 void eos_event_pub_value(const char *topic, void *data);
 // 延时发布某主题事件。允许在中断中调用。
 void eos_event_pub_delay(const char *topic, uint32_t time_delay_ms);
@@ -261,36 +259,14 @@ void eos_event_sub(const char *topic);
 void eos_event_unsub(const char *topic);
 
 // 事件的接收 --------------------------------------------
-// TODO 优化。主题事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
+// 主题事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
 bool eos_event_topic(eos_event_t const * const e, const char *topic);
-// TODO 优化。数据库实现后，删去这个。读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
+// 读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
 bool eos_event_value_recieve(eos_event_t const *const e, void *value);
-// TODO 优化。数据库实现后，删去这个。流事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
+// 流事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
 int32_t eos_event_stream_recieve(eos_event_t const *const e, void *buffer, uint32_t size);
-// TODO 优化。数据库实现后，删去这个。读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
+// 读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
 void eos_event_get_value(const char *topic, void *value);
-
-/* -----------------------------------------------------------------------------
-Key-Value Database
------------------------------------------------------------------------------ */
-// TODO 增加持久化设备。
-void eos_db_add_device_persistence(const char *device);
-// TODO 实现。数据库的注册。
-void eos_db_register(   const char *key,
-                        void * const data, uint32_t size,
-                        uint8_t attribute);
-// TODO 实现。块数据的读取。
-void eos_db_block_read(const char *key, void * const data);
-void eos_db_block_read_isr(const char *key, void * const data);
-// TODO 实现。块数据的写入。
-void eos_db_block_write(const char *key, void * const data, uint8_t attribute);
-void eos_db_block_write_isr(const char *key, void * const data, uint8_t attribute);
-// TODO 实现。流数据的读取。
-int32_t eos_db_stream_read(const char *key, void *const buffer, uint32_t size);
-int32_t eos_db_stream_read_isr(const char *key, void *const buffer, uint32_t size);
-// TODO 实现。流数据的写入。
-int32_t eos_db_stream_write(const char *key, void *const buffer, uint32_t size);
-int32_t eos_db_stream_write_isr(const char *key, void *const buffer, uint32_t size);
 
 /* -----------------------------------------------------------------------------
 Reactor
