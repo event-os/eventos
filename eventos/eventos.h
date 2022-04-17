@@ -262,11 +262,11 @@ void eos_event_unsub(const char *topic);
 
 // 事件的接收 --------------------------------------------
 // TODO 优化。主题事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
-bool eos_event_topic(eos_event_t *const e, const char *topic);
+bool eos_event_topic(eos_event_t const * const e, const char *topic);
 // TODO 优化。数据库实现后，删去这个。读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
-bool eos_event_value_recieve(eos_event_t *const e, void *value);
+bool eos_event_value_recieve(eos_event_t const *const e, void *value);
 // TODO 优化。数据库实现后，删去这个。流事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
-int32_t eos_event_stream_recieve(eos_event_t *const e, void *buffer, uint32_t size);
+int32_t eos_event_stream_recieve(eos_event_t const *const e, void *buffer, uint32_t size);
 // TODO 优化。数据库实现后，删去这个。读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
 void eos_event_get_value(const char *topic, void *value);
 

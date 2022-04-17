@@ -1489,6 +1489,12 @@ static int8_t __eos_event_give(  const char *task,
     }
     else if (give_type == EosEventGiveType_Publish) {
         owner = eos.hash.object[e_id].ocb.event.sub;
+        // 挂起后，不再接收任何事件。
+        owner &=~ eos.task_suspend;
+        if (owner == 0) {
+            eos_critical_exit();
+            return (int8_t)EosRun_OK;
+        }
     }
     else {
         EOS_ASSERT(0);
@@ -1787,7 +1793,7 @@ void eos_event_time_cancel(const char *topic)
 }
 #endif
 
-static inline bool __eos_event_recieve( eos_event_t *const e,
+static inline bool __eos_event_recieve( eos_event_t const *const e,
                                         void *buffer, uint32_t size,
                                         uint32_t *size_out)
 {
@@ -1821,7 +1827,7 @@ static inline bool __eos_event_recieve( eos_event_t *const e,
     return true;
 }
 
-bool eos_event_topic(eos_event_t *const e, const char *topic)
+bool eos_event_topic(eos_event_t const *const e, const char *topic)
 {
     if (strcmp(e->topic, topic) == 0) {
         return true;
@@ -1831,12 +1837,12 @@ bool eos_event_topic(eos_event_t *const e, const char *topic)
     }
 }
 
-bool eos_event_value_recieve(eos_event_t *const e, void *value)
+bool eos_event_value_recieve(eos_event_t const *const e, void *value)
 {
     return __eos_event_recieve(e, value, 0, EOS_NULL);
 }
 
-int32_t eos_event_stream_recieve(eos_event_t *const e, void *buffer, uint32_t size)
+int32_t eos_event_stream_recieve(eos_event_t const *const e, void *buffer, uint32_t size)
 {
     uint32_t size_out;
     bool ret = __eos_event_recieve(e, buffer, size, &size_out);

@@ -24,12 +24,12 @@ void task_func_test(void *parameter)
             eos_event_send_topic("task_event", "Event_Specific");
             eos_event_send_topic("task_e_specific", "Event_Two");
         }
-//        if (count_test == 100) {
-//            eos_task_suspend("sm_led");
-//        }
-//        if (count_test == 200) {
-//            eos_task_resume("sm_led");
-//        }
+        if (count_test == 100) {
+            eos_task_suspend("sm_led");
+        }
+        if (count_test == 200) {
+            eos_task_resume("sm_led");
+        }
         eos_delay_ms(100);
     }
 }
@@ -91,9 +91,9 @@ int main(void)
     eos_init();                                     // EventOS初始化
 
 //#if (EOS_USE_SM_MODE != 0)
-//    eos_sm_led_init();                              // LED状态机初始化
+    eos_sm_led_init();                              // LED状态机初始化
 //#endif
-//    eos_reactor_led_init();
+    eos_reactor_led_init();
     
     eos_task_start( &task_test,
                     "task_test", task_func_test, 1,
