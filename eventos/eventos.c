@@ -78,6 +78,8 @@ enum {
     EosRunErr_TimerRepeated                 = -7,
 };
 
+#define EOS_MAGIC_NUMBER                    0xDEADBEEF
+
 #if (EOS_USE_TIME_EVENT != 0)
 #define EOS_MS_NUM_30DAY                    (2592000000)
 
@@ -129,6 +131,7 @@ typedef struct eos_event_inner {
 } eos_event_inner_t;
 
 typedef struct eos_heap {
+    eos_u32_t magic;
     eos_u8_t data[EOS_SIZE_HEAP];
     // word[0]
     eos_u32_t size                          : 15;       /* total size */
@@ -358,7 +361,7 @@ eos_s8_t eos_once(void)
     event.data = (void *)((eos_pointer_t)e + sizeof(eos_event_inner_t));
     eos_block_t *block = (eos_block_t *)((eos_pointer_t)e - sizeof(eos_block_t));
     event.size = block->size - block->offset - sizeof(eos_event_inner_t);
-    printf("block->size: %d, block->offset: %d.\n", block->size, block->offset);
+
     // 对事件进行执行
 #if (EOS_USE_PUB_SUB != 0)
     if ((eos.sub_table[e->topic] & (1 << actor->priority)) != 0)
@@ -415,6 +418,7 @@ void eos_run(void)
         }
 
         if (ret == EosRun_NoActor || ret == EosRun_NoEvent) {
+            EOS_ASSERT(eos.heap.magic == EOS_MAGIC_NUMBER);
             eos_hook_idle();
         }
     }
@@ -969,6 +973,8 @@ static eos_s32_t eos_sm_tran(eos_sm_t * const me, eos_state_handler path[EOS_MAX
 void eos_heap_init(eos_heap_t * const me)
 {
     eos_block_t * block_1st;
+    
+    me->magic = EOS_MAGIC_NUMBER;
     
     // block start
     me->queue = EOS_HEAP_MAX;
