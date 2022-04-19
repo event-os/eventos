@@ -41,6 +41,7 @@ void task_func_test(void *parameter)
         e_value.count = count_test;
         e_value.value = 12345678;
         eos_event_send_value("task_event", "Event_Value", &e_value);
+        eos_event_send_value("task_event", "Event_Value", &e_value);
         
         if ((count_test % 10) == 0) {
             eos_event_send_topic("task_event", "Event_Specific");

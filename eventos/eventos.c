@@ -214,7 +214,7 @@ typedef union eos_obj_block {
         uint32_t running                : 1;
     } tim;
     struct {
-        eos_event_data_t *list;
+        eos_event_data_t *e_item;
         uint32_t sub;
     } event;
     eos_task_t *task;
@@ -715,6 +715,7 @@ bool eos_task_wait_event(eos_event_t * const e_out, uint32_t time_ms)
         uint8_t priority = eos_current->priority;
         
         if ((eos.owner_global & (1 << priority)) != 0) {
+            EOS_ASSERT(eos.e_queue != EOS_NULL);
             // Find the first event data in e-queue and set it as handled.
             eos_event_data_t *e_item = eos.e_queue;
             uint32_t bits = (1 << priority);
@@ -726,6 +727,7 @@ bool eos_task_wait_event(eos_event_t * const e_out, uint32_t time_ms)
 
                 // Meet one event
                 eos_object_t *e_object = &eos.object[e_item->id];
+                if (e_object->type != EosObj_Event)
                 EOS_ASSERT(e_object->type == EosObj_Event);
                 uint8_t type = e_object->attribute & 0x03;
                 // Event out
@@ -744,10 +746,9 @@ bool eos_task_wait_event(eos_event_t * const e_out, uint32_t time_ms)
                 // If the event data is just the current task's event.
                 e_item->owner &=~ bits;
                 if (e_item->owner == 0) {
+                    eos.object[e_item->id].ocb.event.e_item = EOS_NULL;
                     // Delete the event data from the e-queue.
                     __eos_e_queue_delete(e_item);
-                    // free the event data.
-                    eos_heap_free(&eos.heap, e_item);
                     // update the global owner flag.
                     eos.owner_global = 0;
                     eos_event_data_t *e_queue = eos.e_queue;
@@ -771,7 +772,7 @@ bool eos_task_wait_event(eos_event_t * const e_out, uint32_t time_ms)
 
             eos_sheduler();
             // TODO BUG。这里的关中断，不应被去掉。但只有去掉，值事件才能接收。一定有BUG。
-//            eos_critical_enter();
+            eos_critical_enter();
         }
     } while (eos.time < eos_current->timeout || time_ms == 0);
 
@@ -1160,33 +1161,25 @@ static inline void eos_event_broadcast_private( const char *topic,
     else if (e_type == EOS_EVENT_ATTRIBUTE_VALUE) {
         uint32_t size = eos.object[e_id].size;
         eos_event_data_t *data;
-        // 挂到Hash表里去
-        eos_event_data_t *list = eos.object[e_id].ocb.event.list;
-        if (list == EOS_NULL) {
-            // Apply one data for the event.
-            data = eos_heap_malloc(&eos.heap, sizeof(eos_event_data_t));
-            eos.object[e_id].ocb.event.list = data;
-            list = data;
-            list->owner = owner;
-            
-            // 挂到事件队列的后面。
-            if (eos.e_queue == EOS_NULL) {
-                eos.e_queue = data;
-                data->next = EOS_NULL;
-                data->last = EOS_NULL;
-            }
-            else {
-                eos_event_data_t *edata = eos.e_queue;
-                while (edata->next != EOS_NULL) {
-                    edata = edata->next;
-                }
-                data->next = EOS_NULL;
-                edata->next = data;
-                data->last = edata;
-            }
+        // Apply one data for the event.
+        data = eos_heap_malloc(&eos.heap, sizeof(eos_event_data_t));
+        data->id = e_id;
+        data->owner = eos.task_exist;
+        
+        // 挂到事件队列的后面。
+        if (eos.e_queue == EOS_NULL) {
+            eos.e_queue = data;
+            data->next = EOS_NULL;
+            data->last = EOS_NULL;
         }
         else {
-            list->owner |= owner;
+            eos_event_data_t *edata = eos.e_queue;
+            while (edata->next != EOS_NULL) {
+                edata = edata->next;
+            }
+            data->next = EOS_NULL;
+            edata->next = data;
+            data->last = edata;
         }
         // Set the event's value.
         for (uint32_t i = 0; i < size; i ++) {
@@ -1573,15 +1566,13 @@ static int8_t __eos_event_give( const char *task,
         }
     }
     else if (e_type == EOS_EVENT_ATTRIBUTE_VALUE) {
-        eos_event_data_t *data;
-        // 挂到Hash表里去
-        eos_event_data_t *list = eos.object[e_id].ocb.event.list;
-        if (list == EOS_NULL) {
+        if (eos.object[e_id].ocb.event.e_item == EOS_NULL) {
+            eos_event_data_t *data;
             // Apply one data for the event.
             data = eos_heap_malloc(&eos.heap, sizeof(eos_event_data_t));
-            eos.object[e_id].ocb.event.list = data;
-            list = data;
-            list->owner = owner;
+            data->owner = owner;
+            data->id = e_id;
+            eos.object[e_id].ocb.event.e_item = data;
             
             // 挂到事件队列的后面。
             if (eos.e_queue == EOS_NULL) {
@@ -1597,25 +1588,27 @@ static int8_t __eos_event_give( const char *task,
                 data->next = EOS_NULL;
                 edata->next = data;
                 data->last = edata;
+            }
+            // Update the event's value.
+            for (uint32_t i = 0; i < eos.object[e_id].size; i ++) {
+                ((uint8_t *)(eos.object[e_id].data.value))[i] = ((uint8_t *)memory)[i];
             }
         }
         else {
-            list->owner |= owner;
-        }
-        // Set the event's value.
-        for (uint32_t i = 0; i < eos.object[e_id].size; i ++) {
-            ((uint8_t *)(eos.object[e_id].data.value))[i] = ((uint8_t *)memory)[i];
+            eos.object[e_id].ocb.event.e_item->owner |= owner;
+            // Update the event's value.
+            for (uint32_t i = 0; i < eos.object[e_id].size; i ++) {
+                ((uint8_t *)(eos.object[e_id].data.value))[i] = ((uint8_t *)memory)[i];
+            }
         }
     }
     else {
-        eos_event_data_t *data;
-        // 挂到Hash表里去
-        eos_event_data_t *list = eos.object[e_id].ocb.event.list;
-        if (list == EOS_NULL) {
+        if (eos.object[e_id].ocb.event.e_item == EOS_NULL) {
+            eos_event_data_t *data;
             // Apply one data for the event.
             data = eos_heap_malloc(&eos.heap, sizeof(eos_event_data_t));
-            eos.object[e_id].ocb.event.list = data;
-            list = data;
+            data->id = e_id;
+            eos.object[e_id].ocb.event.e_item = data;
             
             // 挂到事件队列的后面。
             if (eos.e_queue == EOS_NULL) {
@@ -1633,12 +1626,11 @@ static int8_t __eos_event_give( const char *task,
                 data->last = edata;
             }
         }
-        list->owner = eos.object[e_id].ocb.event.sub;
-        // Push all data to the queue.
         // Check if the remaining memory is enough or not.
         eos_stream_t *queue = eos.object[e_id].data.stream;
         uint32_t size_remain = eos_stream_empty_size(queue);
         EOS_ASSERT(size_remain >= size);
+        // Push all data to the queue.
         eos_stream_push(queue, (void *)memory, size);
     }
     eos_critical_exit();
@@ -1836,6 +1828,7 @@ static inline bool __eos_event_recieve( eos_event_t const *const e,
         EOS_ASSERT(size_data > 0);
         *size_out = size_data;
     }
+    eos_critical_exit();
     
     return true;
 }
@@ -1852,7 +1845,7 @@ bool eos_event_topic(eos_event_t const *const e, const char *topic)
 
 bool eos_event_value_recieve(eos_event_t const *const e, const char *topic, void *value)
 {
-    if (strcmp(e->topic, topic) == 0) {
+    if (strcmp(e->topic, topic) != 0) {
         return false;
     }
     
@@ -1861,7 +1854,7 @@ bool eos_event_value_recieve(eos_event_t const *const e, const char *topic, void
 
 int32_t eos_event_stream_recieve(eos_event_t const *const e, const char *topic, void *buffer, uint32_t size)
 {
-    if (strcmp(e->topic, topic) == 0) {
+    if (strcmp(e->topic, topic) != 0) {
         return -1;
     }
     
