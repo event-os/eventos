@@ -131,7 +131,9 @@ typedef struct eos_event_inner {
 } eos_event_inner_t;
 
 typedef struct eos_heap {
+#if (EOS_USE_MAGIC != 0)
     eos_u32_t magic;
+#endif
     eos_u8_t data[EOS_SIZE_HEAP];
     // word[0]
     eos_u32_t size                          : 15;       /* total size */
@@ -146,6 +148,9 @@ typedef struct eos_heap {
 } eos_heap_t;
 
 typedef struct eos_tag {
+#if (EOS_USE_MAGIC != 0)
+    eos_u32_t magic;
+#endif
 #if (EOS_USE_PUB_SUB != 0)
     eos_mcu_t *sub_table;                                     // event sub table
 #endif
@@ -225,6 +230,9 @@ void eos_init(void)
 {
     eos_clear();
 
+#if (EOS_USE_MAGIC != 0)
+    eos.magic = EOS_MAGIC_NUMBER;
+#endif
     eos.enabled = EOS_True;
     eos.running = EOS_False;
     eos.actor_exist = 0;
@@ -418,7 +426,15 @@ void eos_run(void)
         }
 
         if (ret == EosRun_NoActor || ret == EosRun_NoEvent) {
+#if (EOS_USE_MAGIC != 0)
             EOS_ASSERT(eos.heap.magic == EOS_MAGIC_NUMBER);
+            EOS_ASSERT(eos.magic == EOS_MAGIC_NUMBER);
+            for (eos_u8_t i = 0; i < EOS_MAX_ACTORS; i ++) {
+                if ((eos.actor_exist & (1 << i)) != 0) {
+                    EOS_ASSERT(eos.actor[i]->magic == EOS_MAGIC_NUMBER);
+                }
+            }
+#endif
             eos_hook_idle();
         }
     }
@@ -488,6 +504,9 @@ static void eos_actor_init( eos_actor_t * const me,
     eos.actor[priority] = me;
     // 状态机   
     me->priority = priority;
+#if (EOS_USE_MAGIC != 0)
+    me->magic = EOS_MAGIC_NUMBER;
+#endif
 }
 
 void eos_reactor_init(  eos_reactor_t * const me,
@@ -974,7 +993,9 @@ void eos_heap_init(eos_heap_t * const me)
 {
     eos_block_t * block_1st;
     
+#if (EOS_USE_MAGIC != 0)
     me->magic = EOS_MAGIC_NUMBER;
+#endif
     
     // block start
     me->queue = EOS_HEAP_MAX;

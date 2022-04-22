@@ -39,6 +39,7 @@
 #define EOS_MAX_ACTORS                          4
 #define EOS_TEST_PLATFORM                       32
 #define EOS_TICK_MS                             1
+#define EOS_USE_MAGIC                           0
 
 /* Assert Configuration ----------------------------------------------------- */
 #define EOS_USE_ASSERT                          1
