@@ -109,10 +109,12 @@ void eos_tick(void);
 void eos_critical_enter(void);
 // 开中断
 void eos_critical_exit(void);
+#if (EOS_USE_PREEMPTIVE != 0)
 // 禁止任务切换
 void eos_sheduler_lock(void);
 // 关闭禁止任务切换
 void eos_sheduler_unlock(void);
+#endif
 // TODO 实现。增加持久化设备。
 void eos_set_persistence(const char *device);
 

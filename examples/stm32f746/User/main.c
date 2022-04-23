@@ -82,7 +82,6 @@ void task_func_event_test(void *parameter)
             event_specific_count ++;
         }
         
-        // TODO BUG。值事件收不到正确的值，也不能得到正确的次数。
         if (eos_event_value_recieve(&e, "Event_Value", &e_value_recv)) {
             event_value_count ++;
         }

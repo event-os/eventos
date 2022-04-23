@@ -379,12 +379,37 @@ static int32_t eos_stream_pull_pop(eos_stream_t * me, void * data, uint32_t size
 static bool eos_stream_full(eos_stream_t * me);
 static int32_t eos_stream_size(eos_stream_t * me);
 static int32_t eos_stream_empty_size(eos_stream_t * me);
+static inline void eos_task_delay_handle(void);
 
 /* -----------------------------------------------------------------------------
 EventOS
 ----------------------------------------------------------------------------- */
 static uint64_t stack_idle[32];
 static eos_task_t task_idle;
+
+static inline void eos_task_delay_handle(void)
+{
+    eos_critical_enter();
+    /* check all the tasks are timeout or not */
+    uint32_t working_set, bit;
+    working_set = eos.task_delay;
+    while (working_set != 0U) {
+        eos_task_t *t = eos.task[LOG2(working_set) - 1]->ocb.task;
+        EOS_ASSERT(t != (eos_task_t *)0);
+        EOS_ASSERT(t->timeout != 0U);
+
+        bit = (1U << (t->priority));
+        if (eos.time >= t->timeout) {
+            t->state = EosTaskState_Ready;
+            eos.task_delay &= ~bit;              /* remove from set */
+            eos.task_delay_no_event &= ~bit;
+            t->state = EosTaskState_Ready;
+        }
+        working_set &=~ bit;                /* remove from working set */
+    }
+    eos_critical_exit();
+    eos_sheduler();
+}
 
 static void task_func_idle(void *parameter)
 {
@@ -413,27 +438,11 @@ static void task_func_idle(void *parameter)
             }
         }
 #endif
-        eos_critical_enter();
-        /* check all the tasks are timeout or not */
-        uint32_t working_set, bit;
-        working_set = eos.task_delay;
-        while (working_set != 0U) {
-            eos_task_t *t = eos.task[LOG2(working_set) - 1]->ocb.task;
-            EOS_ASSERT(t != (eos_task_t *)0);
-            EOS_ASSERT(t->timeout != 0U);
 
-            bit = (1U << (t->priority));
-            if (eos.time >= t->timeout) {
-                t->state = EosTaskState_Ready;
-                eos.task_delay &= ~bit;              /* remove from set */
-                eos.task_delay_no_event &= ~bit;
-                t->state = EosTaskState_Ready;
-            }
-            working_set &=~ bit;                /* remove from working set */
-        }
-        eos_critical_exit();
-        eos_sheduler();
-
+#if (EOS_USE_PREEMPTIVE == 0)
+        eos_task_delay_handle();
+#endif
+        
         eos_critical_enter();
 #if (EOS_USE_TIME_EVENT != 0)
         eos_evttimer();
@@ -527,6 +536,7 @@ void eos_init(void)
 void eos_run(void)
 {
     eos_hook_start();
+    eos.running = EOS_True;
     
     eos_sheduler();
 }
@@ -541,8 +551,13 @@ void eos_tick(void)
     uint32_t time = eos.time;
     time += EOS_TICK_MS;
     eos.time = time;
+    
+#if (EOS_USE_PREEMPTIVE != 0)
+    eos_task_delay_handle();
+#endif
 }
 
+#if (EOS_USE_PREEMPTIVE != 0)
 void eos_sheduler_lock(void)
 {
     eos.sheduler_lock = 1; 
@@ -553,6 +568,7 @@ void eos_sheduler_unlock(void)
     eos.sheduler_lock = 0;
     eos_sheduler();
 }
+#endif
 
 // 仅为单元测试
 void eos_set_hash(hash_algorithm_t hash)
@@ -565,9 +581,14 @@ Task
 ----------------------------------------------------------------------------- */
 static void eos_sheduler(void)
 {
+#if (EOS_USE_PREEMPTIVE != 0)
     if (eos.sheduler_lock == 1)
         return;
-
+#endif
+    
+    if (eos.running == EOS_False)
+        return;
+    
     eos_critical_enter();
     /* eos_next = ... */
     task_idle.state = EosTaskState_Ready;
@@ -657,7 +678,7 @@ void eos_task_exit(void)
 
 static inline void eos_delay_ms_private(uint32_t time_ms, bool no_event)
 {
-    /* never call eos_delay_ms and eos_delay_ticks in the idle task */
+    /* Never call eos_delay_ms and eos_delay_ticks in the idle task */
     EOS_ASSERT(eos_current != &task_idle);
     /* The state of current task must be running. */
     EOS_ASSERT(eos_current->state == EosTaskState_Running);
@@ -775,9 +796,7 @@ bool eos_task_wait_event(eos_event_t * const e_out, uint32_t time_ms)
             bit = (1U << priority);
             eos.task_wait_event |= bit;
             eos_critical_exit();
-
             eos_sheduler();
-            // TODO BUG。这里的关中断，不应被去掉。但只有去掉，值事件才能接收。一定有BUG。
             eos_critical_enter();
         }
     } while (eos.time < eos_current->timeout || time_ms == 0);
@@ -1275,7 +1294,8 @@ void eos_reactor_start(eos_reactor_t * const me, eos_event_handler event_handler
     me->super.enabled = EOS_True;
     eos.task_enabled |= (1 << me->super.priority);
     
-    eos_event_send_topic(eos.task[me->super.priority]->key, "Event_Null");
+    __eos_event_give(eos.task[me->super.priority]->key,
+                     EosEventGiveType_Send, "Event_Null", (void *)0, 0);
     
     eos_actor_start(&me->super,
                     eos_task_function,
@@ -1302,7 +1322,8 @@ void eos_sm_start(eos_sm_t * const me, eos_state_handler state_init)
     me->super.enabled = EOS_True;
     eos.task_enabled |= (1 << me->super.priority);
     
-    eos_event_send_topic(eos.task[me->super.priority]->key, "Event_Null");
+    __eos_event_give(eos.task[me->super.priority]->key,
+                     EosEventGiveType_Send, "Event_Null", (void *)0, 0);
 
     eos_actor_start(&me->super,
                     eos_task_function,
@@ -1394,7 +1415,9 @@ static int8_t __eos_event_give( const char *task,
     uint32_t owner = 0;
     if (give_type == EosEventGiveType_Send) {
         uint16_t t_index = eos_hash_get_index(task);
+        if (t_index == EOS_MAX_OBJECTS) {
         EOS_ASSERT(t_index != EOS_MAX_OBJECTS);
+        }
         EOS_ASSERT(eos.object[t_index].type == EosObj_Task);
         eos_task_t *tcb = eos.object[t_index].ocb.task;
         // 如果任务在等待特定事件，等待的不是当前事件。
@@ -1551,7 +1574,10 @@ static int8_t __eos_event_give( const char *task,
 void eos_event_send_topic(const char *task, const char *topic)
 {
     __eos_event_give(task, EosEventGiveType_Send, topic, (void *)0, 0);
-    if (eos_current == &task_idle) {
+#if (EOS_USE_PREEMPTIVE == 0)
+    if (eos_current == &task_idle)
+#endif
+    {
         eos_sheduler();
     }
 }
@@ -1559,7 +1585,10 @@ void eos_event_send_topic(const char *task, const char *topic)
 void eos_event_send_stream(const char *topic, void const *data, uint32_t size)
 {
     __eos_event_give(EOS_NULL, EosEventGiveType_Send, topic, data, size);
-    if (eos_current == &task_idle) {
+#if (EOS_USE_PREEMPTIVE == 0)
+    if (eos_current == &task_idle)
+#endif
+    {
         eos_sheduler();
     }
 }
@@ -1567,7 +1596,10 @@ void eos_event_send_stream(const char *topic, void const *data, uint32_t size)
 void eos_event_send_value(const char *task, const char *topic, void const *data)
 {
     __eos_event_give(task, EosEventGiveType_Send, topic, data, 0);
-    if (eos_current == &task_idle) {
+#if (EOS_USE_PREEMPTIVE == 0)
+    if (eos_current == &task_idle)
+#endif
+    {
         eos_sheduler();
     }
 }
@@ -1589,7 +1621,10 @@ void eos_event_pub_topic(const char *topic)
 {
     __eos_event_give(EOS_NULL, EosEventGiveType_Publish, topic, EOS_NULL, 0);
     
-    if (eos_current == &task_idle) {
+#if (EOS_USE_PREEMPTIVE == 0)
+    if (eos_current == &task_idle)
+#endif
+    {
         eos_sheduler();
     }
 }
@@ -1598,7 +1633,10 @@ void eos_event_pub_value(const char *topic, void *data)
 {
     __eos_event_give(EOS_NULL, EosEventGiveType_Publish, topic, data, 0);
     
-    if (eos_current == &task_idle) {
+#if (EOS_USE_PREEMPTIVE == 0)
+    if (eos_current == &task_idle)
+#endif
+    {
         eos_sheduler();
     }
 }
