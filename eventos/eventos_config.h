@@ -34,8 +34,6 @@
 #ifndef EVENTOS_CONFIG_H__
 #define EVENTOS_CONFIG_H__
 
-// TODO 实现。设置为可配置抢占和协作内核。
-
 // <<< Use Configuration Wizard in Context Menu >>>
 
 /* EventOS General Configuration --------------------------------------- */

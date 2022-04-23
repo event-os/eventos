@@ -31,7 +31,7 @@
  * 2021-03-20     DogMing       V0.2.0
  */
 
-// TODO 优化。修改为抢占内核。
+// TODO TODO 实现。每一个Key都是一个信号量，都是一个互斥锁。
 
 // include ---------------------------------------------------------------------
 #include "eventos.h"
@@ -188,33 +188,6 @@ typedef struct eos_stream {
 } eos_stream_t;
 
 typedef union eos_obj_block {
-    // TODO 优化。Event对应的OCB优化为以下样子。
-    struct {
-        uint32_t sub;
-        // TODO 优化。如果支持无限任务。订阅标志位按照以下来。
-        uint8_t sub_flag[EOS_MAX_TASKS / 8];
-        uint16_t e_id;
-        void *data;
-        uint32_t attribute              : 8;
-        uint32_t size                   : 16;               // Value size
-    } e;
-    // TODO 优化。Task对应的OCB优化为以下样子。
-    struct {
-        eos_task_t *task;
-        const char *e_wait;
-        uint32_t attribute              : 8;
-        // TODO 优化。用于支持无限任务。
-        uint32_t id;
-    } t;
-    // TODO 优化。Timer对应的OCB优化为以下样子。
-    struct {
-        uint32_t time;
-        uint32_t time_out;
-        eos_func_t callback;
-        uint32_t timer_id               : 16;
-        uint32_t oneshoot               : 1;
-        uint32_t running                : 1;
-    } tim;
     struct {
         eos_event_data_t *e_item;
         uint32_t sub;
@@ -343,15 +316,15 @@ void eos_task_start_private(eos_task_t * const me,
                             uint8_t priority,
                             void *stack_addr,
                             uint32_t stack_size);
-static int8_t __eos_event_give( const char *task,
-                                uint8_t give_type,
-                                const char *topic, 
-                                const void *memory, uint32_t size);
+static int8_t __eos_event_give(const char *task,
+                               uint8_t give_type,
+                               const char *topic, 
+                               const void *memory, uint32_t size);
 static void __eos_e_queue_delete(eos_event_data_t const *item);
-static uint16_t eos_task_init(  eos_task_t * const me,
-                                const char *name,
-                                uint8_t priority,
-                                void *stack, uint32_t size);
+static uint16_t eos_task_init(eos_task_t * const me,
+                              const char *name,
+                              uint8_t priority,
+                              void *stack, uint32_t size);
 static void eos_reactor_enter(eos_reactor_t *const me);
 static inline void __eos_event_sub(eos_task_t *const me, const char *topic);
 static void eos_sm_enter(eos_sm_t *const me);
@@ -1604,19 +1577,6 @@ void eos_event_send_value(const char *task, const char *topic, void const *data)
     }
 }
 
-void eos_event_set_value(const char *topic, void *data)
-{
-    eos_critical_enter();
-    
-    uint16_t e_id = eos_hash_get_index(topic);
-    EOS_ASSERT(e_id != EOS_MAX_OBJECTS);
-    
-    uint32_t size = eos.object[e_id].size;
-    memcpy(eos.object[e_id].data.value, data, size);
-    
-    eos_critical_exit();
-}
-
 void eos_event_pub_topic(const char *topic)
 {
     __eos_event_give(EOS_NULL, EosEventGiveType_Publish, topic, EOS_NULL, 0);
@@ -1816,15 +1776,171 @@ int32_t eos_event_stream_recieve(eos_event_t const *const e, const char *topic, 
     }
 }
 
-void eos_event_get_value(const char *topic, void *value)
+/* -----------------------------------------------------------------------------
+Database
+----------------------------------------------------------------------------- */
+static inline void __eos_db_write(uint8_t attribute,
+                                  const char *key, 
+                                  const void *memory, uint32_t size)
+{
+    // Get event id according the topic.
+    uint16_t e_id = eos_hash_get_index(key);
+    EOS_ASSERT(e_id != EOS_MAX_OBJECTS);
+    EOS_ASSERT((eos.object[e_id].attribute & attribute) != 0);
+
+    // value type
+    if (attribute == EOS_EVENT_ATTRIBUTE_VALUE) {
+        // Update the event's value.
+        for (uint32_t i = 0; i < eos.object[e_id].size; i ++) {
+            ((uint8_t *)(eos.object[e_id].data.value))[i] = ((uint8_t *)memory)[i];
+        }
+    }
+    else if (attribute == EOS_EVENT_ATTRIBUTE_STREAM) {
+        // Check if the remaining memory is enough or not.
+        eos_stream_t *queue = eos.object[e_id].data.stream;
+        uint32_t size_remain = eos_stream_empty_size(queue);
+        EOS_ASSERT(size_remain >= size);
+        // Push all data to the queue.
+        eos_stream_push(queue, (void *)memory, size);
+    }
+}
+
+static inline int32_t __eos_db_read(uint8_t attribute,
+                                    const char *key, 
+                                    const void *memory, uint32_t size)
+{
+    // Get event id according the topic.
+    uint16_t e_id = eos_hash_get_index(key);
+    EOS_ASSERT(e_id != EOS_MAX_OBJECTS);
+    EOS_ASSERT((eos.object[e_id].attribute & attribute) != 0);
+
+    // value type
+    if (attribute == EOS_EVENT_ATTRIBUTE_VALUE) {
+        // Update the event's value.
+        for (uint32_t i = 0; i < eos.object[e_id].size; i ++) {
+            ((uint8_t *)memory)[i] =
+                ((uint8_t *)(eos.object[e_id].data.value))[i];
+        }
+
+        return size;
+    }
+    else if (attribute == EOS_EVENT_ATTRIBUTE_STREAM) {
+        // Check if the remaining memory is enough or not.
+        eos_stream_t *queue = eos.object[e_id].data.stream;
+        // Push all data to the queue.
+        return eos_stream_pull_pop(queue, (void *)memory, size);
+    }
+    
+    EOS_ASSERT(0);
+    
+    return 0;
+}
+
+uint8_t eos_db_get_attribute(const char *key)
+{
+    // Get event id according the topic.
+    uint16_t e_id = eos_hash_get_index(key);
+    EOS_ASSERT(e_id != EOS_MAX_OBJECTS);
+    
+    // Return the key's attribute.
+    return eos.object[e_id].attribute;
+}
+
+void eos_db_set_attribute(const char *key, uint8_t attribute)
+{
+    // Check the argument.
+    uint8_t temp8 = EOS_EVENT_ATTRIBUTE_VALUE | EOS_EVENT_ATTRIBUTE_STREAM;
+    EOS_ASSERT((attribute & temp8) != temp8);
+
+    // Get event id according the topic.
+    uint16_t e_id = eos_hash_get_index(key);
+    EOS_ASSERT(e_id != EOS_MAX_OBJECTS);
+    
+    // Set the key's attribute.
+    eos.object[e_id].attribute = attribute;
+}
+
+void eos_db_register(const char *key, void * const data, uint32_t size,
+                     uint8_t attribute)
+{
+    // Check the argument.
+    uint8_t temp8 = EOS_EVENT_ATTRIBUTE_VALUE | EOS_EVENT_ATTRIBUTE_STREAM;
+    EOS_ASSERT((attribute & temp8) != temp8);
+
+    if ((attribute & EOS_DB_ATTRIBUTE_GLOBAL) != 0) {
+        eos_event_attribute_global(key);
+    }
+
+    if ((attribute & EOS_DB_ATTRIBUTE_VALUE) != 0) {
+        eos_event_attribute_value(key, data, size);
+    }
+    else if ((attribute & EOS_DB_ATTRIBUTE_STREAM) != 0) {
+        eos_event_attribute_stream(key, EOS_NULL, data, size);
+    }
+}
+
+void eos_db_block_read(const char *key, void * const data)
 {
     eos_critical_enter();
-    uint16_t e_id = eos_hash_get_index(topic);
+    uint16_t e_id = eos_hash_get_index(key);
     EOS_ASSERT(e_id != EOS_MAX_OBJECTS);
 
     eos_object_t *object = &eos.object[e_id];
-    memcpy(value, object->data.value, object->size);
+    memcpy(data, object->data.value, object->size);
     eos_critical_exit();
+}
+
+void eos_db_block_read_isr(const char *key, void * const data)
+{
+    eos_critical_enter();
+    uint16_t e_id = eos_hash_get_index(key);
+    EOS_ASSERT(e_id != EOS_MAX_OBJECTS);
+
+    eos_object_t *object = &eos.object[e_id];
+    memcpy(data, object->data.value, object->size);
+    eos_critical_exit();
+}
+
+void eos_db_block_write(const char *key, void * const data)
+{
+    // TODO 实现。尚未考虑多线程安全的问题。
+    __eos_db_write(EOS_DB_ATTRIBUTE_VALUE, key, data, 0);
+}
+
+void eos_db_block_write_isr(const char *key, void * const data)
+{
+    eos_critical_enter();
+    __eos_db_write(EOS_DB_ATTRIBUTE_VALUE, key, data, 0);
+    eos_critical_exit();
+}
+
+int32_t eos_db_stream_read(const char *key, void *const buffer, uint32_t size)
+{
+    // TODO 实现。尚未考虑多线程安全的问题。
+    return __eos_db_read(EOS_DB_ATTRIBUTE_STREAM, key, buffer, size);
+}
+
+int32_t eos_db_stream_read_isr(const char *key, void *const buffer, uint32_t size)
+{
+    eos_critical_enter();
+    int32_t ret = __eos_db_read(EOS_DB_ATTRIBUTE_STREAM, key, buffer, size);
+    eos_critical_exit();
+    
+    return ret;
+}
+
+int32_t eos_db_stream_write(const char *key, void *const buffer, uint32_t size)
+{
+    eos_event_send_stream(key, buffer, size);
+    
+    return size;
+}
+
+int32_t eos_db_stream_write_isr(const char *key, void *const buffer, uint32_t size)
+{
+    eos_event_send_stream(key, buffer, size);
+    
+    return size;
 }
 
 // state tran ------------------------------------------------------------------
@@ -2153,7 +2269,8 @@ void * eos_heap_malloc(eos_heap_t * const me, uint32_t size)
     /* Find the first free block in the block-list. */
     block = (eos_heap_block_t *)me->list;
     do {
-        if (block->is_free == 1 && block->size > (size + sizeof(eos_heap_block_t))) {
+        if (block->is_free == 1 &&
+            block->size > (size + sizeof(eos_heap_block_t))) {
             break;
         }
         else {
@@ -2172,7 +2289,8 @@ void * eos_heap_malloc(eos_heap_t * const me, uint32_t size)
     }
     /* Divide the block into two blocks. */
     else {
-        eos_heap_block_t * new_block = (eos_heap_block_t *)((uint32_t)block + size + sizeof(eos_heap_block_t));
+        eos_heap_block_t * new_block
+            = (eos_heap_block_t *)((uint32_t)block + size + sizeof(eos_heap_block_t));
         new_block->size = block->size - size - sizeof(eos_heap_block_t);
         new_block->is_free = 1;
         new_block->next = NULL;

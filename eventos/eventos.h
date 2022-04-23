@@ -45,7 +45,7 @@ EventOS Default Configuration
 #endif
 
 #ifndef EOS_MAX_OBJECTS
-#define EOS_MAX_OBJECTS                         256     // 默认最多256个事件
+#define EOS_MAX_OBJECTS                         256     // 默认最多256个对象
 #endif
 
 #ifndef EOS_USE_ASSERT
@@ -221,6 +221,7 @@ void eos_event_attribute_global(const char *topic);
 // 设置不可阻塞事件。在延时时，此类事件进入，延时结束，对此类事件进行立即响应。
 void eos_event_attribute_unblocked(const char *topic);
 // 设置事件为流事件。流事件不会保留原本的发送时序。
+// TODO 此去去掉对target的强制。
 void eos_event_attribute_stream(const char *topic,
                                 const char *target,
                                 void *memory, uint32_t capacity);
@@ -272,6 +273,36 @@ bool eos_event_value_recieve(eos_event_t const *const e, const char *topic, void
 int32_t eos_event_stream_recieve(eos_event_t const *const e, const char *topic, void *buffer, uint32_t size);
 // 读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
 void eos_event_get_value(const char *topic, void *value);
+
+/* -----------------------------------------------------------------------------
+Database
+----------------------------------------------------------------------------- */
+#define EOS_DB_ATTRIBUTE_GLOBAL          ((uint8_t)0x80U)
+#define EOS_DB_ATTRIBUTE_LINK_EVENT      ((uint8_t)0x40U)
+#define EOS_DB_ATTRIBUTE_VALUE           ((uint8_t)0x01U)
+#define EOS_DB_ATTRIBUTE_STREAM          ((uint8_t)0x02U)
+
+// TODO 增加持久化设备。
+void eos_db_add_device_persistence(const char *device);
+// 数据库的注册。
+void eos_db_register(const char *key, void * const data, uint32_t size,
+                     uint8_t attribute);
+// 数据属性的获取
+uint8_t eos_db_get_attribute(const char *key);
+// 数据属性的设置
+void eos_db_set_attribute(const char *key, uint8_t attribute);
+// 块数据的读取。
+void eos_db_block_read(const char *key, void * const data);
+void eos_db_block_read_isr(const char *key, void * const data);
+// 块数据的写入。
+void eos_db_block_write(const char *key, void * const data);
+void eos_db_block_write_isr(const char *key, void * const data);
+// 流数据的读取。
+int32_t eos_db_stream_read(const char *key, void *const buffer, uint32_t size);
+int32_t eos_db_stream_read_isr(const char *key, void *const buffer, uint32_t size);
+// 流数据的写入。
+int32_t eos_db_stream_write(const char *key, void *const buffer, uint32_t size);
+int32_t eos_db_stream_write_isr(const char *key, void *const buffer, uint32_t size);
 
 /* -----------------------------------------------------------------------------
 Reactor
