@@ -45,6 +45,7 @@ void task_func_test(void *parameter)
         eos_db_block_write("Event_Value", &e_value, false);
         eos_event_send("task_event", "Event_Value", false);
         eos_db_block_write("Event_Value_Link", &e_value, false);
+        eos_event_send("task_event", "Event_Value_Link", false);
         
         if ((count_test % 10) == 0) {
             eos_event_send("task_event", "Event_Specific", false);
