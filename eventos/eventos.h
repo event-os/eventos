@@ -220,43 +220,27 @@ Event
 void eos_event_attribute_global(const char *topic);
 // 设置不可阻塞事件。在延时时，此类事件进入，延时结束，对此类事件进行立即响应。
 void eos_event_attribute_unblocked(const char *topic);
-// 设置事件为流事件。流事件不会保留原本的发送时序。
-// TODO 此去去掉对target的强制。
-void eos_event_attribute_stream(const char *topic,
-                                const char *target,
-                                void *memory, uint32_t capacity);
-// 设置事件为值事件。值事件不会保留原本的发送时序。
-void eos_event_attribute_value(const char *topic, void *memory, uint32_t size);
-
 
 // 事件的直接发送 -----------------------------------------
 // TODO 实现。所有的事件发送、广播、发布、设定值等API考虑ISR专用。
 // 直接发送主题事件。允许在中断中调用。
-void eos_event_send_topic(const char *task, const char *topic);
-// 直接发送值事件。允许在中断中调用。
-void eos_event_send_value(const char *task, const char *topic, void const *data);
-// 直接发送流事件。允许在中断中调用。
-void eos_event_send_stream(const char *topic, void const *data, uint32_t size);
-// 设定事件的值。允许在中断中调用。
-void eos_event_set_value(const char *topic, void *data);
+void eos_event_send(const char *task, const char *topic, bool isr);
+void eos_event_send_delay(const char *task, const char *topic, uint32_t time_delay_ms, bool isr);
+void eos_event_send_period(const char *task, const char *topic, uint32_t time_period_ms, bool isr);
 
 // 事件的广播 --------------------------------------------
 // 广播发布某主题事件。允许在中断中调用。
-void eos_event_broadcast_topic(const char *topic);
-// 广播发布某值事件。允许在中断中调用。
-void eos_event_broadcast_value(const char *topic, void const *data);
+void eos_event_broadcast(const char *topic, bool isr);
 
 // 事件的发布 --------------------------------------------
 // 发布主题事件。允许在中断中调用。
-void eos_event_pub_topic(const char *topic);
-// 发布值事件。允许在中断中调用。
-void eos_event_pub_value(const char *topic, void *data);
+void eos_event_publish(const char *topic, bool isr);
 // 延时发布某主题事件。允许在中断中调用。
-void eos_event_pub_delay(const char *topic, uint32_t time_delay_ms);
+void eos_event_publish_delay(const char *topic, uint32_t time_delay_ms, bool isr);
 // 周期发布某主题事件。允许在中断中调用。
-void eos_event_pub_period(const char *topic, uint32_t time_period_ms);
+void eos_event_publish_period(const char *topic, uint32_t time_period_ms, bool isr);
 // 取消某延时或者周期事件的发布。允许在中断中调用。
-void eos_event_time_cancel(const char *topic);
+void eos_event_time_cancel(const char *topic, bool isr);
 
 // 事件的订阅 --------------------------------------------
 // 事件订阅，仅在任务函数、状态函数或者事件回调函数中使用。
@@ -267,17 +251,10 @@ void eos_event_unsub(const char *topic);
 // 事件的接收 --------------------------------------------
 // 主题事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
 bool eos_event_topic(eos_event_t const * const e, const char *topic);
-// 读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
-bool eos_event_value_recieve(eos_event_t const *const e, const char *topic, void *value);
-// 流事件接收。仅在任务函数、状态函数或者事件回调函数中使用。
-int32_t eos_event_stream_recieve(eos_event_t const *const e, const char *topic, void *buffer, uint32_t size);
-// 读取值事件的值。仅在任务函数、状态函数或者事件回调函数中使用。
-void eos_event_get_value(const char *topic, void *value);
 
 /* -----------------------------------------------------------------------------
 Database
 ----------------------------------------------------------------------------- */
-#define EOS_DB_ATTRIBUTE_GLOBAL          ((uint8_t)0x80U)
 #define EOS_DB_ATTRIBUTE_LINK_EVENT      ((uint8_t)0x40U)
 #define EOS_DB_ATTRIBUTE_VALUE           ((uint8_t)0x01U)
 #define EOS_DB_ATTRIBUTE_STREAM          ((uint8_t)0x02U)
@@ -292,17 +269,13 @@ uint8_t eos_db_get_attribute(const char *key);
 // 数据属性的设置
 void eos_db_set_attribute(const char *key, uint8_t attribute);
 // 块数据的读取。
-void eos_db_block_read(const char *key, void * const data);
-void eos_db_block_read_isr(const char *key, void * const data);
+void eos_db_block_read(const char *key, void * const data, bool isr);
 // 块数据的写入。
-void eos_db_block_write(const char *key, void * const data);
-void eos_db_block_write_isr(const char *key, void * const data);
+void eos_db_block_write(const char *key, void * const data, bool isr);
 // 流数据的读取。
-int32_t eos_db_stream_read(const char *key, void *const buffer, uint32_t size);
-int32_t eos_db_stream_read_isr(const char *key, void *const buffer, uint32_t size);
+int32_t eos_db_stream_read(const char *key, void *const buffer, uint32_t size, bool isr);
 // 流数据的写入。
-int32_t eos_db_stream_write(const char *key, void *const buffer, uint32_t size);
-int32_t eos_db_stream_write_isr(const char *key, void *const buffer, uint32_t size);
+void eos_db_stream_write(const char *key, void *const buffer, uint32_t size, bool isr);
 
 /* -----------------------------------------------------------------------------
 Reactor

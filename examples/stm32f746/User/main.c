@@ -34,18 +34,20 @@ void task_func_test(void *parameter)
     
     while (1) {
         count_test ++;
-        eos_event_send_topic("task_event", "Event_One");
-        eos_event_send_topic("task_e_specific", "Event_Two");
+        eos_event_send("task_event", "Event_One", false);
+        eos_event_send("task_e_specific", "Event_Two", false);
         
         e_value_t e_value;
         e_value.count = count_test;
         e_value.value = 12345678;
-        eos_event_send_value("task_event", "Event_Value", &e_value);
-        eos_event_send_value("task_event", "Event_Value", &e_value);
+        eos_db_block_write("Event_Value", &e_value, false);
+        eos_event_send("task_event", "Event_Value", false);
+        eos_db_block_write("Event_Value", &e_value, false);
+        eos_event_send("task_event", "Event_Value", false);
         
         if ((count_test % 10) == 0) {
-            eos_event_send_topic("task_event", "Event_Specific");
-            eos_event_send_topic("task_e_specific", "Event_Two");
+            eos_event_send("task_event", "Event_Specific", false);
+            eos_event_send("task_e_specific", "Event_Two", false);
         }
         if (count_test == 100) {
             eos_task_suspend("sm_led");
@@ -82,7 +84,8 @@ void task_func_event_test(void *parameter)
             event_specific_count ++;
         }
         
-        if (eos_event_value_recieve(&e, "Event_Value", &e_value_recv)) {
+        if (eos_event_topic(&e, "Event_Value")) {
+            eos_db_block_read("Event_Value", &e_value_recv, false);
             event_value_count ++;
         }
     }
@@ -126,7 +129,8 @@ int main(void)
     
     eos_init();                                     // EventOS初始化
     
-    eos_event_attribute_value("Event_Value", &e_value, sizeof(e_value_t));
+    eos_db_register("Event_Value", &e_value, sizeof(e_value_t),
+                    (EOS_DB_ATTRIBUTE_VALUE));
 
 //#if (EOS_USE_SM_MODE != 0)
     eos_sm_led_init();                              // LED状态机初始化

@@ -59,7 +59,7 @@
 #define EOS_USE_CPU_USAGE                       1
 
 //    <o>  use cpu usage function (0 or 1) <0-1>
-#define EOS_USE_PREEMPTIVE                      0
+#define EOS_USE_PREEMPTIVE                      1
 
 /* Assert Configuration ----------------------------------------------------- */
 //   <o>  use ASSERT or not (0 or 1) <0-1>
