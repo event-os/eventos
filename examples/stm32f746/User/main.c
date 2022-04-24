@@ -34,22 +34,22 @@ void task_func_test(void *parameter)
     
     while (1) {
         count_test ++;
-        eos_event_send("task_event", "Event_One", false);
-        eos_event_send("task_e_specific", "Event_Two", false);
+        eos_event_send("task_event", "Event_One", NOT_ISR);
+        eos_event_send("task_e_specific", "Event_Two", NOT_ISR);
         
         e_value_t e_value;
         e_value.count = count_test;
         e_value.value = 12345678;
-        eos_db_block_write("Event_Value", &e_value, false);
-        eos_event_send("task_event", "Event_Value", false);
-        eos_db_block_write("Event_Value", &e_value, false);
-        eos_event_send("task_event", "Event_Value", false);
-        eos_db_block_write("Event_Value_Link", &e_value, false);
-        eos_event_send("task_event", "Event_Value_Link", false);
+        eos_db_block_write("Event_Value", &e_value, NOT_ISR);
+        eos_event_send("task_event", "Event_Value", NOT_ISR);
+        eos_db_block_write("Event_Value", &e_value, NOT_ISR);
+        eos_event_send("task_event", "Event_Value", NOT_ISR);
+        eos_db_block_write("Event_Value_Link", &e_value, NOT_ISR);
+        eos_event_send("task_event", "Event_Value_Link", NOT_ISR);
         
         if ((count_test % 10) == 0) {
-            eos_event_send("task_event", "Event_Specific", false);
-            eos_event_send("task_e_specific", "Event_Two", false);
+            eos_event_send("task_event", "Event_Specific", NOT_ISR);
+            eos_event_send("task_e_specific", "Event_Two", NOT_ISR);
         }
         if (count_test == 100) {
             eos_task_suspend("sm_led");
@@ -69,6 +69,7 @@ uint32_t event_value_count = 0;
 uint32_t event_value_link_count = 0;
 e_value_t e_value_recv;
 e_value_t e_value_link_recv;
+
 void task_func_event_test(void *parameter)
 {
     (void)parameter;
@@ -91,12 +92,12 @@ void task_func_event_test(void *parameter)
         }
         
         if (eos_event_topic(&e, "Event_Value")) {
-            eos_db_block_read("Event_Value", &e_value_recv, false);
+            eos_db_block_read("Event_Value", &e_value_recv, NOT_ISR);
             event_value_count ++;
         }
         
         if (eos_event_topic(&e, "Event_Value_Link")) {
-            eos_db_block_read("Event_Value_Link", &e_value_link_recv, false);
+            eos_db_block_read("Event_Value_Link", &e_value_link_recv, NOT_ISR);
             event_value_link_count ++;
         }
     }

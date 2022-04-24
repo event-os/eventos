@@ -8,7 +8,7 @@ void eos_hook_idle(void)
     
     if (flag_pub != 0) {
         flag_pub = 0;
-        eos_event_publish("Event_Time_1000ms", false);
+        eos_event_publish("Event_Time_1000ms", NOT_ISR);
     }
 }
 
