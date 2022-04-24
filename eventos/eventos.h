@@ -115,8 +115,6 @@ void eos_sheduler_lock(void);
 // 关闭禁止任务切换
 void eos_sheduler_unlock(void);
 #endif
-// TODO 实现。增加持久化设备。
-void eos_set_persistence(const char *device);
 
 /* -----------------------------------------------------------------------------
 Task
@@ -222,11 +220,14 @@ void eos_event_attribute_global(const char *topic);
 void eos_event_attribute_unblocked(const char *topic);
 
 // 事件的直接发送 -----------------------------------------
-// TODO 实现。所有的事件发送、广播、发布、设定值等API考虑ISR专用。
 // 直接发送主题事件。允许在中断中调用。
 void eos_event_send(const char *task, const char *topic, bool isr);
-void eos_event_send_delay(const char *task, const char *topic, uint32_t time_delay_ms, bool isr);
-void eos_event_send_period(const char *task, const char *topic, uint32_t time_period_ms, bool isr);
+// TODO 实现。延迟发送事件。
+void eos_event_send_delay(const char *task,
+                          const char *topic, uint32_t time_delay_ms, bool isr);
+// TODO 实现。周期发送事件。
+void eos_event_send_period(const char *task,
+                           const char *topic, uint32_t time_period_ms, bool isr);
 
 // 事件的广播 --------------------------------------------
 // 广播发布某主题事件。允许在中断中调用。
@@ -259,11 +260,12 @@ Database
 #define EOS_DB_ATTRIBUTE_VALUE           ((uint8_t)0x01U)
 #define EOS_DB_ATTRIBUTE_STREAM          ((uint8_t)0x02U)
 
+// 数据库的初始化
+void eos_db_init(void *const memory, uint32_t size);
 // TODO 增加持久化设备。
 void eos_db_add_device_persistence(const char *device);
 // 数据库的注册。
-void eos_db_register(const char *key, void * const data, uint32_t size,
-                     uint8_t attribute);
+void eos_db_register(const char *key, uint32_t size, uint8_t attribute);
 // 数据属性的获取
 uint8_t eos_db_get_attribute(const char *key);
 // 数据属性的设置

@@ -126,8 +126,7 @@ void task_func_e_specific_test(void *parameter)
     }
 }
 
-e_value_t e_value;
-e_value_t e_value_link;
+uint8_t db_memory[512];
 
 int main(void)
 {
@@ -140,10 +139,10 @@ int main(void)
         while (1);
     
     eos_init();                                     // EventOS初始化
+    eos_db_init(db_memory, 512);
     
-    eos_db_register("Event_Value", &e_value, sizeof(e_value_t),
-                    (EOS_DB_ATTRIBUTE_VALUE));
-    eos_db_register("Event_Value_Link", &e_value_link, sizeof(e_value_t),
+    eos_db_register("Event_Value", sizeof(e_value_t), EOS_DB_ATTRIBUTE_VALUE);
+    eos_db_register("Event_Value_Link", sizeof(e_value_t),
                     (EOS_DB_ATTRIBUTE_VALUE | EOS_DB_ATTRIBUTE_LINK_EVENT));
     
 //#if (EOS_USE_SM_MODE != 0)
