@@ -191,9 +191,9 @@ void PendSV_Handler(void)
 
 int32_t critical_count = 0;
 #if (defined __CC_ARM)
-inline void eos_critical_enter(void)
+inline void eos_interrupt_disable(void)
 #elif ((defined __GNUC__) || (defined __ICCARM__))
-__attribute__((always_inline)) inline void eos_critical_enter(void)
+__attribute__((always_inline)) inline void eos_interrupt_disable(void)
 #endif
 {
 #if (defined __CC_ARM)
@@ -205,9 +205,9 @@ __attribute__((always_inline)) inline void eos_critical_enter(void)
 }
 
 #if (defined __CC_ARM)
-inline void eos_critical_exit(void)
+inline void eos_interrupt_enable(void)
 #elif ((defined __GNUC__) || (defined __ICCARM__))
-__attribute__((always_inline)) inline void eos_critical_exit(void)
+__attribute__((always_inline)) inline void eos_interrupt_enable(void)
 #endif
 {
     critical_count --;

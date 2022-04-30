@@ -28,6 +28,9 @@
  * 
  */
 
+// TODO 实现。将断言分为两级，测试断言和运行断言。测试断言，在发布时关闭。这样的话，测
+//            试断言可以加入很多很多。
+
 #ifndef EVENTOS_H_
 #define EVENTOS_H_
 
@@ -106,9 +109,13 @@ uint64_t eos_time(void);
 // System tick function.
 void eos_tick(void);
 // 关闭中断
-void eos_critical_enter(void);
+void eos_interrupt_disable(void);
 // 开中断
-void eos_critical_exit(void);
+void eos_interrupt_enable(void);
+// 进入中断
+void eos_interrupt_enter(void);
+// 退出中断
+void eos_interrupt_exit(void);
 #if (EOS_USE_PREEMPTIVE != 0)
 // 禁止任务切换
 void eos_sheduler_lock(void);
@@ -133,11 +140,6 @@ typedef struct eos_event {
     uint32_t eid                    : 16;   // The event ID.
     uint32_t size                   : 16;   // The event content's size.
 } eos_event_t;
-
-typedef enum eos_isr {
-    NOT_ISR = 0,
-    IN_ISR,
-} eos_isr_t;
 
 /*
  * Definition of the task class.
@@ -226,27 +228,25 @@ void eos_event_attribute_unblocked(const char *topic);
 
 // 事件的直接发送 -----------------------------------------
 // 直接发送主题事件。允许在中断中调用。
-void eos_event_send(const char *task, const char *topic, eos_isr_t isr);
+void eos_event_send(const char *task, const char *topic);
 // 延迟发送事件。
-void eos_event_send_delay(const char *task,
-                          const char *topic, uint32_t time_delay_ms, eos_isr_t isr);
+void eos_event_send_delay(const char *task, const char *topic, uint32_t time_delay_ms);
 // 周期发送事件。
-void eos_event_send_period(const char *task,
-                           const char *topic, uint32_t time_period_ms, eos_isr_t isr);
+void eos_event_send_period(const char *task, const char *topic, uint32_t time_period_ms);
 
 // 事件的广播 --------------------------------------------
 // 广播发布某主题事件。允许在中断中调用。
-void eos_event_broadcast(const char *topic, eos_isr_t isr);
+void eos_event_broadcast(const char *topic);
 
 // 事件的发布 --------------------------------------------
 // 发布主题事件。允许在中断中调用。
-void eos_event_publish(const char *topic, eos_isr_t isr);
+void eos_event_publish(const char *topic);
 // 延时发布某主题事件。允许在中断中调用。
-void eos_event_publish_delay(const char *topic, uint32_t time_delay_ms, eos_isr_t isr);
+void eos_event_publish_delay(const char *topic, uint32_t time_delay_ms);
 // 周期发布某主题事件。允许在中断中调用。
-void eos_event_publish_period(const char *topic, uint32_t time_period_ms, eos_isr_t isr);
+void eos_event_publish_period(const char *topic, uint32_t time_period_ms);
 // 取消某延时或者周期事件的发布。允许在中断中调用。
-void eos_event_time_cancel(const char *topic, eos_isr_t isr);
+void eos_event_time_cancel(const char *topic);
 
 // 事件的订阅 --------------------------------------------
 // 事件订阅，仅在任务函数、状态函数或者事件回调函数中使用。
@@ -267,7 +267,7 @@ Database
 
 // 数据库的初始化
 void eos_db_init(void *const memory, uint32_t size);
-// TODO 增加持久化设备。
+// TODO 实现。增加持久化设备。
 void eos_db_add_device_persistence(const char *device);
 // 数据库的注册。
 void eos_db_register(const char *key, uint32_t size, uint8_t attribute);
@@ -276,13 +276,13 @@ uint8_t eos_db_get_attribute(const char *key);
 // 数据属性的设置
 void eos_db_set_attribute(const char *key, uint8_t attribute);
 // 块数据的读取。
-void eos_db_block_read(const char *key, void * const data, eos_isr_t isr);
+void eos_db_block_read(const char *key, void * const data);
 // 块数据的写入。
-void eos_db_block_write(const char *key, void * const data, eos_isr_t isr);
+void eos_db_block_write(const char *key, void * const data);
 // 流数据的读取。
-int32_t eos_db_stream_read(const char *key, void *const buffer, uint32_t size, eos_isr_t isr);
+int32_t eos_db_stream_read(const char *key, void *const buffer, uint32_t size);
 // 流数据的写入。
-void eos_db_stream_write(const char *key, void *const buffer, uint32_t size, eos_isr_t isr);
+void eos_db_stream_write(const char *key, void *const buffer, uint32_t size);
 
 /* -----------------------------------------------------------------------------
 Reactor

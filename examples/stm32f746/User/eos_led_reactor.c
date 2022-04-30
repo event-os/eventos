@@ -24,7 +24,7 @@ void eos_reactor_led_init(void)
     actor_led.status = 0;
 
 #if (EOS_USE_TIME_EVENT != 0)
-    eos_event_publish_period("Event_Time_1000ms", 1000, NOT_ISR);
+    eos_event_publish_period("Event_Time_1000ms", 1000);
 #endif
     
     eos_reactor_start(&actor_led.super, EOS_HANDLER_CAST(led_e_handler));

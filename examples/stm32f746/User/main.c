@@ -34,22 +34,22 @@ void task_func_test(void *parameter)
     
     while (1) {
         count_test ++;
-        eos_event_send("task_event", "Event_One", NOT_ISR);
-        eos_event_send("task_e_specific", "Event_Two", NOT_ISR);
+        eos_event_send("task_event", "Event_One");
+        eos_event_send("task_e_specific", "Event_Two");
         
         e_value_t e_value;
         e_value.count = count_test;
         e_value.value = 12345678;
-        eos_db_block_write("Event_Value", &e_value, NOT_ISR);
-        eos_event_send("task_event", "Event_Value", NOT_ISR);
-        eos_db_block_write("Event_Value", &e_value, NOT_ISR);
-        eos_event_send("task_event", "Event_Value", NOT_ISR);
-        eos_db_block_write("Event_Value_Link", &e_value, NOT_ISR);
-        eos_event_send("task_event", "Event_Value_Link", NOT_ISR);
+        eos_db_block_write("Event_Value", &e_value);
+        eos_event_send("task_event", "Event_Value");
+        eos_db_block_write("Event_Value", &e_value);
+        eos_event_send("task_event", "Event_Value");
+        eos_db_block_write("Event_Value_Link", &e_value);
+        eos_event_send("task_event", "Event_Value_Link");
         
         if ((count_test % 10) == 0) {
-            eos_event_send("task_event", "Event_Specific", NOT_ISR);
-            eos_event_send("task_e_specific", "Event_Two", NOT_ISR);
+            eos_event_send("task_event", "Event_Specific");
+            eos_event_send("task_e_specific", "Event_Two");
         }
         if (count_test == 100) {
             eos_task_suspend("sm_led");
@@ -92,12 +92,12 @@ void task_func_event_test(void *parameter)
         }
         
         if (eos_event_topic(&e, "Event_Value")) {
-            eos_db_block_read("Event_Value", &e_value_recv, NOT_ISR);
+            eos_db_block_read("Event_Value", &e_value_recv);
             event_value_count ++;
         }
         
         if (eos_event_topic(&e, "Event_Value_Link")) {
-            eos_db_block_read("Event_Value_Link", &e_value_link_recv, NOT_ISR);
+            eos_db_block_read("Event_Value_Link", &e_value_link_recv);
             event_value_link_count ++;
         }
     }
@@ -146,9 +146,7 @@ int main(void)
     eos_db_register("Event_Value_Link", sizeof(e_value_t),
                     (EOS_DB_ATTRIBUTE_VALUE | EOS_DB_ATTRIBUTE_LINK_EVENT));
     
-//#if (EOS_USE_SM_MODE != 0)
     eos_sm_led_init();                              // LED状态机初始化
-//#endif
     eos_reactor_led_init();
     
     eos_task_start( &task_test,
