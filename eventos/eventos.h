@@ -81,7 +81,8 @@ EventOS Default Configuration
 /* -----------------------------------------------------------------------------
 Basic type
 ----------------------------------------------------------------------------- */
-typedef enum eos_bool {
+typedef enum eos_bool
+{
     EOS_False = 0,
     EOS_True = !EOS_False,
 } eos_bool_t;
@@ -108,7 +109,7 @@ uint64_t eos_time(void);
 // uint64_t eos_time_us(void);
 // System tick function.
 void eos_tick(void);
-// 关闭中断
+// Disable the global interrupt.
 void eos_interrupt_disable(void);
 // 开中断
 void eos_interrupt_enable(void);
@@ -124,6 +125,58 @@ void eos_sheduler_unlock(void);
 #endif
 
 /* -----------------------------------------------------------------------------
+Shell
+----------------------------------------------------------------------------- */
+typedef int32_t (* eos_shell_func_t)(int32_t argc, char *agrv[]);
+
+void eos_shell_init(void);
+void eos_shell_cmd_register(const char *cmd, eos_shell_func_t func);
+
+/* -----------------------------------------------------------------------------
+Log & Assert
+----------------------------------------------------------------------------- */
+
+#include "elog.h"
+
+#define EOS_PRINT(...)            elog_printf(__VA_ARGS__)
+#define EOS_DEBUG(...)            elog_debug(___tag_name, __VA_ARGS__)
+#define EOS_INFO(...)             elog_info(___tag_name, __VA_ARGS__)
+#define EOS_WARN(...)             elog_warn(___tag_name, __VA_ARGS__)
+#define EOS_ERROR(...)            elog_error(___tag_name, __VA_ARGS__)
+
+#ifndef EOS_USE_ASSERT
+
+#define EOS_TAG(name_)
+#define EOS_ASSERT(test_)                       ((void)0)
+#define EOS_ASSERT_ID(id_, test_)               ((void)0)
+#define EOS_ASSERT_NAME(id_, test_)             ((void)0)
+#define EOS_ASSERT_INFO(test_, ...)             ((void)0)
+
+#else
+
+/* User defined module name. */
+#define EOS_TAG(name_)                                                         \
+    static char const ___tag_name[] = name_;
+
+/* General assert */
+#define EOS_ASSERT(test_) ((test_)                                               \
+    ? (void)0 : elog_assert(___tag_name, EOS_NULL, (int)__LINE__))
+
+/* General assert with ID */
+#define EOS_ASSERT_ID(id_, test_) ((test_)                                       \
+    ? (void)0 : elog_assert(___tag_name, EOS_NULL, (int)(id_)))
+
+/* General assert with name string or event topic. */
+#define EOS_ASSERT_NAME(test_, name_) ((test_)                                     \
+    ? (void)0 : elog_assert(___tag_name, name_, (int)(__LINE__)))
+        
+/* Assert with printed information. */
+#define EOS_ASSERT_INFO(test_, ...) ((test_)                                     \
+    ? (void)0 : elog_assert_info(___tag_name, __VA_ARGS__))
+
+#endif
+
+/* -----------------------------------------------------------------------------
 Task
 ----------------------------------------------------------------------------- */
 /*
@@ -135,7 +188,8 @@ typedef void (* eos_func_t)(void *parameter);
 /*
  * Definition of the event class.
  */
-typedef struct eos_event {
+typedef struct eos_event
+{
     const char *topic;                      // The event topic.
     uint32_t eid                    : 16;   // The event ID.
     uint32_t size                   : 16;   // The event content's size.
@@ -144,7 +198,8 @@ typedef struct eos_event {
 /*
  * Definition of the task class.
  */
-typedef struct eos_task {
+typedef struct eos_task
+{
     uint32_t *sp;
     void *stack;
     uint32_t size;
@@ -187,12 +242,21 @@ bool eos_task_wait_specific_event(  eos_event_t * const e_out,
 bool eos_task_wait_event(eos_event_t * const e_out, uint32_t time_ms);
 
 /* -----------------------------------------------------------------------------
+Mutex
+----------------------------------------------------------------------------- */
+// TODO 实现。以事件实现锁机制。
+void eos_mutex_set_global(const char *name);
+void eos_mutex_take(const char *name);
+void eos_mutex_release(const char *name);
+
+/* -----------------------------------------------------------------------------
 Timer
 ----------------------------------------------------------------------------- */
 /*
  * Definition of the timer class.
  */
-typedef struct eos_timer {
+typedef struct eos_timer
+{
     struct eos_timer *next;
     uint32_t time;
     uint32_t time_out;
@@ -202,12 +266,11 @@ typedef struct eos_timer {
 } eos_timer_t;
 
 // 启动软定时器，允许在中断中调用。
-// TODO 优化。此处完全不必面向对象。
-void eos_timer_start(   eos_timer_t * const me,
-                        const char *name,
-                        uint32_t time_ms,
-                        bool oneshoot,
-                        eos_func_t callback);
+void eos_timer_start(eos_timer_t * const me,
+                     const char *name,
+                     uint32_t time_ms,
+                     bool oneshoot,
+                     eos_func_t callback);
 // 删除软定时器，允许在中断中调用。
 void eos_timer_delete(const char *name);
 // 暂停软定时器，允许在中断中调用。
@@ -262,6 +325,7 @@ bool eos_event_topic(eos_event_t const * const e, const char *topic);
 Database
 ----------------------------------------------------------------------------- */
 #define EOS_DB_ATTRIBUTE_LINK_EVENT      ((uint8_t)0x40U)
+#define EOS_DB_ATTRIBUTE_PERSISTENT      ((uint8_t)0x20U)
 #define EOS_DB_ATTRIBUTE_VALUE           ((uint8_t)0x01U)
 #define EOS_DB_ATTRIBUTE_STREAM          ((uint8_t)0x02U)
 
@@ -295,7 +359,8 @@ typedef void (* eos_event_handler)( struct eos_reactor *const me,
 /*
  * Definition of the Reactor class.
  */
-typedef struct eos_reactor {
+typedef struct eos_reactor
+{
     eos_task_t super;
     eos_event_handler event_handler;
 } eos_reactor_t;
@@ -314,7 +379,8 @@ State machine
 /*
  * Definition of the EventOS reture value.
  */
-typedef enum eos_ret {
+typedef enum eos_ret
+{
     EOS_Ret_Null = 0,                       // 无效值
     EOS_Ret_Handled,                        // 已处理，不产生跳转
     EOS_Ret_Super,                          // 到超状态
@@ -330,7 +396,8 @@ typedef eos_ret_t (* eos_state_handler)(struct eos_sm *const me,
 
 #if (EOS_USE_SM_MODE != 0)
 // 状态机类
-typedef struct eos_sm {
+typedef struct eos_sm
+{
     eos_task_t super;
     volatile eos_state_handler state;
 } eos_sm_t;

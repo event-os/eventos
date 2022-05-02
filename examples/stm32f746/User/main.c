@@ -3,6 +3,7 @@
 #include "eventos.h"                                // EventOS Nano头文件
 #include "eos_led.h"                                // LED灯闪烁状态机
 
+
 /* main function ------------------------------------------------------------ */
 uint64_t stack_task[512];
 eos_task_t task_test;
@@ -27,7 +28,8 @@ void block_delay(uint32_t ms)
     }
 }
 
-
+char buffer[32] = {0};
+uint32_t count = 0;
 void task_func_test(void *parameter)
 {
     (void)parameter;
@@ -57,7 +59,7 @@ void task_func_test(void *parameter)
         if (count_test == 200) {
             eos_task_resume("sm_led");
         }
-        block_delay(10);
+        
         eos_delay_ms(100);
     }
 }
@@ -135,6 +137,8 @@ int main(void)
 
     SCB_EnableICache(); /* Enable I-Cache */
     SCB_EnableDCache(); /* Enable D-Cache */
+    
+    
     
     if (SysTick_Config(SystemCoreClock / 1000) != 0)
         while (1);

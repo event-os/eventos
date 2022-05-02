@@ -403,6 +403,21 @@
               <FileType>1</FileType>
               <FilePath>..\User\eos_led_sm.c</FilePath>
             </File>
+            <File>
+              <FileName>elog.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\eventos\elog.c</FilePath>
+            </File>
+            <File>
+              <FileName>esh.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\eventos\esh.c</FilePath>
+            </File>
+            <File>
+              <FileName>esh_port.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\eventos\esh_port.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -432,6 +447,21 @@
               <FileName>port_cortex_m.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\eos_port\port_cortex_m.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>3rd</GroupName>
+          <Files>
+            <File>
+              <FileName>SEGGER_RTT.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\3rd\RTT\SEGGER_RTT.c</FilePath>
+            </File>
+            <File>
+              <FileName>SEGGER_RTT_printf.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\3rd\RTT\SEGGER_RTT_printf.c</FilePath>
             </File>
           </Files>
         </Group>
