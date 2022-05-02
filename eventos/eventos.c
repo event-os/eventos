@@ -37,6 +37,16 @@
 
 EOS_TAG("EventOS")
 
+uint32_t error_id = 0;
+void elog_assert(const char *tag, const char *name, uint32_t id)
+{
+    error_id = id;
+    
+    while (1) {
+        
+    }
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -544,6 +554,10 @@ void eos_init(void)
     eos_task_start( &task_idle,
                     "task_idle",
                     task_func_idle, 0, stack_idle, sizeof(stack_idle));
+    
+    extern void esh_init(void);
+    
+//    esh_init();
 }
 
 void eos_run(void)

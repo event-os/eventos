@@ -10,7 +10,9 @@
 // 1 - J-Link RTT Client
 // 2 - X-Shell
 // 3 - MobaXterm
-#define EOS_SHELL_CLIENT                   1
+#define EOS_SHELL_CLIENT                    1
+
+#define EOS_ECHO_EN                         0
 
 // key id ----------------------------------------------------------------------
 enum
@@ -67,13 +69,15 @@ enum
 #define ESH_BUFF_CMD_SIZE                   80
 #define ESH_REG_TABLE_SIZE                  32
 
+#define ESH_TASK_STACK_SIZE                 2048
+
 // data struct -----------------------------------------------------------------
 typedef void (* esh_hook_t)(char * mode, char * func, int num, char ** para);
 typedef void (* esh_fkey_hook_t)(uint8_t key_id);
 
 // API -------------------------------------------------------------------------
 // 默认进入Log模式
-void esh_init(uint32_t evt_stop);
+void esh_init(void);
 // Shell启动
 void esh_start(void);
 // Msh Ready

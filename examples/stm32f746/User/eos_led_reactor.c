@@ -2,7 +2,7 @@
 #include "eos_led.h"
 #include "eventos.h"
 #include <stdio.h>
-#include "rtt/SEGGER_RTT.h"
+#include "system.h"
 
 /* data structure ----------------------------------------------------------- */
 typedef struct eos_reactor_led_tag {
@@ -20,7 +20,8 @@ static void led_e_handler(eos_reactor_led_t * const me, eos_event_t const * cons
 /* api ---------------------------------------------------- */
 void eos_reactor_led_init(void)
 {
-    eos_reactor_init(&actor_led.super, "actor_led", 4, stack_led, sizeof(stack_led));
+    eos_reactor_init(&actor_led.super, "actor_led",
+                     TaskPriority_ReacotrLed, stack_led, sizeof(stack_led));
     actor_led.status = 0;
 
 #if (EOS_USE_TIME_EVENT != 0)

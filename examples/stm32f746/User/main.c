@@ -2,7 +2,7 @@
 #include "stm32f7xx.h"
 #include "eventos.h"                                // EventOS Nano头文件
 #include "eos_led.h"                                // LED灯闪烁状态机
-
+#include "system.h"
 
 /* main function ------------------------------------------------------------ */
 uint64_t stack_task[512];
@@ -52,6 +52,7 @@ void task_func_test(void *parameter)
         if ((count_test % 10) == 0) {
             eos_event_send("task_event", "Event_Specific");
             eos_event_send("task_e_specific", "Event_Two");
+            
         }
         if (count_test == 100) {
             eos_task_suspend("sm_led");
@@ -59,6 +60,8 @@ void task_func_test(void *parameter)
         if (count_test == 200) {
             eos_task_resume("sm_led");
         }
+        
+        
         
         eos_delay_ms(100);
     }
@@ -114,12 +117,14 @@ void task_func_e_specific_test(void *parameter)
     
     while (1) {
         eos_event_t e;
-        if (eos_task_wait_specific_event(&e, "Event_Specific", 10000)) {
+        if (eos_task_wait_specific_event(&e, "Event_Specific", 10000))
+        {
             task_event_error = 1;
             continue;
         }
 
-        if (eos_event_topic(&e, "Event_Two")) {
+        if (eos_event_topic(&e, "Event_Two"))
+        {
             e_one_count ++;
         }
         
@@ -154,13 +159,13 @@ int main(void)
     eos_reactor_led_init();
     
     eos_task_start( &task_test,
-                    "task_test", task_func_test, 1,
+                    "task_test", task_func_test, TaskPriority_Test,
                     stack_task, sizeof(stack_task));
     eos_task_start( &task_event,
-                    "task_event", task_func_event_test, 2,
+                    "task_event", task_func_event_test, TaskPriority_Event,
                     stack_task_event, sizeof(stack_task_event));
     eos_task_start( &task_e_specific,
-                    "task_e_specific", task_func_e_specific_test, 3,
+                    "task_e_specific", task_func_e_specific_test, TaskPriority_Event_Specific,
                     stack_task_e_specific, sizeof(stack_task_e_specific));
     
     eos_run();                                      // EventOS启动

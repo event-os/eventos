@@ -180,7 +180,6 @@ typedef struct msh_tag
 {
     uint32_t mode;
     uint32_t state;
-    uint32_t evt_stop;
 
     // 指令Buffer
     char buff_cmd[ESH_BUFF_CMD_SIZE + 1];
@@ -228,22 +227,24 @@ static const esh_cmd_reg_t esh_reg_table_default[] =
 
 // private data ----------------------------------------------------------------
 static char * data_newline = "\n\r";
+static eos_task_t task_esh;
+static uint8_t stask_esh[ESH_TASK_STACK_SIZE];
 
 // private function ------------------------------------------------------------
 static bool esh_is_cmd_char(uint8_t cmd_char);
 static void esh_clear_buff_cmd(void);
 static bool esh_is_num_and_char(uint8_t cmd_char);
+static void esh_task_funcntion(void *parameter);
 
 // private function ------------------------------------------------------------
 static void esh_cmd_parser(void);
 static uint8_t esh_get_key_id(void);
 
 // API -------------------------------------------------------------------------
-void esh_init(uint32_t evt_stop)
+void esh_init(void)
 {
     esh.mode = EshMode_Log;
     esh.state = EshState_Unready;
-    esh.evt_stop = evt_stop;
     
     esh.count_cmd = 0;
 
@@ -269,6 +270,10 @@ void esh_init(uint32_t evt_stop)
     // 特殊功能键回调函数
     esh.fkey_hook = esh_fkey_hook_null;
     esh.fkey_hook_default = esh_fkey_hook_null;
+    
+    /* Start the shell task. */
+    eos_task_start(&task_esh, "task_esh",
+                   esh_task_funcntion, 1, stask_esh, ESH_TASK_STACK_SIZE);
 }
 
 void esh_start(void)
@@ -342,119 +347,127 @@ __EXIT:
     eos_mutex_release(ESH_MUTEX);
 }
 
-void esh_poll(uint64_t time_ms)
+static void esh_task_funcntion(void *parameter)
 {
-    switch (esh.state)
-    {
-    case EshState_Unready:
-        // 接收字符，但并不响应
-        esh_port_recv(esh.buff_recv, ESH_BUFF_RECV_SIZE);
-        esh.count_recv = 0;
-        break;
+    (void)parameter;
+    
+    esh_start();
+    
+    while (1) {
+        uint64_t time_ms = eos_time();
+        
+        switch (esh.state)
+        {
+        case EshState_Unready:
+            // 接收字符，但并不响应
+            esh_port_recv(esh.buff_recv, ESH_BUFF_RECV_SIZE);
+            esh.count_recv = 0;
+            break;
 
-    case EshState_Act: {
-        // 接收计算
-        uint32_t count_recv = esh_port_recv(&esh.buff_recv[esh.count_recv],
-                                              (ESH_BUFF_RECV_SIZE - esh.count_recv));
-        esh.count_recv += count_recv;
-        if (esh.count_recv == 0)
-        {
-            break;
-        }
-        // 获取KeyId
-        uint8_t key_id = esh_get_key_id();
-        // ESC 不理会
-        if (key_id == Esh_Esc)
-        {
-            break;
-        }
-        // 特殊功能键，不理会
-        if (key_id >= Esh_F1 && key_id <= Esh_PageDown)
-        {
-            break;
-        }
-        // 组合功能键
-        if (key_id >= Esh_Ctrl_Start && key_id < Esh_Max)
-        {
-            // 在指令注册表中，寻找对应的指令
-            bool exist = false;
-            for (uint32_t i = 0; i < esh.count_reg; i ++)
+        case EshState_Act: {
+            // 接收计算
+            uint32_t count_recv = esh_port_recv(&esh.buff_recv[esh.count_recv],
+                                                  (ESH_BUFF_RECV_SIZE - esh.count_recv));
+            esh.count_recv += count_recv;
+            if (esh.count_recv == 0)
             {
-                if (esh.reg_table[i].shortcut == key_id)
+                break;
+            }
+            // 获取KeyId
+            uint8_t key_id = esh_get_key_id();
+            // ESC 不理会
+            if (key_id == Esh_Esc)
+            {
+                break;
+            }
+            // 特殊功能键，不理会
+            if (key_id >= Esh_F1 && key_id <= Esh_PageDown)
+            {
+                break;
+            }
+            // 组合功能键
+            if (key_id >= Esh_Ctrl_Start && key_id < Esh_Max)
+            {
+                // 在指令注册表中，寻找对应的指令
+                bool exist = false;
+                for (uint32_t i = 0; i < esh.count_reg; i ++)
                 {
-                    // TODO 解析指令
+                    if (esh.reg_table[i].shortcut == key_id)
+                    {
+                        // TODO 解析指令
 
-                    exist = true;
+                        exist = true;
+                        break;
+                    }
+                }
+                if (exist == true)
+                {
                     break;
                 }
             }
-            if (exist == true)
+            // 普通指令键
+            if (esh_is_cmd_char(key_id))
+            {
+                // 写入指令Buff
+                esh.buff_cmd[esh.count_cmd ++] = key_id;
+                esh.buff_cmd[esh.count_cmd] = 0;
+                // 回显
+                esh_port_send(&key_id, 1);
+                break;
+            }
+            // 普通功能键，回车键
+            if (key_id == Esh_Enter)
+            {
+                // 解析指令
+                esh_cmd_parser();
+                break;
+            }
+            // 普通功能键，退格键
+            if (key_id == Esh_Backspace)
+            {
+                if (esh.count_cmd <= 0)
+                    break;
+                esh.count_cmd --;
+                esh.buff_cmd[esh.count_cmd] = 0;
+                // 删除字符
+                esh_port_send("\b \b", 3);
+                break;
+            }
+            // 如果是其他字符，抛弃
+            esh.count_recv -= count_recv;
+            break;
+        }
+
+        case EshState_Log: {
+            // 接收计算
+            uint32_t count_recv = esh_port_recv(&esh.buff_recv[esh.count_recv],
+                                                (ESH_BUFF_RECV_SIZE - esh.count_recv));
+            esh.count_recv += count_recv;
+            if (esh.count_recv == 0)
             {
                 break;
             }
-        }
-        // 普通指令键
-        if (esh_is_cmd_char(key_id))
-        {
-            // 写入指令Buff
-            esh.buff_cmd[esh.count_cmd ++] = key_id;
-            esh.buff_cmd[esh.count_cmd] = 0;
-            // 回显
-            esh_port_send(&key_id, 1);
-            break;
-        }
-        // 普通功能键，回车键
-        if (key_id == Esh_Enter)
-        {
-            // 解析指令
-            esh_cmd_parser();
-            break;
-        }
-        // 普通功能键，退格键
-        if (key_id == Esh_Backspace)
-        {
-            if (esh.count_cmd <= 0)
+            // 获取KeyId
+            uint8_t key_id = esh_get_key_id();
+            // ESC，退出LOG模式
+            if (key_id == Esh_Esc)
+            {
+                esh.state = EshState_Act;
                 break;
-            esh.count_cmd --;
-            esh.buff_cmd[esh.count_cmd] = 0;
-            // 删除字符
-            esh_port_send("\b \b", 3);
+            }
+            // 特殊功能键
+            if (key_id >= Esh_F1 && key_id <= Esh_PageDown)
+            {
+                esh.fkey_hook(key_id);
+                break;
+            }
+            // 其他键，不予理会
             break;
         }
-        // 如果是其他字符，抛弃
-        esh.count_recv -= count_recv;
-        break;
-    }
 
-    case EshState_Log: {
-        // 接收计算
-        uint32_t count_recv = esh_port_recv(&esh.buff_recv[esh.count_recv],
-                                            (ESH_BUFF_RECV_SIZE - esh.count_recv));
-        esh.count_recv += count_recv;
-        if (esh.count_recv == 0)
-        {
+        default:
             break;
         }
-        // 获取KeyId
-        uint8_t key_id = esh_get_key_id();
-        // ESC，退出LOG模式
-        if (key_id == Esh_Esc)
-        {
-            esh.state = EshState_Act;
-            break;
-        }
-        // 特殊功能键
-        if (key_id >= Esh_F1 && key_id <= Esh_PageDown)
-        {
-            esh.fkey_hook(key_id);
-            break;
-        }
-        // 其他键，不予理会
-        break;
-    }
-
-    default:
-        break;
     }
 }
 

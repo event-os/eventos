@@ -2,6 +2,7 @@
 #include "eos_led.h"
 #include "eventos.h"
 #include <stdio.h>
+#include "system.h"
 
 #if (EOS_USE_SM_MODE != 0)
 /* data structure ----------------------------------------------------------- */
@@ -22,7 +23,7 @@ static eos_ret_t state_off(eos_sm_led_t * const me, eos_event_t const * const e)
 uint8_t stack_sm[256];
 void eos_sm_led_init(void)
 {
-    eos_sm_init(&sm_led.super, "sm_led", 5, stack_sm, sizeof(stack_sm));
+    eos_sm_init(&sm_led.super, "sm_led", TaskPriority_SmLed, stack_sm, sizeof(stack_sm));
     sm_led.status = 0;
     
     eos_sm_start(&sm_led.super, EOS_STATE_CAST(state_init));
@@ -59,7 +60,8 @@ static eos_ret_t state_on(eos_sm_led_t * const me, eos_event_t const * const e)
 
 static eos_ret_t state_off(eos_sm_led_t * const me, eos_event_t const * const e)
 {
-    if (eos_event_topic(e, "Event_Enter")) {
+    if (eos_event_topic(e, "Event_Enter"))
+    {
         me->status = 0;
         return EOS_Ret_Handled;
     }
