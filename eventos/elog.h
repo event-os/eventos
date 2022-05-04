@@ -46,7 +46,7 @@ typedef struct elog_device
     uint8_t level;
     bool enable;
 
-    void (* out)(char *data);
+    void (* out)(const char *data);
     void (* flush)(void);
     bool (* ready)(void);
 } elog_device_t;

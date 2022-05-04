@@ -8,6 +8,7 @@
 EOS_TAG("E-Shell")
 
 #define ESH_MUTEX               "mutex_esh"
+#define ESH_MUTEX_EN            0
 
 // key value -------------------------------------------------------------------
 enum
@@ -270,10 +271,10 @@ void esh_init(void)
     // 特殊功能键回调函数
     esh.fkey_hook = esh_fkey_hook_null;
     esh.fkey_hook_default = esh_fkey_hook_null;
-    
-    /* Start the shell task. */
-    eos_task_start(&task_esh, "task_esh",
-                   esh_task_funcntion, 1, stask_esh, ESH_TASK_STACK_SIZE);
+//    
+//    /* Start the shell task. */
+//    eos_task_start(&task_esh, "task_esh",
+//                   esh_task_funcntion, 1, stask_esh, ESH_TASK_STACK_SIZE);
 }
 
 void esh_start(void)
@@ -290,6 +291,7 @@ void esh_start(void)
 
 bool esh_ready(void)
 {
+    return true;
     return esh.state == EshState_Unready ? false : true;
 }
 
@@ -332,8 +334,10 @@ void esh_set_fkey_hook(esh_fkey_hook_t fkey_hook)
 
 void esh_log(const char * log)
 {
+#if (ESH_MUTEX_EN != 0)
     /* Unlock the elog mutex. */
     eos_mutex_take(ESH_MUTEX);
+#endif
     
     if (esh.state != EshState_Log)
     {
@@ -343,8 +347,10 @@ void esh_log(const char * log)
     esh_port_send((void *)log, strlen(log));
 
 __EXIT:
+#if (ESH_MUTEX_EN != 0)
     /* Unlock the elog mutex. */
     eos_mutex_release(ESH_MUTEX);
+#endif
 }
 
 static void esh_task_funcntion(void *parameter)

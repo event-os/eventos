@@ -34,18 +34,9 @@
 /* include --------------------------------------------------------------------- */
 #include "eventos.h"
 #include <string.h>
+#include "esh.h"
 
 EOS_TAG("EventOS")
-
-uint32_t error_id = 0;
-void elog_assert(const char *tag, const char *name, uint32_t id)
-{
-    error_id = id;
-    
-    while (1) {
-        
-    }
-}
 
 #ifdef __cplusplus
 extern "C" {
@@ -272,11 +263,13 @@ typedef struct eos_tag
     /* Heap */
     /* TODO 优化。删除heap。 */
 #if (EOS_USE_EVENT_DATA != 0)
-    uint8_t heap_data[EOS_SIZE_HEAP];
     eos_heap_t heap;
+    uint8_t heap_data[EOS_SIZE_HEAP];
+    uint8_t __dta[10240];
 #endif
     eos_heap_t db;
     /* TODO 优化。e-queue改为全静态管理。 */
+    uint8_t __dta2[10240];
     eos_event_data_t *e_queue;
 
     uint32_t owner_global;
@@ -554,10 +547,6 @@ void eos_init(void)
     eos_task_start( &task_idle,
                     "task_idle",
                     task_func_idle, 0, stack_idle, sizeof(stack_idle));
-    
-    extern void esh_init(void);
-    
-//    esh_init();
 }
 
 void eos_run(void)
@@ -804,7 +793,8 @@ void eos_task_resume(const char *task)
 bool eos_task_wait_event(eos_event_t *const e_out, uint32_t time_ms)
 {
     eos_interrupt_disable();
-    do {
+    do
+    {
         uint8_t priority = eos_current->priority;
         
         if ((eos.owner_global & (1 << priority)) != 0)
@@ -849,14 +839,6 @@ bool eos_task_wait_event(eos_event_t *const e_out, uint32_t time_ms)
                     eos.object[e_item->id].ocb.event.e_item = EOS_NULL;
                     /* Delete the event data from the e-queue. */
                     __eos_e_queue_delete(e_item);
-                    /* update the global owner flag. */
-                    eos.owner_global = 0;
-                    eos_event_data_t *e_queue = eos.e_queue;
-                    while (e_queue != EOS_NULL)
-                    {
-                        eos.owner_global |= e_queue->owner;
-                        e_queue = e_queue->next;
-                    }
                 }
 
                 eos_interrupt_enable();
@@ -976,16 +958,6 @@ bool eos_task_wait_specific_event(  eos_event_t *const e_out,
                     {
                         /* Delete the event data from the e-queue. */
                         __eos_e_queue_delete(e_item);
-                        /* free the event data. */
-                        eos_heap_free(&eos.heap, e_item);
-                        /* update the global owner flag. */
-                        eos.owner_global = 0;
-                        eos_event_data_t *e_queue = eos.e_queue;
-                        while (e_queue != EOS_NULL)
-                        {
-                            eos.owner_global |= e_queue->owner;
-                            e_queue = e_queue->next;
-                        }
                     }
 
                     eos_interrupt_enable();
@@ -1370,6 +1342,7 @@ static void __eos_e_queue_delete(eos_event_data_t const *item)
     if (item->last == EOS_NULL && item->next == EOS_NULL)
     {
         eos.e_queue = EOS_NULL;
+        
     }
     /* If the event data is the first one in queue. */
     else if (item->last == EOS_NULL && item->next != EOS_NULL)
@@ -1391,6 +1364,7 @@ static void __eos_e_queue_delete(eos_event_data_t const *item)
     
     /* free the event data. */
     eos_heap_free(&eos.heap, (void *)item);
+    EOS_DEBUG("Free: %s.", eos.object[item->id].key);
     
     /* Calculate the owner_global. */
     eos.owner_global = 0;
@@ -1555,11 +1529,11 @@ static int8_t __eos_event_give( const char *task,
                                 uint8_t give_type,
                                 const char *topic)
 {
-    
     /* TODO 这个功能还是要实现。 */
     /* EOS_ASSERT(eos.running == true); */
-    if (eos.running == false) 
+    if (eos.running == false) {
         return 0;
+    }
     
     uint32_t wait_specific_event;
     uint32_t wait_event;
@@ -1708,9 +1682,10 @@ static int8_t __eos_event_give( const char *task,
         /* Apply one data for the event. */
         eos_event_data_t *data
             = eos_heap_malloc(&eos.heap, sizeof(eos_event_data_t));
+        EOS_ASSERT(data != EOS_NULL);
+        EOS_DEBUG("Malloc topic: %s.", topic);
         data->id = e_id;
         data->owner = owner;
-        EOS_ASSERT(data != EOS_NULL);
 
         /* Attach the event data to the event queue. */
         if (eos.e_queue == EOS_NULL)
@@ -1741,6 +1716,8 @@ static int8_t __eos_event_give( const char *task,
 
             /* Apply one data for the event. */
             data = eos_heap_malloc(&eos.heap, sizeof(eos_event_data_t));
+            EOS_ASSERT(data != EOS_NULL);
+            EOS_DEBUG("Malloc topic: %s.", topic);
             data->owner = owner;
             data->id = e_id;
             eos.object[e_id].ocb.event.e_item = data;
@@ -1792,7 +1769,7 @@ __EXIT:
             /* Clear the flag in event mutex and gobal mutex. */
             eos.object[e_id].ocb.event.owner &=~ bits;
             eos.task_mutex &=~ bits;
-
+            
             /* Excute eos kernel sheduler. */
             eos_sheduler();
         }

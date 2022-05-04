@@ -3,13 +3,14 @@
 #include "eventos.h"                                // EventOS Nano头文件
 #include "eos_led.h"                                // LED灯闪烁状态机
 #include "system.h"
+#include "esh.h"
 
 /* main function ------------------------------------------------------------ */
-uint64_t stack_task[512];
+uint64_t stack_task[5120];
 eos_task_t task_test;
-uint64_t stack_task_event[512];
+uint64_t stack_task_event[5120];
 eos_task_t task_event;
-uint64_t stack_task_e_specific[512];
+uint64_t stack_task_e_specific[5120];
 eos_task_t task_e_specific;
 uint32_t count_test = 0;
 
@@ -54,15 +55,15 @@ void task_func_test(void *parameter)
             eos_event_send("task_e_specific", "Event_Two");
             
         }
-        if (count_test == 100) {
-            eos_task_suspend("sm_led");
-        }
-        if (count_test == 200) {
-            eos_task_resume("sm_led");
-        }
+//        if (count_test == 100) {
+//            eos_task_suspend("sm_led");
+//        }
+//        if (count_test == 200) {
+//            eos_task_resume("sm_led");
+//        }
         
-        
-        
+//        esh_log("-------------------------\n");
+//        
         eos_delay_ms(100);
     }
 }
@@ -135,6 +136,15 @@ void task_func_e_specific_test(void *parameter)
 }
 
 uint8_t db_memory[512];
+uint32_t count_tick = 0;
+
+elog_device_t dev_esh;
+
+void esh_flush(void)
+{
+}
+
+EOS_TAG("main")
 
 int main(void)
 {
@@ -143,20 +153,35 @@ int main(void)
     SCB_EnableICache(); /* Enable I-Cache */
     SCB_EnableDCache(); /* Enable D-Cache */
     
-    
-    
     if (SysTick_Config(SystemCoreClock / 1000) != 0)
         while (1);
     
+    dev_esh.enable = 1;
+    dev_esh.level = eLogLevel_Debug;
+    dev_esh.name = "eLogDev_Esh";
+    dev_esh.out = esh_log;
+    dev_esh.flush = esh_flush;
+    dev_esh.ready = esh_ready;
+    
+    elog_init();
+    elog_set_level(eLogLevel_Debug);
+    esh_init();
+    esh_start();
+    count_tick ++;
+    
+    elog_device_register(&dev_esh);
+    elog_start();
+    
     eos_init();                                     // EventOS初始化
+    
     eos_db_init(db_memory, 512);
     
     eos_db_register("Event_Value", sizeof(e_value_t), EOS_DB_ATTRIBUTE_VALUE);
     eos_db_register("Event_Value_Link", sizeof(e_value_t),
                     (EOS_DB_ATTRIBUTE_VALUE | EOS_DB_ATTRIBUTE_LINK_EVENT));
     
-    eos_sm_led_init();                              // LED状态机初始化
-    eos_reactor_led_init();
+//    eos_sm_led_init();                              // LED状态机初始化
+//    eos_reactor_led_init();
     
     eos_task_start( &task_test,
                     "task_test", task_func_test, TaskPriority_Test,
@@ -173,11 +198,13 @@ int main(void)
     return 0;
 }
 
-uint32_t count_tick = 0;
+
 void SysTick_Handler(void)
 {
-    //count_tick ++;
+    count_tick ++;
+    eos_interrupt_enter();
     eos_tick();
+    eos_interrupt_exit();
 }
 
 void HardFault_Handler(void)

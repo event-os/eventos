@@ -19,6 +19,7 @@ extern "C" {
 Define
 ----------------------------------------------------------------------------- */
 #define ELOG_MUTEX                      "mutex_elog"
+#define ELOG_MUTEX_EN                   0
 
 // data struct -----------------------------------------------------------------
 typedef struct elog_time_tag
@@ -55,7 +56,7 @@ typedef struct elog_hash
 // data ------------------------------------------------------------------------
 static elog_hash_t hash;
 static elog_device_t *dev_list;
-static elog_t elog;
+elog_t elog;
 
 extern volatile int8_t eos_interrupt_nest;
 
@@ -119,9 +120,11 @@ void elog_device_register(elog_device_t *device)
     /* The function is not permitted to use in interrupt function. */
     EOS_ASSERT(eos_interrupt_nest == 0);
 
+#if (ELOG_MUTEX_EN != 0)
     /* Lock the elog mutex. */
     eos_mutex_take(ELOG_MUTEX);
-
+#endif
+    
     /* It's not permitted that log device is regitstered after the log module
        starts. */
     EOS_ASSERT(elog.enable == false);
@@ -138,8 +141,10 @@ void elog_device_register(elog_device_t *device)
     device->next = dev_list;
     dev_list = device;
 
+#if (ELOG_MUTEX_EN != 0)
     /* Unlock the elog mutex. */
     eos_mutex_release(ELOG_MUTEX);
+#endif
 }
 
 void elog_device_attribute(const char * name, bool enable, uint8_t level)
@@ -185,7 +190,7 @@ void elog_stop(void)
     elog.enable = false;
 }
 
-void elog_level(uint32_t level)
+void elog_set_level(uint8_t level)
 {
     elog.level = level;
 }
@@ -208,15 +213,19 @@ void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_fo
        starts. */
     EOS_ASSERT(dev_list != NULL);
 
+#if (ELOG_MUTEX_EN != 0)
     /* Lock the elog mutex. */
     eos_mutex_take(ELOG_MUTEX);
+#endif
     
     bool enable = elog.enable;
     uint32_t level = elog.level;
     uint32_t color = elog.color;
-    
+
+#if (ELOG_MUTEX_EN != 0)
     /* Unlock the elog mutex. */
     eos_mutex_release(ELOG_MUTEX);
+#endif
     
     if (enable == false)
     {
@@ -230,6 +239,7 @@ void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_fo
     if (lf_en == true)
     {
         bool valid = false;
+        
         if (__hash_get_index(tag) != ELOG_MAX_OBJECTS)
         {
             valid = (elog.mode == eLogMode_BlackList) ? false : true;
@@ -238,16 +248,16 @@ void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_fo
 
     char buff[ELOG_SIZE_LOG];
     memset(buff, 0, ELOG_SIZE_LOG);
-    if (color != level)
+    if (color != _level)
     {
-        color = level;
+        color = _level;
         /* Output the buffer data if device is ready. */
         elog_device_t *next = dev_list;
         while (next != NULL)
         {
             if (next->ready())
             {
-                next->out((char *)string_color_log[level]);
+                next->out((char *)string_color_log[_level]);
             }
             next = next->next;
         }
@@ -287,8 +297,11 @@ void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_fo
         }
     }
 
+#if (ELOG_MUTEX_EN != 0)
     /* Output the buffer data if device is ready. */
     eos_mutex_take(ELOG_MUTEX);         /* Lock the elog mutex. */
+#endif
+    
     elog_device_t *next = dev_list;
     while (next != NULL)
     {
@@ -298,7 +311,10 @@ void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_fo
         }
         next = next->next;
     }
+    
+#if (ELOG_MUTEX_EN != 0)
     eos_mutex_release(ELOG_MUTEX);      /* Unlock the elog mutex. */
+#endif
 }
 
 void m_printf(const char *s_format, ...)
@@ -311,7 +327,7 @@ void m_printf(const char *s_format, ...)
     va_end(param_list);
 }
 
-void m_debug(const char *tag, const char *s_format, ...)
+void elog_debug(const char *tag, const char *s_format, ...)
 {
     EOS_ASSERT(strlen(tag) < 16);
 
@@ -321,7 +337,7 @@ void m_debug(const char *tag, const char *s_format, ...)
     va_end(param_list);
 }
 
-void m_info(const char *tag, const char *s_format, ...)
+void elog_info(const char *tag, const char *s_format, ...)
 {
     EOS_ASSERT(strlen(tag) < 16);
     
@@ -331,7 +347,7 @@ void m_info(const char *tag, const char *s_format, ...)
     va_end(param_list);
 }
 
-void m_warn(const char *tag, const char *s_format, ...)
+void elog_warn(const char *tag, const char *s_format, ...)
 {
     EOS_ASSERT(strlen(tag) < 16);
     
@@ -341,7 +357,7 @@ void m_warn(const char *tag, const char *s_format, ...)
     va_end(param_list);
 }
 
-void m_error(const char *tag, const char *s_format, ...)
+void elog_error(const char *tag, const char *s_format, ...)
 {
     EOS_ASSERT(strlen(tag) < 16);
 
@@ -353,9 +369,11 @@ void m_error(const char *tag, const char *s_format, ...)
 
 void m_flush(void)
 {
+#if (ELOG_MUTEX_EN != 0)
     /* Lock the elog mutex. */
     eos_mutex_take(ELOG_MUTEX);
-
+#endif
+    
     /* It's not permitted that log device is regitstered after the log module
        starts. */
     EOS_ASSERT(dev_list != NULL);
@@ -368,8 +386,10 @@ void m_flush(void)
         next = next->next;
     }
 
+#if (ELOG_MUTEX_EN != 0)
     /* Unlock the elog mutex. */
     eos_mutex_release(ELOG_MUTEX);
+#endif
 }
 
 void elog_assert(const char *tag, const char *name, uint32_t id)
@@ -390,10 +410,12 @@ void elog_assert(const char *tag, const char *name, uint32_t id)
     {
         sprintf(&buff[len_color], "Assert! %s, %d.\n\r", tag, id);
     }
-    
-    /* Unlock the elog mutex. */
-    eos_mutex_release(ELOG_MUTEX);
 
+#if (ELOG_MUTEX_EN != 0)
+    /* Unlock the elog mutex. */
+    eos_mutex_take(ELOG_MUTEX);
+#endif
+    
     /* Check the log device has not same name with the former devices. */
     elog_device_t *next = dev_list;
     while (next != NULL)
@@ -403,9 +425,11 @@ void elog_assert(const char *tag, const char *name, uint32_t id)
         next = next->next;
     }
     
+#if (ELOG_MUTEX_EN != 0)
     /* Unlock the elog mutex. */
     eos_mutex_release(ELOG_MUTEX);
-
+#endif
+    
     eos_interrupt_disable();
     while (1) {
         
@@ -426,8 +450,10 @@ void elog_assert_info(const char *tag, const char *s_format, ...)
     vsnprintf(&buff[len], ELOG_SIZE_LOG - len, s_format, param_list);
     va_end(param_list);
     
+#if (ELOG_MUTEX_EN != 0)
     /* Unlock the elog mutex. */
-    eos_mutex_release(ELOG_MUTEX);
+    eos_mutex_take(ELOG_MUTEX);
+#endif
     
     /* Check the log device has not same name with the former devices. */
     elog_device_t *next = dev_list;
@@ -438,12 +464,13 @@ void elog_assert_info(const char *tag, const char *s_format, ...)
         next = next->next;
     }
     
+#if (ELOG_MUTEX_EN != 0)
     /* Unlock the elog mutex. */
     eos_mutex_release(ELOG_MUTEX);
-
+#endif
+    
     eos_interrupt_disable();
     while (1) {
-        
     }
 }
 
