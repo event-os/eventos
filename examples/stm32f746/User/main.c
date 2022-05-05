@@ -4,6 +4,7 @@
 #include "eos_led.h"                                // LED灯闪烁状态机
 #include "system.h"
 #include "esh.h"
+#include <string.h>
 
 /* main function ------------------------------------------------------------ */
 uint64_t stack_task[512];
@@ -12,18 +13,22 @@ uint64_t stack_task_event[512];
 eos_task_t task_event;
 uint64_t stack_task_e_specific[512];
 eos_task_t task_e_specific;
-uint32_t count_test = 0;
 
-typedef struct e_value {
+uint32_t count_test[32];
+
+typedef struct e_value
+{
     uint32_t count;
     uint32_t value;
 } e_value_t;
 
 void block_delay(uint32_t ms)
 {
-    while (ms --) {
+    while (ms --)
+    {
         uint32_t temp = 8500;
-        while (temp --) {
+        while (temp --)
+        {
             __nop();
         }
     }
@@ -34,26 +39,52 @@ uint32_t count = 0;
 void task_func_test(void *parameter)
 {
     (void)parameter;
+    memset(count_test, 0, sizeof(count_test));
     
-    while (1) {
-        count_test ++;
+    while (1)
+    {
+        uint32_t i = 0;
+        
+        count_test[i ++] ++;
+        if (count_test[0] > 100)
+        {
+            count_test[i] = count_test[i];
+        }
+        
         eos_event_send("task_event", "Event_One");
+        count_test[i ++] ++;
+        
         eos_event_send("task_e_specific", "Event_Two");
+        count_test[i ++] ++;
         
         e_value_t e_value;
-        e_value.count = count_test;
+        e_value.count = count_test[0];
         e_value.value = 12345678;
         eos_db_block_write("Event_Value", &e_value);
-        eos_event_send("task_event", "Event_Value");
-        eos_db_block_write("Event_Value", &e_value);
-        eos_event_send("task_event", "Event_Value");
-        eos_db_block_write("Event_Value_Link", &e_value);
-        eos_event_send("task_event", "Event_Value_Link");
+        count_test[i ++] ++;
         
-        if ((count_test % 10) == 0) {
+        eos_event_send("task_event", "Event_Value");
+        count_test[i ++] ++;
+        
+        eos_db_block_write("Event_Value", &e_value);
+        count_test[i ++] ++;
+        
+        eos_event_send("task_event", "Event_Value");
+        count_test[i ++] ++;
+        
+        eos_db_block_write("Event_Value_Link", &e_value);
+        count_test[i ++] ++;
+        
+        eos_event_send("task_event", "Event_Value_Link");
+        count_test[i ++] ++;
+        
+        if ((count_test[0] % 10) == 0)
+        {
             eos_event_send("task_event", "Event_Specific");
-            eos_event_send("task_e_specific", "Event_Two");
+            count_test[i ++] ++;
             
+            eos_event_send("task_e_specific", "Event_Two");
+            count_test[i ++] ++;
         }
 //        if (count_test == 100) {
 //            eos_task_suspend("sm_led");

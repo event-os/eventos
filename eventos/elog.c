@@ -382,8 +382,11 @@ void m_flush(void)
 #endif
 }
 
+uint32_t eos_error_id = 0;
 void elog_assert(const char *tag, const char *name, uint32_t id)
 {
+    eos_error_id = id;
+    
     char buff[ELOG_SIZE_LOG];
     memset(buff, 0, ELOG_SIZE_LOG);
     strcat(buff, string_color_log[eLogLevel_Error]);

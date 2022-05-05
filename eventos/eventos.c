@@ -462,7 +462,6 @@ static void task_func_idle(void *parameter)
 #endif
         
         eos_interrupt_disable();
-        EK_DEBUG("_interrupt_disable. task_func_idle.");
 #if (EOS_USE_TIME_EVENT != 0)
         eos_evttimer();
 #endif
@@ -498,7 +497,6 @@ static void task_func_idle(void *parameter)
             eos.time = 0;
         }
         eos_interrupt_enable();
-        EK_DEBUG("_interrupt_enable. task_func_idle.");
         eos_hook_idle();
     }
 }
@@ -696,7 +694,6 @@ void eos_task_start(eos_task_t *const me,
                     uint32_t stack_size)
 {
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. eos_task_start.");
     uint16_t index = eos_task_init(me, name, priority, stack_addr, stack_size);
     eos.object[index].ocb.task = me;
     eos.object[index].type = EosObj_Actor;
@@ -706,14 +703,12 @@ void eos_task_start(eos_task_t *const me,
     
     if (eos_current == &task_idle)
     {
-        EK_DEBUG("_interrupt_enable. eos_task_start.");
         eos_interrupt_enable();
 
         eos_sheduler();
     }
     else
     {
-        EK_DEBUG("_interrupt_enable. eos_task_start.");
         eos_interrupt_enable();
     }
 }
@@ -725,19 +720,16 @@ static void eos_actor_start(eos_task_t *const me,
                             uint32_t stack_size)
 {
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. eos_actor_start.");
     eos_task_start_private(me, func, me->priority, stack_addr, stack_size);
     me->state = EosTaskState_Ready;
     
     if (eos_current == &task_idle)
     {
-        EK_DEBUG("_interrupt_enable. eos_actor_start.");
         eos_interrupt_enable();
         eos_sheduler();
     }
     else
     {
-        EK_DEBUG("_interrupt_enable. eos_actor_start.");
         eos_interrupt_enable();
     }
 }
@@ -745,11 +737,9 @@ static void eos_actor_start(eos_task_t *const me,
 void eos_task_exit(void)
 {
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. eos_task_exit.");
     eos.task[eos_current->priority]->key = (const char *)0;
     eos.task[eos_current->priority] = (void *)0;
     eos.task_exist &= ~(1 << eos_current->priority);
-    EK_DEBUG("_interrupt_enable. eos_task_exit.");
     eos_interrupt_enable();
     
     eos_sheduler();
@@ -764,7 +754,6 @@ static inline void eos_delay_ms_private(uint32_t time_ms, bool no_event)
 
     uint32_t bit;
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. eos_delay_ms_private.");
     ((eos_task_t *)eos_current)->timeout = eos.time + time_ms;
     eos_current->state = no_event ?
                          EosTaskState_DelayNoEvent :
@@ -775,7 +764,6 @@ static inline void eos_delay_ms_private(uint32_t time_ms, bool no_event)
     {
         eos.task_delay_no_event |= bit;
     }
-    EK_DEBUG("_interrupt_enable. eos_delay_ms_private.");
     
     eos_sheduler();
     eos_interrupt_enable();
@@ -822,7 +810,6 @@ void eos_task_resume(const char *task)
 bool eos_task_wait_event(eos_event_t *const e_out, uint32_t time_ms)
 {
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. eos_task_wait_event. 01");
     do
     {
         uint8_t priority = eos_current->priority;
@@ -871,7 +858,6 @@ bool eos_task_wait_event(eos_event_t *const e_out, uint32_t time_ms)
                     __eos_e_queue_delete(e_item);
                 }
 
-                EK_DEBUG("_interrupt_enable. eos_task_wait_event. 01");
                 eos_interrupt_enable();
 
                 return true;
@@ -885,12 +871,10 @@ bool eos_task_wait_event(eos_event_t *const e_out, uint32_t time_ms)
             bit = (1U << priority);
             eos.task_wait_event |= bit;
 
-            EK_DEBUG("_interrupt_enable. eos_task_wait_event. 01");
             eos_interrupt_enable();
             
             eos_sheduler();
             eos_interrupt_disable();
-            EK_DEBUG("_interrupt_disable. eos_task_wait_event. 02.");
         }
     } while (eos.time < eos_current->timeout || time_ms == 0);
 
@@ -905,7 +889,6 @@ void eos_task_yield(void)
 void eos_task_delete(const char *task)
 {
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. eos_task_delete.");
 
     uint16_t e_id = eos_hash_get_index(task);
     /* Ensure the topic is existed in hash table. */
@@ -928,7 +911,6 @@ void eos_task_delete(const char *task)
     eos.task_wait_event &=~ bits;
     eos.task_wait_specific_event &=~ bits;
 
-    EK_DEBUG("_interrupt_enable. eos_task_delete.");
     eos_interrupt_enable();
     
     eos_sheduler();
@@ -942,7 +924,6 @@ bool eos_task_wait_specific_event(  eos_event_t *const e_out,
     
     do {
         eos_interrupt_disable();
-        EK_DEBUG("_interrupt_disable. eos_task_wait_specific_event.");
         uint16_t e_id = eos_hash_get_index(topic);
         /* If the topic is not existed in hash table. */
         if (e_id == EOS_MAX_OBJECTS)
@@ -998,7 +979,6 @@ bool eos_task_wait_specific_event(  eos_event_t *const e_out,
                         __eos_e_queue_delete(e_item);
                     }
 
-                    EK_DEBUG("_interrupt_enable. eos_task_wait_specific_event.");
                     eos_interrupt_enable();
                     
                     return true;
@@ -1015,7 +995,6 @@ bool eos_task_wait_specific_event(  eos_event_t *const e_out,
         eos.task_wait_specific_event |= (1U << priority);
         eos.event_wait[priority] = topic;
         
-        EK_DEBUG("_interrupt_enable. eos_task_wait_specific_event.");
         eos_interrupt_enable();
 
         eos_sheduler();
@@ -1038,7 +1017,6 @@ void eos_mutex_take(const char *name)
     if (eos.running != 0)
     {
         eos_interrupt_disable();
-        EK_DEBUG("_interrupt_disable. eos_mutex_take.");
         /* Get the mutex id according to the mutex name. */
         uint16_t m_id = eos_hash_get_index(name);
         if (m_id == EOS_MAX_OBJECTS)
@@ -1062,7 +1040,6 @@ void eos_mutex_take(const char *name)
             eos.object[m_id].ocb.mutex.owner |= bits;
             eos.task_mutex |= bits;
             
-            EK_DEBUG("_interrupt_enable. eos_mutex_take.");
             eos_interrupt_enable();
 
             /* Excute eos kernel sheduler. */
@@ -1074,7 +1051,6 @@ void eos_mutex_take(const char *name)
             /* Set the current the task id of the current mutex. */
             eos.object[m_id].ocb.mutex.t_id = eos_current->id;
             
-            EK_DEBUG("_interrupt_enable. eos_mutex_take.");
             eos_interrupt_enable();
         }
     }
@@ -1085,7 +1061,6 @@ void eos_mutex_release(const char *name)
     if (eos.running != 0)
     {
         eos_interrupt_disable();
-        EK_DEBUG("_interrupt_disable. eos_mutex_release.");
         /* Get the mutex id according to the mutex name. */
         uint16_t m_id = eos_hash_get_index(name);
         EOS_ASSERT(m_id != EOS_MAX_OBJECTS);
@@ -1104,7 +1079,6 @@ void eos_mutex_release(const char *name)
             eos.object[m_id].ocb.mutex.owner &=~ bits;
             eos.task_mutex &=~ bits;
 
-            EK_DEBUG("_interrupt_enable. eos_mutex_release.");
             eos_interrupt_enable();
 
             /* Excute eos kernel sheduler. */
@@ -1112,7 +1086,6 @@ void eos_mutex_release(const char *name)
         }
         else
         {
-            EK_DEBUG("_interrupt_enable. eos_mutex_release.");
             eos_interrupt_enable();
         }
     }
@@ -1132,7 +1105,6 @@ void eos_timer_start(   eos_timer_t *const me,
 
     /* Check the timer's name is not same with others. */
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. eos_timer_start.");
     uint16_t index = eos_hash_get_index(name);
     EOS_ASSERT(index == EOS_MAX_OBJECTS);
 
@@ -1154,7 +1126,6 @@ void eos_timer_start(   eos_timer_t *const me,
     {
         eos.timer_out_min = me->time_out;
     }
-    EK_DEBUG("_interrupt_enable. eos_timer_start.");
     eos_interrupt_enable();
 }
 
@@ -1163,7 +1134,6 @@ void eos_timer_delete(const char *name)
 {
     /* Check the timer is existent or not. */
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. eos_timer_delete.");
     uint16_t index = eos_hash_get_index(name);
     EOS_ASSERT(index != EOS_MAX_OBJECTS);
 
@@ -1184,7 +1154,6 @@ void eos_timer_delete(const char *name)
                 last->next = list->next;
             }
 
-            EK_DEBUG("_interrupt_enable. eos_timer_delete.");
             eos_interrupt_enable();
             
             return;
@@ -1202,7 +1171,6 @@ void eos_timer_pause(const char *name)
 {
     /* Check the timer is existent or not. */
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. eos_timer_pause.");
     uint16_t index = eos_hash_get_index(name);
     EOS_ASSERT(index != EOS_MAX_OBJECTS);
     eos_timer_t *timer = eos.object[index].ocb.timer;
@@ -1221,7 +1189,6 @@ void eos_timer_pause(const char *name)
     }
     eos.timer_out_min = time_out_min;
 
-    EK_DEBUG("_interrupt_enable. eos_timer_pause.");
     eos_interrupt_enable();
 }
 
@@ -1400,7 +1367,6 @@ static void __eos_e_queue_delete(eos_event_data_t const *item)
     if (item->last == EOS_NULL && item->next == EOS_NULL)
     {
         eos.e_queue = EOS_NULL;
-        
     }
     /* If the event data is the first one in queue. */
     else if (item->last == EOS_NULL && item->next != EOS_NULL)
@@ -1421,7 +1387,9 @@ static void __eos_e_queue_delete(eos_event_data_t const *item)
     }
     
     /* free the event data. */
+    eos_interrupt_disable();
     eos_heap_free(&eos.heap, (void *)item);
+    eos_interrupt_enable();
     
     /* Calculate the owner_global. */
     eos.owner_global = 0;
@@ -1599,7 +1567,6 @@ static int8_t __eos_event_give( const char *task,
     if (eos_interrupt_nest > 0)
     {
         eos_interrupt_disable();
-        EK_DEBUG("_interrupt_disable. __eos_event_give. 01.");
     }
     
     /* Get event id according to the event topic. */
@@ -1608,7 +1575,6 @@ static int8_t __eos_event_give( const char *task,
     if (e_id == EOS_MAX_OBJECTS)
     {
         eos_interrupt_disable();
-        EK_DEBUG("_interrupt_disable. __eos_event_give. 02.");
 
         /* Newly create one event in the hash table. */
         e_id = eos_hash_insert(topic);
@@ -1616,7 +1582,6 @@ static int8_t __eos_event_give( const char *task,
         eos.object[e_id].ocb.event.t_id = EOS_MAX_OBJECTS;
         e_type = EOS_EVENT_ATTRIBUTE_TOPIC;
 
-        EK_DEBUG("_interrupt_enable. __eos_event_give. 02.");
         eos_interrupt_enable();
     }
     else
@@ -1692,9 +1657,6 @@ static int8_t __eos_event_give( const char *task,
         EOS_ASSERT(0);
     }
 
-    /* Write into the golbal owner flag. */
-    eos.owner_global |= owner;
-
     /* That's impossible that the current task is waiting event and is waiting
        one specific event simultaneously. */
     EOS_ASSERT((eos.task_wait_specific_event & eos.task_wait_event) == 0);
@@ -1740,8 +1702,10 @@ static int8_t __eos_event_give( const char *task,
     if (e_type == EOS_EVENT_ATTRIBUTE_TOPIC)
     {
         /* Apply one data for the event. */
+        eos_interrupt_disable();
         eos_event_data_t *data
             = eos_heap_malloc(&eos.heap, sizeof(eos_event_data_t));
+        eos_interrupt_enable();
         EOS_ASSERT(data != EOS_NULL);
         data->id = e_id;
         data->owner = owner;
@@ -1774,7 +1738,9 @@ static int8_t __eos_event_give( const char *task,
             eos_event_data_t *data;
 
             /* Apply one data for the event. */
+            eos_interrupt_disable();
             data = eos_heap_malloc(&eos.heap, sizeof(eos_event_data_t));
+            eos_interrupt_enable();
             EOS_ASSERT(data != EOS_NULL);
             data->owner = owner;
             data->id = e_id;
@@ -1810,12 +1776,14 @@ static int8_t __eos_event_give( const char *task,
         EOS_ASSERT(0);
     }
 
+    /* Write into the golbal owner flag. */
+    eos.owner_global |= owner;
+
 __EXIT:
     /* If in interrupt function. */
     if (eos_interrupt_nest > 0)
     {
         eos_interrupt_enable();
-        EK_DEBUG("_interrupt_disable. __eos_event_give. 02.");
     }
     /* If not in interrupt function. */
     else
@@ -1864,7 +1832,6 @@ void eos_event_publish(const char *topic)
 static inline void __eos_event_sub(eos_task_t *const me, const char *topic)
 {
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. __eos_event_sub.");
 
     /* Find the object by the event topic. */
     uint16_t index;
@@ -1891,7 +1858,6 @@ static inline void __eos_event_sub(eos_task_t *const me, const char *topic)
     /* Write the subscribing information into the object data. */
     eos.object[index].ocb.event.sub |= (1 << me->priority);
 
-    EK_DEBUG("_interrupt_enable. __eos_event_sub.");
     eos_interrupt_enable();
 }
 
@@ -1903,7 +1869,6 @@ void eos_event_sub(const char *topic)
 void eos_event_unsub(const char *topic)
 {
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. eos_event_unsub.");
 
     /* Find the matching object by the topic. */
     uint16_t index = eos_hash_get_index(topic);
@@ -1914,7 +1879,6 @@ void eos_event_unsub(const char *topic)
     /* Clear the subscirbe flag. */
     eos.object[index].ocb.event.sub &=~ (1 << eos_current->priority);
 
-    EK_DEBUG("_interrupt_enable. eos_event_unsub.");
     eos_interrupt_enable();
 }
 
@@ -1927,7 +1891,6 @@ static void eos_event_pub_time(const char *topic,
     EOS_ASSERT(eos.timer_count < EOS_MAX_TIME_EVENT);
 
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. eos_event_pub_time.");
 
     /* Repeated event timer is not repeated. */
     for (uint32_t i = 0; i < eos.timer_count; i ++)
@@ -1963,7 +1926,6 @@ static void eos_event_pub_time(const char *topic,
         eos.timeout_min = timeout;
     }
 
-    EK_DEBUG("_interrupt_enable. eos_event_pub_time.");
     eos_interrupt_enable();
 }
 
@@ -2082,7 +2044,6 @@ static inline void __eos_db_write(uint8_t type,
     if (eos_interrupt_nest > 0)
     {
         eos_interrupt_disable();
-        EK_DEBUG("_interrupt_disable. __eos_db_write.");
     }
 
     /* Get event id according the topic. */
@@ -2172,7 +2133,6 @@ static inline int32_t __eos_db_read(uint8_t type,
     if (eos_interrupt_nest > 0)
     {
         eos_interrupt_disable();
-        EK_DEBUG("_interrupt_disable. __eos_db_read.");
     }
 
     /* Get event id according the topic. */
@@ -2286,7 +2246,6 @@ void eos_db_register(const char *key, uint32_t size, uint8_t attribute)
 
     /* Check the event key's attribute. */
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. eos_db_register.");
     uint16_t e_id = eos_hash_get_index(key);
     if (e_id == EOS_MAX_OBJECTS)
     {
@@ -2304,7 +2263,9 @@ void eos_db_register(const char *key, uint32_t size, uint8_t attribute)
     if ((attribute & EOS_DB_ATTRIBUTE_VALUE) != 0)
     {
         /* Apply a memory for the db key. */
+        eos_interrupt_disable();
         void *data = eos_heap_malloc(&eos.db, size);
+        eos_interrupt_enable();
         EOS_ASSERT(data != EOS_NULL);
 
         eos.object[e_id].data.value = data;
@@ -2313,7 +2274,9 @@ void eos_db_register(const char *key, uint32_t size, uint8_t attribute)
     else if ((attribute & EOS_DB_ATTRIBUTE_STREAM) != 0)
     {
         /* Apply a memory for the db key. */
+        eos_interrupt_disable();
         void *data = eos_heap_malloc(&eos.db, (size + sizeof(eos_stream_t)));
+        eos_interrupt_enable();
         EOS_ASSERT(data != EOS_NULL);
 
         eos.object[e_id].data.stream = (eos_stream_t *)data;
@@ -2329,7 +2292,6 @@ void eos_db_register(const char *key, uint32_t size, uint8_t attribute)
         eos.object[e_id].ocb.event.sub = (1 << priority);
     }
 
-    EK_DEBUG("_interrupt_enable. eos_db_register.");
     eos_interrupt_enable();
 }
 
@@ -2341,14 +2303,12 @@ void eos_db_block_read(const char *key, void * const data)
 void eos_db_block_read_isr(const char *key, void * const data)
 {
     eos_interrupt_disable();
-    EK_DEBUG("_interrupt_disable. eos_db_block_read_isr.");
     uint16_t e_id = eos_hash_get_index(key);
     EOS_ASSERT(e_id != EOS_MAX_OBJECTS);
 
     eos_object_t *object = &eos.object[e_id];
     memcpy(data, object->data.value, object->size);
 
-    EK_DEBUG("_interrupt_enable. eos_db_block_read_isr.");
     eos_interrupt_enable();
 }
 
@@ -2727,7 +2687,8 @@ void * eos_heap_malloc(eos_heap_t *const me, uint32_t size)
 
     /* Find the first free block in the block-list. */
     block = (eos_heap_block_t *)me->list;
-    do {
+    do
+    {
         if (block->is_free == 1 &&
             block->size > (size + sizeof(eos_heap_block_t)))
         {
@@ -2767,6 +2728,7 @@ void * eos_heap_malloc(eos_heap_t *const me, uint32_t size)
     }
 
     me->error_id = 0;
+
     return (void *)((uint32_t)block + (uint32_t)sizeof(eos_heap_block_t));
 }
 

@@ -195,11 +195,8 @@ void eos_port_task_switch(void)
     *(uint32_t volatile *)0xE000ED04 = (1U << 28);
 }
 
-uint32_t eos_error_id = 0;
 void eos_port_assert(uint32_t error_id)
 {
-    eos_error_id = error_id;
-
     while (1) {
     }
 }
