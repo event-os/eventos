@@ -100,17 +100,17 @@ typedef uint64_t                        eos_pointer_t;
 EventOS
 ----------------------------------------------------------------------------- */
 extern volatile int32_t critical_count;
-#define eos_interrupt_disable() do {    \
-    __disable_irq();    \
-    critical_count ++; \
+#define eos_interrupt_disable() do {                                           \
+    __disable_irq();                                                           \
+    critical_count ++;                                                         \
 } while (0)
 
-#define eos_interrupt_enable() do { \
-    critical_count --;  \
-    EOS_ASSERT(critical_count >= 0); \
-    if (critical_count == 0) {   \
-        __enable_irq();    \
-    }   \
+#define eos_interrupt_enable() do {                                            \
+    critical_count --;                                                         \
+    EOS_ASSERT(critical_count >= 0);                                           \
+    if (critical_count == 0) {                                                 \
+        __enable_irq();                                                        \
+    }                                                                          \
 } while (0)
 
 // EventOS initialization.
@@ -453,7 +453,6 @@ void eos_cpu_usage_monitor(void);
 Port
 ----------------------------------------------------------------------------- */
 void eos_port_task_switch(void);
-void eos_port_assert(uint32_t error_id);
 
 /* -----------------------------------------------------------------------------
 Hook

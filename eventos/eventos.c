@@ -440,7 +440,7 @@ static void task_func_idle(void *parameter)
             {
                 size_used = 0;
                 stack = (uint32_t *)(eos.task[i]->ocb.task->stack);
-                for (uint32_t m = 0; m < (eos.task[i]->size / 4); m ++)
+                for (uint32_t m = 0; m < (eos.task[i]->ocb.task->size / 4); m ++)
                 {
                     if (stack[m] == 0xDEADBEEFU)
                     {

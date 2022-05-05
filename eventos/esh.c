@@ -31,7 +31,7 @@ typedef struct esh_key_info
 #elif (EOS_SHELL_CLIENT == 2)
     uint8_t value[5];
 #endif
-    const char * name;
+    const char *name;
 } esh_key_info_t;
 
 // 特殊功能键
@@ -165,13 +165,13 @@ enum
 // 指令数据
 typedef struct esh_cmd_reg
 {
-    const char * name;                              // 指令名称
+    const char *name;                              // 指令名称
     uint8_t shortcut;                               // 快捷键
     esh_hook_t hook;                                // 回调函数
-    const char * help;
+    const char *help;
 } esh_cmd_reg_t;
 
-static void esh_hook_null(char * mode, char * func, int num, char ** para);
+static void esh_hook_null(char *mode, char *func, int num, char ** para);
 static void esh_fkey_hook_default(uint8_t key_id);
 static void esh_fkey_hook_null(uint8_t key_id);
 static void esh_clear_buff_cmd(void);
@@ -203,7 +203,7 @@ typedef struct msh_tag
 msh_t esh;
 
 // hooks -----------------------------------------------------------------------
-static void hook_help(char * mode, char * func, int num, char ** para);
+static void hook_help(char *mode, char *func, int num, char ** para);
 
 // default shell cmd table -----------------------------------------------------
 #define HELP_INFORMATION "Msh, version 3.0.0.\n\r\
@@ -227,7 +227,7 @@ static const esh_cmd_reg_t esh_reg_table_default[] =
 };
 
 // private data ----------------------------------------------------------------
-static char * data_newline = "\n\r";
+static char *data_newline = "\n\r";
 static eos_task_t task_esh;
 static uint8_t stask_esh[ESH_TASK_STACK_SIZE];
 
@@ -285,13 +285,12 @@ void esh_start(void)
     }
 
     esh.state = EshState_Log;
-    const char * str_start = "\033[0;37m\n\rMsh started!\n\r";
+    const char *str_start = "\033[0;37m\n\rMsh started!\n\r";
     esh_port_send((void *)str_start, strlen(str_start));
 }
 
 bool esh_ready(void)
 {
-    return true;
     return esh.state == EshState_Unready ? false : true;
 }
 
@@ -302,7 +301,7 @@ void esh_mode(uint32_t mode)
     // TODO
 }
 
-void esh_cmd_reg(const char * cmd, uint8_t shortcut, esh_hook_t hook, const char * help)
+void esh_cmd_reg(const char *cmd, uint8_t shortcut, esh_hook_t hook, const char *help)
 {
     EOS_ASSERT(shortcut >= Esh_Ctrl_Start && shortcut < Esh_Max);
 
@@ -332,7 +331,7 @@ void esh_set_fkey_hook(esh_fkey_hook_t fkey_hook)
     esh.fkey_hook = fkey_hook;
 }
 
-void esh_log(const char * log)
+void esh_log(const char *log)
 {
 #if (ESH_MUTEX_EN != 0)
     /* Unlock the elog mutex. */
@@ -351,6 +350,7 @@ __EXIT:
     /* Unlock the elog mutex. */
     eos_mutex_release(ESH_MUTEX);
 #endif
+    (void)log;
 }
 
 static void esh_task_funcntion(void *parameter)
@@ -432,7 +432,10 @@ static void esh_task_funcntion(void *parameter)
             if (key_id == Esh_Backspace)
             {
                 if (esh.count_cmd <= 0)
+                {
                     break;
+                }
+
                 esh.count_cmd --;
                 esh.buff_cmd[esh.count_cmd] = 0;
                 // 删除字符
@@ -461,13 +464,13 @@ static void esh_task_funcntion(void *parameter)
                 esh.state = EshState_Act;
                 break;
             }
-            // 特殊功能键
+            /* Special function key. */
             if (key_id >= Esh_F1 && key_id <= Esh_PageDown)
             {
                 esh.fkey_hook(key_id);
                 break;
             }
-            // 其他键，不予理会
+            /* Ignore other key. */
             break;
         }
 
@@ -568,18 +571,22 @@ static uint8_t esh_get_key_id(void)
     }
     // 检查是否组合键
     for (uint32_t i = 0; i < sizeof(zkey_value_table) / sizeof(esh_key_info_t); i ++)
+    {
         if (zkey_value_table[i].value[0] == esh.buff_recv[0])
         {
             esh_pop_buff_recv(1);
             return (Esh_Ctrl_Start + i);
         }
+    }
     // 检查是否普通功能键
     for (uint32_t i = 0; i < sizeof(nkey_value_table) / sizeof(esh_key_info_t); i ++)
+    {
         if (nkey_value_table[i].value[0] == esh.buff_recv[0])
         {
             esh_pop_buff_recv(1);
             return (Esh_Backspace + i);
         }
+    }
     
     return Esh_Null;
 }
@@ -599,25 +606,33 @@ static void esh_cmd_parser(void)
     char cmd[esh.count_cmd + 1];
     uint32_t count_cmd = esh.count_cmd + 1;
     for (uint32_t i = 0; i < esh.count_cmd + 1; i ++)
+    {
         cmd[i] = 0;
+    }
     // 拷贝指令，并将所有的空格变为0.
     for (uint32_t i = 0; i < esh.count_cmd; i ++)
     {
         cmd[i] = esh.buff_cmd[i];
         if (cmd[i] == ' ')
+        {
             cmd[i] = 0;
+        }
     }
 
     #define ESH_CMD_MODE_SIZE                   16
     #define ESH_CMD_PARA_SIZE                   4
 
     // 解析指令的各个元素
-    char * name = 0, * function = 0, * para[ESH_CMD_PARA_SIZE];
+    char *name = 0, *function = 0, *para[ESH_CMD_PARA_SIZE];
     char mode[ESH_CMD_MODE_SIZE];
     for (uint32_t i = 0; i < ESH_CMD_PARA_SIZE; i ++)
+    {
         para[i] = 0;
+    }
     for (uint32_t i = 0; i < ESH_CMD_MODE_SIZE; i ++)
+    {
         mode[i] = 0;
+    }
     uint32_t count_mode = 0;
     uint32_t count_para = 0;
     // 指令名称 例如mdb
@@ -628,7 +643,8 @@ static void esh_cmd_parser(void)
         if (cmd[i] == 0 && cmd[i + 1] == '-' && cmd[i + 2] == '-' && cmd[i + 3] != '-')
         {
             function = &cmd[i + 1];
-            goto SHELL_CMD_PARSER;
+
+            goto ESH_CMD_PARSER;
         }
     }
     // 模式 -rf -m -a之类
@@ -641,9 +657,10 @@ static void esh_cmd_parser(void)
                 mode[count_mode ++] = cmd[i + 2 + m ++];
             if (count_mode >= ESH_CMD_MODE_SIZE)
             {
-                const char * info = "Wrong Cmd. Too many -mode.\n\r>> ";
+                const char *info = "Wrong Cmd. Too many -mode.\n\r>> ";
                 esh_port_send((void *)info, strlen(info));
                 esh_clear_buff_cmd();
+
                 return;
             }
         }
@@ -656,9 +673,10 @@ static void esh_cmd_parser(void)
             para[count_para] = &cmd[i + 1];
             if (count_para >= ESH_CMD_PARA_SIZE)
             {
-                const char * info = "Wrong Cmd. Too many para.\n\r>> ";
+                const char *info = "Wrong Cmd. Too many para.\n\r>> ";
                 esh_port_send((void *)info, strlen(info));
                 esh_clear_buff_cmd();
+
                 return;
             }
             
@@ -669,29 +687,29 @@ static void esh_cmd_parser(void)
     // 解析
     uint16_t cmd_num = sizeof(esh_reg_table_default) / sizeof(esh_cmd_reg_t);
 
-SHELL_CMD_PARSER:
+ESH_CMD_PARSER:
     // 在指令注册列表中的指令
     for (uint32_t m = 0; m < esh.count_reg; m ++)
     {
-        if (strcmp(name, esh.reg_table[m].name) != 0)
+        if (strcmp(name, esh.reg_table[m].name) == 0)
         {
-            continue;
+            // 一个新行
+            esh_port_send((void *)data_newline, 2);
+            
+            esh_port_send((void *)data_newline, 2);
+            esh.reg_table[m].hook(mode, function, count_para, para);
+            // clear all cmd char
+            esh_clear_buff_cmd();
+
+            return;
         }
-        // 一个新行
-        esh_port_send((void *)data_newline, 2);
-        
-        esh_port_send((void *)data_newline, 2);
-        esh.reg_table[m].hook(mode, function, count_para, para);
-        // clear all cmd char
-        esh_clear_buff_cmd();
-        return;
     }
 
     // 错误指令
     // a new line
     esh_port_send((void *)data_newline, 2);
     
-    const char * wrong_cmd = "wrong cmd!";
+    const char *wrong_cmd = "wrong cmd!";
     esh_port_send((void *)wrong_cmd, strlen(wrong_cmd));
     // clear all cmd char
     esh_clear_buff_cmd();
@@ -709,7 +727,7 @@ static void esh_clear_buff_cmd(void)
     esh.count_cmd = 0;
 }
 
-static void esh_hook_null(char * mode, char * func, int num, char ** para)
+static void esh_hook_null(char *mode, char *func, int num, char ** para)
 {
     (void)mode;
     (void)func;
@@ -728,9 +746,9 @@ static void esh_fkey_hook_default(uint8_t key_id)
 }
 
 // hook ------------------------------------------------------------------------
-static void hook_help(char * mode, char * func, int num, char ** para)
+static void hook_help(char *mode, char *func, int num, char ** para)
 {
-    const char * string;
+    const char *string;
     uint8_t newline[2] = {0x0D, 0x0A};
     string = "Shell help:\n\r";
     esh_port_send((void *)string, strlen(string));

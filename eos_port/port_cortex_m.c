@@ -10,16 +10,19 @@ void eos_task_start_private(eos_task_t * const me,
     *(uint32_t volatile *)0xE000ED20 |= (0xFFU << 16U);
     
     uint32_t mod = (uint32_t)me->stack % 4;
-    if (mod == 0) {
+    if (mod == 0)
+    {
         me->stack = stack_addr;
         me->size = stack_size;
     }
-    else {
+    else
+    {
         me->stack = (void *)((uint32_t)stack_addr - mod);
         me->size = stack_size - 4;
     }
     /* pre-fill the unused part of the stack with 0xDEADBEEF */
-    for (uint32_t i = 0; i < (me->size / 4); i ++) {
+    for (uint32_t i = 0; i < (me->size / 4); i ++)
+    {
         ((uint32_t *)me->stack)[i] = 0xDEADBEEFU;
     }
     
@@ -193,10 +196,4 @@ void PendSV_Handler(void)
 void eos_port_task_switch(void)
 {
     *(uint32_t volatile *)0xE000ED04 = (1U << 28);
-}
-
-void eos_port_assert(uint32_t error_id)
-{
-    while (1) {
-    }
 }

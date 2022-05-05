@@ -37,7 +37,8 @@ typedef struct elog_object
     uint8_t level;
 } elog_object_t;
 
-typedef struct elog {
+typedef struct elog
+{
     char buff_assert[ELOG_SIZE_LOG];
     uint32_t count_assert;
     bool enable;
@@ -424,8 +425,8 @@ void elog_assert(const char *tag, const char *name, uint32_t id)
 #endif
     
     eos_interrupt_disable();
-    while (1) {
-        
+    while (1)
+    {
     }
 }
 
@@ -463,14 +464,15 @@ void elog_assert_info(const char *tag, const char *s_format, ...)
 #endif
     
     eos_interrupt_disable();
-    while (1) {
+    while (1)
+    {
     }
 }
 
 // static function -------------------------------------------------------------
 static void __elog_time(uint64_t time_ms, elog_time_t *log_time)
 {
-    log_time->ms = (int)(time_ms % 1000);
+    log_time->ms = (uint32_t)(time_ms % 1000);
     log_time->second = (time_ms / 1000) % 60;
     log_time->minute = (time_ms / 60000) % 60;
     log_time->hour = (time_ms / 3600000) % 24;

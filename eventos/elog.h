@@ -23,7 +23,8 @@ extern "C" {
 #define ELOG_LINE_FEED                          0   // 0: \n, 1: \r\n
 
 // level -----------------------------------------------------------------------
-enum {
+enum
+{
     eLogLevel_Debug = 0,
     eLogLevel_Info,
     eLogLevel_Warn,

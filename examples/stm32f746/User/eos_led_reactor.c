@@ -14,6 +14,8 @@ typedef struct eos_reactor_led_tag {
 uint8_t stack_led[256];
 eos_reactor_led_t actor_led;
 
+EOS_TAG("ReactorLed")
+
 /* static event handler ----------------------------------------------------- */
 static void led_e_handler(eos_reactor_led_t * const me, eos_event_t const * const e);
 
@@ -34,23 +36,32 @@ void eos_reactor_led_init(void)
 /* static state function ---------------------------------------------------- */
 uint32_t time1 = 0, time2 = 0;
 uint8_t evt_count = 0;
+
 static void led_e_handler(eos_reactor_led_t * const me, eos_event_t const * const e)
 {
-    if (eos_event_topic(e, "Event_Enter")) {
+    if (eos_event_topic(e, "Event_Enter"))
+    {
 #if (EOS_USE_PUB_SUB != 0)
         eos_event_sub("Event_Time_1000ms");
 #endif
     }
     
-    if (eos_event_topic(e, "Event_Time_1000ms")) {
+    if (eos_event_topic(e, "Event_Time_1000ms"))
+    {
         evt_count ++;
+        uint32_t data[32];
         
-        time1 = eos_time();
-        me->status = (me->status == 0) ? 1 : 0;
-        eos_delay_ms(500);
+        for (uint32_t i = 0; i < 32; i ++) {
+            data[i] = eos_time();
+        }
+//        EOS_DEBUG("EventOS recieves Event_Time_1000ms.");
         
-        time2 = eos_time();
-        me->status = (me->status == 0) ? 1 : 0;
+//        time1 = eos_time();
+//        me->status = (me->status == 0) ? 1 : 0;
+//        eos_delay_ms(500);
+//        
+//        time2 = eos_time();
+//        me->status = (me->status == 0) ? 1 : 0;
     }
 }
 
