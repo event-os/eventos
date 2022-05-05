@@ -93,7 +93,7 @@ enum
 };
 
 /* Event atrribute ------------------------------------------------------------- */
-#define EOS_KERNEL_LOG_EN                   1
+#define EOS_KERNEL_LOG_EN                   0
 
 #if (EOS_KERNEL_LOG_EN != 0)
 #define EK_PRINT(...)                       elog_printf(__VA_ARGS__)
@@ -1407,25 +1407,32 @@ static uint16_t eos_task_init(  eos_task_t *const me,
                                 uint8_t priority,
                                 void *stack, uint32_t size)
 {
-    /* 框架需要先启动起来 */
+    /* Check EventOS is running or not. */
     EOS_ASSERT(eos.enabled != EOS_False);
     EOS_ASSERT(eos.running == EOS_False);
 
-    /* 参数检查 */
+    /* Check all arguments are valid. */
     EOS_ASSERT(me != (eos_task_t *)0);
     EOS_ASSERT(priority < EOS_MAX_TASKS);
-    /* 防止二次启动，检查优先级的重复注册 */
+
+    /* Prevent the task starts for the second time. */
     EOS_ASSERT(me->enabled == EOS_False);
+
+    /* Check the task is registered for the second time. */
     EOS_ASSERT((eos.task_exist & (1 << priority)) == 0);
-    /* 检查重名 */
+
+    /* Prevent duplication of name. */
     EOS_ASSERT(eos_hash_get_index(name) == EOS_MAX_OBJECTS);
-    /* 获取哈希表的位置 */
+
+    /* Get the position of the hash table. */
     uint16_t index = eos_hash_insert(name);
     eos.object[index].ocb.task = me;
-    /* 注册到框架里 */
+
+    /* Write the task into the EventOS block. */
     eos.task_exist |= (1 << priority);
     eos.task[priority] = &(eos.object[index]);
-    /* 状态机 */
+
+    /* The task information. */
     me->priority = priority;
     me->stack = stack;
     me->size = size;
@@ -2936,7 +2943,9 @@ static int32_t eos_stream_push(eos_stream_t *const me, void * data, uint32_t siz
     }
 
     for (int i = 0; i < size; i ++)
+    {
         ((uint8_t *)me->data)[(me->head + i) % me->capacity] = ((uint8_t *)data)[i];
+    }
     me->head = (me->head + size) % me->capacity;
     me->empty = false;
 
@@ -2946,7 +2955,9 @@ static int32_t eos_stream_push(eos_stream_t *const me, void * data, uint32_t siz
 static int32_t eos_stream_pull_pop(eos_stream_t *const me, void * data, uint32_t size)
 {
     if (me->empty)
+    {
         return 0;
+    }
 
     uint32_t size_stream = eos_stream_size(me);
     size = (size_stream < size) ? size_stream : size;
