@@ -394,7 +394,7 @@ static inline void eos_task_delay_handle(void);
 /* -----------------------------------------------------------------------------
 EventOS
 ----------------------------------------------------------------------------- */
-static uint64_t stack_idle[512];
+static uint64_t stack_idle[64];
 static eos_task_t task_idle;
 
 static inline void eos_task_delay_handle(void)

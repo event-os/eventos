@@ -7,11 +7,11 @@
 #include <string.h>
 
 /* main function ------------------------------------------------------------ */
-uint64_t stack_task[512];
+uint64_t stack_task[64];
 eos_task_t task_test;
-uint64_t stack_task_event[512];
+uint64_t stack_task_event[64];
 eos_task_t task_event;
-uint64_t stack_task_e_specific[512];
+uint64_t stack_task_e_specific[64];
 eos_task_t task_e_specific;
 
 uint32_t count_test[32];
@@ -181,8 +181,8 @@ int main(void)
 {
     SystemCoreClockUpdate();
 
-//    SCB_EnableICache(); /* Enable I-Cache */
-//    SCB_EnableDCache(); /* Enable D-Cache */
+    SCB_EnableICache(); /* Enable I-Cache */
+    SCB_EnableDCache(); /* Enable D-Cache */
     
     if (SysTick_Config(SystemCoreClock / 1000) != 0)
         while (1);
@@ -211,8 +211,8 @@ int main(void)
     eos_db_register("Event_Value_Link", sizeof(e_value_t),
                     (EOS_DB_ATTRIBUTE_VALUE | EOS_DB_ATTRIBUTE_LINK_EVENT));
     
-//    eos_sm_led_init();                              // LED状态机初始化
-//    eos_reactor_led_init();
+    eos_sm_led_init();                              // LED状态机初始化
+    eos_reactor_led_init();
     
     eos_task_start( &task_test,
                     "task_test", task_func_test, TaskPriority_Test,
