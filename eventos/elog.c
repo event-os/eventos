@@ -19,7 +19,7 @@ extern "C" {
 Define
 ----------------------------------------------------------------------------- */
 #define ELOG_MUTEX                      "mutex_elog"
-#define ELOG_MUTEX_EN                   0
+#define ELOG_MUTEX_EN                   1
 
 // data struct -----------------------------------------------------------------
 typedef struct elog_time_tag
@@ -211,33 +211,35 @@ void elog_tag_level(const char *tag, uint32_t level)
 static char buff[ELOG_SIZE_LOG];
 static char ctime[48];
 static elog_time_t time;
-void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_format, va_list *param_list)
+void __elog_print(const char *tag, uint8_t level, bool lf_en, const char * s_format, va_list *param_list)
 {
     /* It's not permitted that log device is regitstered after the log module
        starts. */
     EOS_ASSERT(dev_list != NULL);
 
-    bool enable = elog.enable;
-    uint32_t level = elog.level;
-    uint32_t color = elog.color;
-    
-    if (enable == false)
-    {
-        return;
-    }
-    if (level > _level)
-    {
-        return;
-    }
-    
+    int32_t len;
+    int32_t count;
+    elog_device_t *next;
+    int32_t len_head;
+    bool valid;
+
 #if (ELOG_MUTEX_EN != 0)
     /* Lock the elog mutex. */
     eos_mutex_take(ELOG_MUTEX);
 #endif
     
+    if (elog.enable == false)
+    {
+        goto __ELOG_PRINT_EXIT;
+    }
+    if (elog.level > level)
+    {
+        goto __ELOG_PRINT_EXIT;
+    }
+    
     if (lf_en == true)
     {
-        bool valid = false;
+        valid = false;
         
         if (__hash_get_index(tag) != ELOG_MAX_OBJECTS)
         {
@@ -246,38 +248,33 @@ void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_fo
     }
 
     memset(buff, 0, ELOG_SIZE_LOG);
-    if (color != _level)
+    if (elog.color != level)
     {
-        color = _level;
+        elog.color = level;
         /* Output the buffer data if device is ready. */
-        elog_device_t *next = dev_list;
+        next = dev_list;
         while (next != NULL)
         {
             if (next->ready())
             {
-                next->out((char *)string_color_log[_level]);
+                next->out((char *)string_color_log[level]);
             }
             next = next->next;
         }
-        elog.color = color;
     }
 
     __elog_time(eos_time(), &time);
-    int32_t len_head = sprintf(ctime,"[%02d:%02d:%02d %03d] %s (%s) ",
-        time.hour, time.minute, time.second, time.ms,
-        string_level_log[_level], tag);
+    len_head = sprintf(ctime,"[%02d:%02d:%02d %03d] %s (%s) ",
+                        time.hour, time.minute, time.second, time.ms,
+                        string_level_log[level], tag);
 
-    int32_t len;
     if (lf_en == true)
     {
         strcat(buff, ctime);
         len = strlen(buff) + len_head;
     }
     len = strlen(buff);
-    int32_t count = vsnprintf(&buff[len],
-                              ELOG_SIZE_LOG - 3 - len,
-                              s_format,
-                              *param_list);
+    count = vsnprintf(&buff[len], (ELOG_SIZE_LOG - 3 - len), s_format, *param_list);
     
     if (lf_en == true)
     {
@@ -293,7 +290,7 @@ void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_fo
         }
     }
     
-    elog_device_t *next = dev_list;
+    next = dev_list;
     while (next != NULL)
     {
         if (next->ready())
@@ -302,19 +299,18 @@ void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_fo
         }
         next = next->next;
     }
-    
+
+__ELOG_PRINT_EXIT:
 #if (ELOG_MUTEX_EN != 0)
     eos_mutex_release(ELOG_MUTEX);      /* Unlock the elog mutex. */
 #endif
 }
 
-void m_printf(const char *s_format, ...)
+void elog_printf(const char *s_format, ...)
 {
-    const char *tag = "__null";
-
     va_list param_list;
     va_start(param_list, s_format);
-    __elog_print(tag, eLogLevel_Debug, false, s_format, &param_list);
+    __elog_print("__null", eLogLevel_Debug, false, s_format, &param_list);
     va_end(param_list);
 }
 
@@ -358,7 +354,7 @@ void elog_error(const char *tag, const char *s_format, ...)
     va_end(param_list);
 }
 
-void m_flush(void)
+void elog_flush(void)
 {
 #if (ELOG_MUTEX_EN != 0)
     /* Lock the elog mutex. */
@@ -540,16 +536,11 @@ static uint16_t __hash_get_index(const char *string)
             index = index_init + i * j + 2 * (int16_t)ELOG_MAX_OBJECTS;
             index %= ELOG_MAX_OBJECTS;
 
-            if (hash.obj[index].tag[0] == 0)
+            if (hash.obj[index].tag[0] != 0 &&
+                strcmp(hash.obj[index].tag, string) == 0)
             {
-                continue;
+                return index;
             }
-            if (strcmp(hash.obj[index].tag, string) != 0)
-            {
-                continue;
-            }
-            
-            return index;
         }
     }
     

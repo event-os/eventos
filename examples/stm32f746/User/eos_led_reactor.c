@@ -11,7 +11,7 @@ typedef struct eos_reactor_led_tag {
     uint8_t status;
 } eos_reactor_led_t;
 
-uint8_t stack_led[256];
+uint8_t stack_led[512];
 eos_reactor_led_t actor_led;
 
 EOS_TAG("ReactorLed")
@@ -49,19 +49,15 @@ static void led_e_handler(eos_reactor_led_t * const me, eos_event_t const * cons
     if (eos_event_topic(e, "Event_Time_1000ms"))
     {
         evt_count ++;
-        uint32_t data[32];
+
+        EOS_DEBUG("EventOS recieves Event_Time_1000ms.");
         
-        for (uint32_t i = 0; i < 32; i ++) {
-            data[i] = eos_time();
-        }
-//        EOS_DEBUG("EventOS recieves Event_Time_1000ms.");
+        time1 = eos_time();
+        me->status = (me->status == 0) ? 1 : 0;
+        eos_delay_ms(500);
         
-//        time1 = eos_time();
-//        me->status = (me->status == 0) ? 1 : 0;
-//        eos_delay_ms(500);
-//        
-//        time2 = eos_time();
-//        me->status = (me->status == 0) ? 1 : 0;
+        time2 = eos_time();
+        me->status = (me->status == 0) ? 1 : 0;
     }
 }
 
