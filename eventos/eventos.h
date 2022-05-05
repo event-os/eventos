@@ -99,6 +99,20 @@ typedef uint64_t                        eos_pointer_t;
 /* -----------------------------------------------------------------------------
 EventOS
 ----------------------------------------------------------------------------- */
+extern volatile int32_t critical_count;
+#define eos_interrupt_disable() do {    \
+    __disable_irq();    \
+    critical_count ++; \
+} while (0)
+
+#define eos_interrupt_enable() do { \
+    critical_count --;  \
+    EOS_ASSERT(critical_count >= 0); \
+    if (critical_count == 0) {   \
+        __enable_irq();    \
+    }   \
+} while (0)
+
 // EventOS initialization.
 void eos_init(void);
 // Run EventOS.
@@ -109,10 +123,10 @@ uint64_t eos_time(void);
 // uint64_t eos_time_us(void);
 // System tick function.
 void eos_tick(void);
-// Disable the global interrupt.
-void eos_interrupt_disable(void);
-// 开中断
-void eos_interrupt_enable(void);
+// // Disable the global interrupt.
+// void eos_interrupt_disable(void);
+// // 开中断
+// void eos_interrupt_enable(void);
 // 进入中断
 void eos_interrupt_enter(void);
 // 退出中断

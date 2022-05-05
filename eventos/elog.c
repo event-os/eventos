@@ -207,25 +207,18 @@ void elog_tag_level(const char *tag, uint32_t level)
     (void)level;
 }
 
+static char buff[ELOG_SIZE_LOG];
+static char ctime[48];
+static elog_time_t time;
 void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_format, va_list *param_list)
 {
     /* It's not permitted that log device is regitstered after the log module
        starts. */
     EOS_ASSERT(dev_list != NULL);
 
-#if (ELOG_MUTEX_EN != 0)
-    /* Lock the elog mutex. */
-    eos_mutex_take(ELOG_MUTEX);
-#endif
-    
     bool enable = elog.enable;
     uint32_t level = elog.level;
     uint32_t color = elog.color;
-
-#if (ELOG_MUTEX_EN != 0)
-    /* Unlock the elog mutex. */
-    eos_mutex_release(ELOG_MUTEX);
-#endif
     
     if (enable == false)
     {
@@ -235,7 +228,12 @@ void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_fo
     {
         return;
     }
-
+    
+#if (ELOG_MUTEX_EN != 0)
+    /* Lock the elog mutex. */
+    eos_mutex_take(ELOG_MUTEX);
+#endif
+    
     if (lf_en == true)
     {
         bool valid = false;
@@ -246,7 +244,6 @@ void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_fo
         }
     }
 
-    char buff[ELOG_SIZE_LOG];
     memset(buff, 0, ELOG_SIZE_LOG);
     if (color != _level)
     {
@@ -264,8 +261,6 @@ void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_fo
         elog.color = color;
     }
 
-    char ctime[48];
-    elog_time_t time;
     __elog_time(eos_time(), &time);
     int32_t len_head = sprintf(ctime,"[%02d:%02d:%02d %03d] %s (%s) ",
         time.hour, time.minute, time.second, time.ms,
@@ -296,11 +291,6 @@ void __elog_print(const char *tag, uint8_t _level, bool lf_en, const char * s_fo
             buff[len ++] = '\n';
         }
     }
-
-#if (ELOG_MUTEX_EN != 0)
-    /* Output the buffer data if device is ready. */
-    eos_mutex_take(ELOG_MUTEX);         /* Lock the elog mutex. */
-#endif
     
     elog_device_t *next = dev_list;
     while (next != NULL)

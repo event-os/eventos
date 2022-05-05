@@ -99,6 +99,7 @@ PendSV_restore
     LDR           r1,[r1,#0x00]
     LDR           r2,=eos_current
     STR           r1,[r2,#0x00]
+    
 #if (__TARGET_ARCH_THUMB == 3)          /* Cortex-M0/M0+/M1 (v6-M, v6S-M)? */
     POP           {r4-r7}
     MOV           r8, r4
@@ -188,38 +189,6 @@ void PendSV_Handler(void)
     );
 }
 #endif
-
-int32_t critical_count = 0;
-#if (defined __CC_ARM)
-inline void eos_interrupt_disable(void)
-#elif ((defined __GNUC__) || (defined __ICCARM__))
-__attribute__((always_inline)) inline void eos_interrupt_disable(void)
-#endif
-{
-#if (defined __CC_ARM)
-    __disable_irq();
-#elif ((defined __GNUC__) || (defined __ICCARM__))
-    __asm volatile ("cpsid i" : : : "memory");
-#endif
-    critical_count ++;
-}
-
-#if (defined __CC_ARM)
-inline void eos_interrupt_enable(void)
-#elif ((defined __GNUC__) || (defined __ICCARM__))
-__attribute__((always_inline)) inline void eos_interrupt_enable(void)
-#endif
-{
-    critical_count --;
-    if (critical_count <= 0) {
-        critical_count = 0;
-#if (defined __CC_ARM)
-        __enable_irq();
-#elif ((defined __GNUC__) || (defined __ICCARM__))
-        __asm volatile ("cpsie i" : : : "memory");
-#endif
-    }
-}
 
 void eos_port_task_switch(void)
 {

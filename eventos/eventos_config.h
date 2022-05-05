@@ -53,10 +53,10 @@
 #define EOS_TICK_MS                             1
 
 //    <o>  use stack usage function (0 or 1) <0-1>
-#define EOS_USE_STACK_USAGE                     1
+#define EOS_USE_STACK_USAGE                     0
 
 //    <o>  use cpu usage function (0 or 1) <0-1>
-#define EOS_USE_CPU_USAGE                       1
+#define EOS_USE_CPU_USAGE                       0
 
 //    <o>  use cpu usage function (0 or 1) <0-1>
 #define EOS_USE_PREEMPTIVE                      1

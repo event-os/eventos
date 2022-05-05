@@ -16,7 +16,7 @@ extern "C" {
 
 // config ----------------------------------------------------------------------
 #define ELOG_DEV_MAX                            8
-#define ELOG_BUFF_LOG_SIZE                      1024
+#define ELOG_BUFF_LOG_SIZE                      10240
 #define ELOG_SIZE_LOG                           256
 #define ELOG_MAX_OBJECTS                        32
 #define ELOG_TAG_MAX_LENGTH                     16

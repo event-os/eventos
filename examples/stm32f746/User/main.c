@@ -6,11 +6,11 @@
 #include "esh.h"
 
 /* main function ------------------------------------------------------------ */
-uint64_t stack_task[5120];
+uint64_t stack_task[512];
 eos_task_t task_test;
-uint64_t stack_task_event[5120];
+uint64_t stack_task_event[512];
 eos_task_t task_event;
-uint64_t stack_task_e_specific[5120];
+uint64_t stack_task_e_specific[512];
 eos_task_t task_e_specific;
 uint32_t count_test = 0;
 
@@ -150,12 +150,12 @@ int main(void)
 {
     SystemCoreClockUpdate();
 
-    SCB_EnableICache(); /* Enable I-Cache */
-    SCB_EnableDCache(); /* Enable D-Cache */
+//    SCB_EnableICache(); /* Enable I-Cache */
+//    SCB_EnableDCache(); /* Enable D-Cache */
     
     if (SysTick_Config(SystemCoreClock / 1000) != 0)
         while (1);
-    
+
     dev_esh.enable = 1;
     dev_esh.level = eLogLevel_Debug;
     dev_esh.name = "eLogDev_Esh";
@@ -199,8 +199,14 @@ int main(void)
 }
 
 
+uint32_t systick = 0;
+uint32_t systick2 = 0;
+
 void SysTick_Handler(void)
 {
+    if (critical_count > 0) {
+        systick2 ++;
+    }
     count_tick ++;
     eos_interrupt_enter();
     eos_tick();
