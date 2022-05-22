@@ -1,7 +1,6 @@
 
 del /f /s /q *.o
 del /f /s /q *.d
-del /f /s /q *.exe
 del /f /s /q *.hex
 del /f /s /q *.crf
 del /f /s /q *.sct
