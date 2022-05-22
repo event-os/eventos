@@ -260,8 +260,8 @@ Mutex
 ----------------------------------------------------------------------------- */
 // TODO 实现。以事件实现锁机制。
 void eos_mutex_set_global(const char *name);
-void eos_mutex_take(const char *name);
-void eos_mutex_release(const char *name);
+void eos_mutex_lock(const char *name);
+void eos_mutex_unlock(const char *name);
 
 /* -----------------------------------------------------------------------------
 Timer

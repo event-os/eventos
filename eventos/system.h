@@ -8,6 +8,7 @@ enum
     TaskPriority_Test,
     TaskPriority_Event,
     TaskPriority_Event_Specific,
+    TaskPriority_Event_Stream,
     TaskPriority_SmLed,
     TaskPriority_ReacotrLed
 };

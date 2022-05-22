@@ -52,7 +52,7 @@
           <OutputName>eventos</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
-          <CreateHexFile>0</CreateHexFile>
+          <CreateHexFile>1</CreateHexFile>
           <DebugInformation>1</DebugInformation>
           <BrowseInformation>1</BrowseInformation>
           <ListingPath>.\Listings\</ListingPath>
@@ -337,7 +337,7 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define>STM32F429_439xx,</Define>
+              <Define>STM32F429_439xx, EOS_MCU,</Define>
               <Undefine></Undefine>
               <IncludePath>..\APP;..\MCU;..\..\..\eventos;..\..\..\3rd</IncludePath>
             </VariousControls>
